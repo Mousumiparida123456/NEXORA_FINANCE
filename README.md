@@ -1,10 +1,10 @@
 # nexora
 
 ## Live Demo
-Frontend: https://nexora-fintech-dashboard.vercel.app
+https://nexora-finance-fintech-dashboard.vercel.app/
 
-## API
-Health Check: https://nexora-backened.vercel.app/api/healthz
+## BACKENED
+https://nexora-finance-api-server.vercel.app/
 
 ## Environment Security
 `.env` files are already ignored by git in this repo, including nested app-level `.env` files.
