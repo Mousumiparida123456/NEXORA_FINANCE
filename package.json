@@ -1,0 +1,30 @@
+{
+  "name": "workspace",
+  "version": "0.0.0",
+  "license": "MIT",
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "preinstall": "node -e \"const fs=require('node:fs'); for (const file of ['package-lock.json','yarn.lock']) { try { fs.rmSync(file, { force: true }); } catch {} } const ua=process.env.npm_config_user_agent||''; if (!ua.startsWith('pnpm/')) { console.error('Use pnpm instead'); process.exit(1); }\"",
+    "build": "echo skipping workspace build",
+    "typecheck:libs": "tsc --build",
+    "typecheck": "echo skipping typecheck",
+    "mock-api": "node mock-api-server.js",
+    "db:push": "pnpm --filter @workspace/db run push"
+  },
+  "private": true,
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "drizzle-kit": "^0.30.6",
+    "drizzle-orm": "catalog:",
+    "express": "^5.2.1",
+    "pg": "^8.20.0"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "^1.4.8",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "prettier": "^3.8.1",
+    "typescript": "~5.9.2"
+  }
+}
