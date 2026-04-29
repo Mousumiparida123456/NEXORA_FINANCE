@@ -9,12 +9,28 @@ import { AIService } from "../src/services/AIService";
 import { AnalyticsService } from "../src/services/AnalyticsService";
 import { logger } from "../src/lib/logger";
 import crypto from "crypto";
+import nodemailer from "nodemailer";
 
 const app = express();
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
 const COOKIE_SECURE = process.env.NODE_ENV === "production";
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const STRONG_PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,64}$/;
+const SMTP_HOST = process.env.SMTP_HOST;
+const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
+const SMTP_USER = process.env.SMTP_USER;
+const SMTP_PASS = process.env.SMTP_PASS;
+const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER || "no-reply@nexora.finance";
+
+const smtpConfigured = Boolean(SMTP_HOST && SMTP_USER && SMTP_PASS);
+const mailTransporter = smtpConfigured
+  ? nodemailer.createTransport({
+      host: SMTP_HOST,
+      port: SMTP_PORT,
+      secure: SMTP_PORT === 465,
+      auth: { user: SMTP_USER, pass: SMTP_PASS },
+    })
+  : null;
 
 const getBearerOrCookieToken = (req: any) => {
   const authHeader = req.headers.authorization;
@@ -35,6 +51,32 @@ const validateEmailAndPassword = (email?: string, password?: string) => {
     return "Password must be 8+ chars with upper, lower, number, and symbol";
   }
   return null;
+};
+
+const sendPasswordResetEmail = async (email: string, resetLink: string) => {
+  if (!mailTransporter) {
+    throw new Error("SMTP is not configured");
+  }
+
+  await mailTransporter.sendMail({
+    from: SMTP_FROM,
+    to: email,
+    subject: "Nexora Password Reset Instructions",
+    text: `We received a request to reset your Nexora password. Use this secure link: ${resetLink}\n\nThis link expires in 30 minutes.`,
+    html: `
+      <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827">
+        <h2>Nexora Password Reset</h2>
+        <p>We received a request to reset your password.</p>
+        <p>
+          <a href="${resetLink}" style="display:inline-block;padding:10px 14px;background:#0ea5e9;color:#fff;text-decoration:none;border-radius:8px;">
+            Reset Password
+          </a>
+        </p>
+        <p>This link expires in 30 minutes.</p>
+        <p>If you did not request this, you can safely ignore this email.</p>
+      </div>
+    `,
+  });
 };
 
 // AI Insights Logic
@@ -66,7 +108,14 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(cors({ 
-  origin: ["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174"], 
+  origin: [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5177",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
+    "http://127.0.0.1:5177",
+  ], 
   credentials: true 
 }));
 
@@ -297,7 +346,13 @@ app.get("/api/v1/auth/user", async (req, res) => {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
-        profileImageUrl: user.profileImageUrl
+        profileImageUrl: user.profileImageUrl,
+        monthlyIncome: user.monthlyIncome?.toString() ?? "0",
+        financialGoals: user.financialGoals ?? "",
+        riskLevel: user.riskLevel ?? "medium",
+        savingsGoal: user.savingsGoal ?? 15000,
+        investStyle: user.investStyle ?? "balanced",
+        twoFactorEnabled: Boolean(user.twoFactorEnabled),
       } 
     });
   } catch (error) { res.status(500).json({ error: "DB error" }); }
@@ -308,11 +363,31 @@ app.post("/api/v1/auth/user/update", async (req, res) => {
   const payload = AuthService.verifyAccessToken(token);
   if (!payload) return res.status(401).json({ error: "Unauthorized" });
 
-  const { firstName, lastName, monthlyIncome } = req.body;
+  const {
+    firstName,
+    lastName,
+    monthlyIncome,
+    profileImageUrl,
+    financialGoals,
+    riskLevel,
+    savingsGoal,
+    investStyle,
+    twoFactorEnabled,
+  } = req.body;
   try {
     const [updatedUser] = await db
       .update(users)
-      .set({ firstName, lastName, monthlyIncome })
+      .set({
+        firstName,
+        lastName,
+        monthlyIncome,
+        profileImageUrl,
+        financialGoals,
+        riskLevel,
+        savingsGoal,
+        investStyle,
+        twoFactorEnabled,
+      })
       .where(eq(users.id, payload.userId))
       .returning();
 
@@ -324,6 +399,11 @@ app.post("/api/v1/auth/user/update", async (req, res) => {
         lastName: updatedUser.lastName,
         profileImageUrl: updatedUser.profileImageUrl,
         monthlyIncome: updatedUser.monthlyIncome?.toString() ?? "0",
+        financialGoals: updatedUser.financialGoals ?? "",
+        riskLevel: updatedUser.riskLevel ?? "medium",
+        savingsGoal: updatedUser.savingsGoal ?? 15000,
+        investStyle: updatedUser.investStyle ?? "balanced",
+        twoFactorEnabled: Boolean(updatedUser.twoFactorEnabled),
       },
     });
   } catch (error) {
@@ -351,9 +431,17 @@ app.post("/api/v1/auth/forgot-password", async (req, res) => {
       .where(eq(users.id, user.id));
 
     const resetLink = `${CLIENT_ORIGIN}/reset-password?token=${encodeURIComponent(resetToken)}`;
-    logger.info({ email, resetLink }, "Password reset link generated");
+    await sendPasswordResetEmail(email, resetLink);
+    logger.info({ email }, "Password reset email sent");
+    if (process.env.NODE_ENV !== "production") {
+      return res.json({
+        message: "If the email exists, reset instructions have been sent.",
+        devResetLink: resetLink,
+      });
+    }
     return res.json({ message: "If the email exists, reset instructions have been sent." });
   } catch (error) {
+    logger.error({ error, email }, "Failed to send password reset email");
     return res.status(500).json({ error: "Failed to process password reset request" });
   }
 });

@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout/Layout";
 import { api } from "@/lib/api";
+import { DashboardProvider } from "@/lib/dashboard-context";
 
 const queryClient = new QueryClient();
 
@@ -149,10 +150,12 @@ function App() {
   useEffect(() => {
     let isMounted = true;
     const url = new URL(window.location.href);
+    const isLoginRoute = url.pathname === "/login" || url.pathname === "/";
     const oauthToken = url.searchParams.get("token");
     const oauthError = url.searchParams.get("error");
 
-    if (oauthToken) {
+    // Only treat ?token= as OAuth login token on login routes.
+    if (oauthToken && isLoginRoute) {
       api.setAccessToken(oauthToken);
       url.searchParams.delete("token");
       window.history.replaceState({}, "", url.toString());
@@ -198,9 +201,11 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}> 
-          <Router authStatus={authStatus} />
-        </WouterRouter>
+        <DashboardProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}> 
+            <Router authStatus={authStatus} />
+          </WouterRouter>
+        </DashboardProvider>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

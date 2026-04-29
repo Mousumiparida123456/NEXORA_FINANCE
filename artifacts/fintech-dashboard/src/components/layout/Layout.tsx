@@ -2,7 +2,7 @@ import { useLocation } from "wouter";
 import { Sidebar } from "./Sidebar";
 import { MobileNav } from "./MobileNav";
 import { Topbar } from "./Topbar";
-import { DashboardProvider, useDashboard } from "@/lib/dashboard-context";
+import { useDashboard } from "@/lib/dashboard-context";
 
 function DashboardShell({ children }: { children: React.ReactNode }) {
   const { theme } = useDashboard();
@@ -43,9 +43,5 @@ export function Layout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return (
-    <DashboardProvider>
-      <DashboardShell>{children}</DashboardShell>
-    </DashboardProvider>
-  );
+  return <DashboardShell>{children}</DashboardShell>;
 }

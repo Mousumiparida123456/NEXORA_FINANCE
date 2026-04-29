@@ -4,8 +4,9 @@ import * as schema from "./schema";
 import dotenv from "dotenv";
 import { resolve } from "path";
 
-// Fallback env loading to prevent crashes during import hoisting
+// Load env from repo root first, then allow local api-server/.env overrides.
 dotenv.config({ path: resolve(__dirname, "../../../.env") });
+dotenv.config({ path: resolve(__dirname, "../../.env"), override: true });
 
 // FORCE ALLOW SELF-SIGNED CERTIFICATES (FOR SUPABASE)
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";

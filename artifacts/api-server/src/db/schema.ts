@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, numeric, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, numeric, index, boolean } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -17,6 +17,11 @@ export const users = pgTable("users", {
   lastName: text("last_name"),
   monthlyIncome: numeric("monthly_income", { precision: 15, scale: 2 }).default("0.00"),
   profileImageUrl: text("profile_image_url"),
+  financialGoals: text("financial_goals"),
+  riskLevel: text("risk_level").default("medium"),
+  savingsGoal: integer("savings_goal").default(15000),
+  investStyle: text("invest_style").default("balanced"),
+  twoFactorEnabled: boolean("two_factor_enabled").default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => ({
   emailIdx: index("email_idx").on(table.email),

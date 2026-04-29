@@ -191,7 +191,7 @@ function ProfileSection() {
   const [name, setName]     = useState(user?.firstName ? `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}` : "John Doe");
   const [email, setEmail]   = useState(user?.email || "john.doe@example.com");
   const [income, setIncome] = useState(user?.monthlyIncome || "0");
-  const [goals, setGoals]   = useState("Save for a home down payment and build a 6-month emergency fund.");
+  const [goals, setGoals]   = useState(user?.financialGoals || "Save for a home down payment and build a 6-month emergency fund.");
   const [avatar, setAvatar] = useState(user?.profileImageUrl || "https://i.pravatar.cc/150?u=a042581f4e29026704d");
   const [saved, setSaved]   = useState(false);
   const [loading, setLoading] = useState(false);
@@ -202,6 +202,7 @@ function ProfileSection() {
       setName(user.firstName ? `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}` : "John Doe");
       setEmail(user.email || "john.doe@example.com");
       setIncome(user.monthlyIncome || "0");
+      setGoals(user.financialGoals || "Save for a home down payment and build a 6-month emergency fund.");
       if (user.profileImageUrl) setAvatar(user.profileImageUrl);
     }
   }, [user]);
@@ -223,7 +224,9 @@ function ProfileSection() {
       const { user: updatedUser } = await api.updateUserData({
         firstName,
         lastName,
-        monthlyIncome: income
+        monthlyIncome: income,
+        profileImageUrl: avatar,
+        financialGoals: goals,
       });
       
       setUser(updatedUser);
@@ -356,15 +359,37 @@ const STYLE_OPTIONS: { id: InvestStyle; label: string; desc: string; icon: React
 ];
 
 function PreferencesSection() {
-  const [risk, setRisk]         = useState<RiskLevel>("medium");
-  const [savingsGoal, setSavings] = useState(15000);
-  const [style, setStyle]       = useState<InvestStyle>("balanced");
+  const { user, setUser } = useDashboard();
+  const [risk, setRisk]         = useState<RiskLevel>((user?.riskLevel as RiskLevel) || "medium");
+  const [savingsGoal, setSavings] = useState<number>(user?.savingsGoal ?? 15000);
+  const [style, setStyle]       = useState<InvestStyle>((user?.investStyle as InvestStyle) || "balanced");
   const [saved, setSaved]       = useState(false);
   const [loading, setLoading]   = useState(false);
 
-  function handleSave() {
+  useEffect(() => {
+    if (!user) return;
+    if (user.riskLevel) setRisk(user.riskLevel as RiskLevel);
+    if (typeof user.savingsGoal === "number") setSavings(user.savingsGoal);
+    if (user.investStyle) setStyle(user.investStyle as InvestStyle);
+  }, [user]);
+
+  async function handleSave() {
     setLoading(true);
-    setTimeout(() => { setLoading(false); setSaved(true); setTimeout(() => setSaved(false), 2500); }, 800);
+    try {
+      const { user: updatedUser } = await api.updateUserData({
+        riskLevel: risk,
+        savingsGoal,
+        investStyle: style,
+      });
+      setUser(updatedUser);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (error) {
+      console.error("Failed to save preferences:", error);
+      alert("Failed to save preferences. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (

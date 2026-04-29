@@ -14,6 +14,11 @@ export interface AuthUser {
   lastName?: string;
   profileImageUrl?: string;
   monthlyIncome?: string;
+  financialGoals?: string;
+  riskLevel?: "low" | "medium" | "high";
+  savingsGoal?: number;
+  investStyle?: "safe" | "balanced" | "aggressive";
+  twoFactorEnabled?: boolean;
 }
 
 export interface ApiHealth {
@@ -107,7 +112,17 @@ class ApiClient {
     return this.post("/auth/reset-password", data);
   }
 
-  async updateUserData(data: { firstName: string; lastName: string; monthlyIncome: string }) {
+  async updateUserData(data: {
+    firstName?: string;
+    lastName?: string;
+    monthlyIncome?: string;
+    profileImageUrl?: string;
+    financialGoals?: string;
+    riskLevel?: "low" | "medium" | "high";
+    savingsGoal?: number;
+    investStyle?: "safe" | "balanced" | "aggressive";
+    twoFactorEnabled?: boolean;
+  }) {
     return this.post<{ user: AuthUser }>("/auth/user/update", data);
   }
 
