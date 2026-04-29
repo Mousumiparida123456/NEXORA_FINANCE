@@ -2,11 +2,10 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { LockKeyhole, Eye, EyeOff, ArrowRight, ShieldCheck, CheckCircle2, AlertCircle } from "lucide-react";
 import { api } from "@/lib/api";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "wouter";
 
 export function ResetPassword() {
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get("token");
+  const token = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("token") : null;
   
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");

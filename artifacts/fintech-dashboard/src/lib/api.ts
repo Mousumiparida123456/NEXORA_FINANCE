@@ -13,6 +13,7 @@ export interface AuthUser {
   firstName?: string;
   lastName?: string;
   profileImageUrl?: string;
+  monthlyIncome?: string;
 }
 
 export interface ApiHealth {
@@ -23,15 +24,18 @@ export interface ApiHealth {
 
 class ApiClient {
   public baseUrl: string = API_URL;
+  private tokenKey = "nexora_access_token";
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
+    const token = window.localStorage.getItem(this.tokenKey);
     
     const response = await fetch(url, {
       ...options,
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...options.headers,
       },
     });
@@ -70,16 +74,41 @@ class ApiClient {
     return !!user;
   }
 
-  async login(data: any): Promise<any> {
+  async login(data: any): Promise<{ user: AuthUser; accessToken?: string }> {
     return this.post("/auth/login", data);
   }
 
-  async register(data: any): Promise<any> {
+  async register(data: any): Promise<{ user: AuthUser; accessToken?: string }> {
     return this.post("/auth/register", data);
   }
 
   async logout(): Promise<void> {
+    window.localStorage.removeItem(this.tokenKey);
     window.location.href = `${this.baseUrl}/logout`;
+  }
+
+  setAccessToken(token: string) {
+    window.localStorage.setItem(this.tokenKey, token);
+  }
+
+  clearAccessToken() {
+    window.localStorage.removeItem(this.tokenKey);
+  }
+
+  getAccessToken() {
+    return window.localStorage.getItem(this.tokenKey);
+  }
+
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    return this.post("/auth/forgot-password", { email });
+  }
+
+  async resetPassword(data: { token: string; newPassword: string }): Promise<{ message: string }> {
+    return this.post("/auth/reset-password", data);
+  }
+
+  async updateUserData(data: { firstName: string; lastName: string; monthlyIncome: string }) {
+    return this.post<{ user: AuthUser }>("/auth/user/update", data);
   }
 
   async getAIInsights(): Promise<{ advice: string }> {

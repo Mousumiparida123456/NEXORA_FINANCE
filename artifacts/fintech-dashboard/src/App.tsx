@@ -148,6 +148,19 @@ function App() {
 
   useEffect(() => {
     let isMounted = true;
+    const url = new URL(window.location.href);
+    const oauthToken = url.searchParams.get("token");
+    const oauthError = url.searchParams.get("error");
+
+    if (oauthToken) {
+      api.setAccessToken(oauthToken);
+      url.searchParams.delete("token");
+      window.history.replaceState({}, "", url.toString());
+    }
+
+    if (oauthError) {
+      api.clearAccessToken();
+    }
 
     if (
       import.meta.env.DEV &&
@@ -165,6 +178,12 @@ function App() {
       .then((authenticated) => {
         if (!isMounted) return;
         setAuthStatus(authenticated ? "authenticated" : "unauthenticated");
+        if (!authenticated) {
+          api.clearAccessToken();
+        }
+        if (authenticated && (oauthToken || window.location.pathname === "/login")) {
+          window.location.replace("/dashboard");
+        }
       })
       .catch(() => {
         if (!isMounted) return;

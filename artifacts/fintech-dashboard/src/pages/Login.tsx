@@ -44,10 +44,12 @@ export function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   useEffect(() => {
     // Convenience: Load remembered email
@@ -55,6 +57,14 @@ export function Login() {
     if (savedEmail) {
       setEmail(savedEmail);
       setRememberMe(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const oauthError = params.get("error");
+    if (oauthError) {
+      setError("Google sign-in failed. Please try again.");
     }
   }, []);
 
@@ -66,17 +76,32 @@ export function Login() {
 
     try {
       if (isLogin) {
-        await api.post("/auth/login", { email, password });
+        const loginResult = await api.login({ email, password });
+        if (loginResult.accessToken) {
+          api.setAccessToken(loginResult.accessToken);
+        }
         if (rememberMe) {
           window.localStorage.setItem("nexora_remembered_email", email);
         } else {
           window.localStorage.removeItem("nexora_remembered_email");
         }
-        window.location.assign("/dashboard");
+        window.location.replace("/dashboard");
       } else {
-        await api.register({ email, password, firstName });
+        if (password !== confirmPassword) {
+          setError("Passwords do not match.");
+          return;
+        }
+        if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,64}$/.test(password)) {
+          setError("Use 8+ chars with uppercase, lowercase, number, and symbol.");
+          return;
+        }
+        const registerResult = await api.register({ email, password, firstName });
+        if (registerResult.accessToken) {
+          api.setAccessToken(registerResult.accessToken);
+        }
         setSuccess("Account created! You can now sign in.");
         setIsLogin(true);
+        setConfirmPassword("");
       }
     } catch (err: any) {
       console.error("❌ AUTH_ERROR_DETAILS:", err);
@@ -87,6 +112,7 @@ export function Login() {
   }
 
   function handleGoogleContinue() {
+    setGoogleLoading(true);
     window.location.assign(`${api.baseUrl}/auth/google`);
   }
 
@@ -187,7 +213,7 @@ export function Login() {
                 <label className="block space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Password</span>
-                    {isLogin && <a href="#" className="text-xs text-cyan-400 hover:underline">Forgot?</a>}
+                    {isLogin && <a href="/forgot-password" className="text-xs text-cyan-400 hover:underline">Forgot?</a>}
                   </div>
                   <div className="flex h-14 items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/45 px-4 focus-within:border-cyan-400/40">
                     <LockKeyhole className="h-4 w-4 text-slate-500" />
@@ -204,6 +230,23 @@ export function Login() {
                     </button>
                   </div>
                 </label>
+
+                {!isLogin && (
+                  <label className="block space-y-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Confirm Password</span>
+                    <div className="flex h-14 items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/45 px-4 focus-within:border-cyan-400/40">
+                      <LockKeyhole className="h-4 w-4 text-slate-500" />
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Confirm your password"
+                        className="h-full w-full bg-transparent text-sm outline-none"
+                        required
+                      />
+                    </div>
+                  </label>
+                )}
 
                 {isLogin && (
                   <div className="flex items-center gap-2 py-2">
@@ -243,10 +286,11 @@ export function Login() {
               <button
                 type="button"
                 onClick={handleGoogleContinue}
+                disabled={googleLoading}
                 className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/5 font-semibold transition hover:bg-white/10"
               >
                 <GoogleMark />
-                Continue with Google
+                {googleLoading ? "Redirecting to Google..." : "Continue with Google"}
               </button>
             </div>
           </motion.div>

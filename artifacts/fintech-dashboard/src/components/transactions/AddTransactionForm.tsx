@@ -12,10 +12,11 @@ import {
 } from "./transactionData";
 
 interface AddTransactionFormProps {
-  onAdd: (tx: Transaction) => void;
+  onAdd: (tx: Transaction) => Promise<void> | void;
+  loading?: boolean;
 }
 
-export function AddTransactionForm({ onAdd }: AddTransactionFormProps) {
+export function AddTransactionForm({ onAdd, loading = false }: AddTransactionFormProps) {
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<TransactionType>("expense");
   const [amount, setAmount] = useState("");
@@ -34,7 +35,7 @@ export function AddTransactionForm({ onAdd }: AddTransactionFormProps) {
     }
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     const num = parseFloat(amount);
@@ -54,11 +55,15 @@ export function AddTransactionForm({ onAdd }: AddTransactionFormProps) {
       date,
       description: description.trim() || category,
     };
-    onAdd(newTx);
-    setAmount("");
-    setDescription("");
-    setError("");
-    setOpen(false);
+    try {
+      await onAdd(newTx);
+      setAmount("");
+      setDescription("");
+      setError("");
+      setOpen(false);
+    } catch (err: any) {
+      setError(err?.message || "Failed to save transaction.");
+    }
   }
 
   return (
@@ -222,10 +227,11 @@ export function AddTransactionForm({ onAdd }: AddTransactionFormProps) {
                 </button>
                 <button
                   type="submit"
+                  disabled={loading}
                   data-testid="button-submit-transaction"
-                  className="flex-1 rounded-xl bg-emerald-500 py-2.5 text-sm font-semibold text-slate-950 shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:bg-emerald-400 transition-all active:scale-95"
+                  className="flex-1 rounded-xl bg-emerald-500 py-2.5 text-sm font-semibold text-slate-950 shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:bg-emerald-400 transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  Save Transaction
+                  {loading ? "Saving..." : "Save Transaction"}
                 </button>
               </div>
             </form>

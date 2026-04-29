@@ -9,6 +9,7 @@ import {
   ChevronRight, Info, X, Wifi, Building2,
 } from "lucide-react";
 import { useDashboard } from "@/lib/dashboard-context";
+import { api } from "@/lib/api";
 
 const formatINR = new Intl.NumberFormat("en-IN", {
   style: "currency",

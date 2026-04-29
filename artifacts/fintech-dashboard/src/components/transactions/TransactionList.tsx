@@ -5,6 +5,7 @@ import {
   ChevronDown,
   Trash2,
   SlidersHorizontal,
+  Pencil,
 } from "lucide-react";
 import { CategoryIcon } from "./CategoryIcon";
 import {
@@ -16,7 +17,9 @@ import {
 
 interface TransactionListProps {
   transactions: Transaction[];
-  onDelete: (id: string) => void;
+  onDelete: (id: string) => Promise<void> | void;
+  onEdit: (tx: Transaction) => void;
+  deletingId?: string | null;
 }
 
 function formatCurrency(amount: number) {
@@ -32,7 +35,7 @@ function formatDate(dateStr: string) {
   return d.toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" });
 }
 
-export function TransactionList({ transactions, onDelete }: TransactionListProps) {
+export function TransactionList({ transactions, onDelete, onEdit, deletingId }: TransactionListProps) {
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState<Category | "All">("All");
   const [filterType, setFilterType] = useState<TransactionType | "All">("All");
@@ -275,9 +278,17 @@ export function TransactionList({ transactions, onDelete }: TransactionListProps
                   </div>
                   <div className="table-cell px-6 py-4 align-middle whitespace-nowrap">
                     <button
+                      onClick={() => onEdit(tx)}
+                      className="mr-1 rounded-xl p-2 text-slate-500 transition hover:bg-slate-100 hover:text-blue-500 dark:hover:bg-slate-800"
+                      aria-label="Edit transaction"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
                       onClick={() => onDelete(tx.id)}
+                      disabled={deletingId === tx.id}
                       data-testid={`button-delete-${tx.id}`}
-                      className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 hover:text-rose-500 dark:hover:bg-slate-800 transition"
+                      className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 hover:text-rose-500 dark:hover:bg-slate-800 transition disabled:cursor-not-allowed disabled:opacity-60"
                       aria-label="Delete transaction"
                     >
                       <Trash2 className="h-4 w-4" />

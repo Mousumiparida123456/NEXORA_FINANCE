@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mail, ArrowLeft, ArrowRight, ShieldCheck, CheckCircle2, AlertCircle } from "lucide-react";
 import { api } from "@/lib/api";
-import { Link } from "react-router-dom";
+import { Link } from "wouter";
 
 export function ForgotPassword() {
   const [email, setEmail] = useState("");
