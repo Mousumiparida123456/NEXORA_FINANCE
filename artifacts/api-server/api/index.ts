@@ -107,15 +107,24 @@ const loginLimiter = rateLimit({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+const ALLOWED_ORIGINS = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:5177",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:5174",
+  "http://127.0.0.1:5177",
+  "https://nexora-finance-fintech-dashboard.vercel.app",
+  ...(process.env.CLIENT_ORIGIN ? [process.env.CLIENT_ORIGIN] : []),
+];
+
 app.use(cors({ 
-  origin: [
-    "http://localhost:5173",
-    "http://localhost:5174",
-    "http://localhost:5177",
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:5174",
-    "http://127.0.0.1:5177",
-  ], 
+  origin: (origin, callback) => {
+    // Allow requests with no origin (server-to-server, curl, etc.)
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS: origin '${origin}' not allowed`));
+  },
   credentials: true 
 }));
 
@@ -557,17 +566,12 @@ app.post("/api/v1/auth/reset-password", async (req, res) => {
   }
 });
 
-// --- SYSTEM ROUTES ---
-app.get("/api/v1/ping", (req, res) => res.json({ status: "ok" }));
-app.get(["/api/healthz", "/api/v1/healthz"], (_req, res) => res.json({ status: "ok" }));
-
-// --- AUTH ROUTES ---
-
 app.get(["/api/v1/auth/logout", "/api/v1/logout"], (req, res) => {
   res.clearCookie("nexora_access");
   res.clearCookie("nexora_refresh");
   res.clearCookie("nexora_session");
-  const returnTo = req.query.returnTo as string || "http://localhost:5173/login";
+  const defaultRedirect = CLIENT_ORIGIN + "/login";
+  const returnTo = req.query.returnTo as string || defaultRedirect;
   res.redirect(returnTo);
 });
 
