@@ -133,7 +133,33 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = React.useState<AuthUser | null>(null)
 
   React.useEffect(() => {
-    api.getCurrentUser().then(setUser).catch(() => setUser(null));
+    let mounted = true;
+    (async () => {
+      try {
+        const baseUser = await api.getCurrentUser();
+        if (!mounted || !baseUser) {
+          if (mounted) setUser(null);
+          return;
+        }
+        const { data } = await api.getUserData().catch(() => ({ data: {} as Record<string, any> }));
+        const mergedUser = {
+          ...baseUser,
+          monthlyIncome: baseUser.monthlyIncome ?? "0",
+          financialGoals: baseUser.financialGoals ?? data?.profile?.goals ?? "",
+          profileImageUrl: baseUser.profileImageUrl ?? data?.profile?.avatar,
+          riskLevel: baseUser.riskLevel ?? data?.preferences?.riskLevel ?? "medium",
+          savingsGoal: baseUser.savingsGoal ?? data?.preferences?.savingsGoal ?? 15000,
+          investStyle: baseUser.investStyle ?? data?.preferences?.investStyle ?? "balanced",
+          preferences: data || {},
+        };
+        setUser(mergedUser);
+      } catch {
+        if (mounted) setUser(null);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
   }, [])
 
   React.useEffect(() => {

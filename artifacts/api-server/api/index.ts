@@ -3,7 +3,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
-import { db, users, accounts, transactions, eq, sql } from "../src/db";
+import { db, users, accounts, transactions, userPreferences, eq, sql, desc } from "../src/db";
 import { AuthService } from "../src/services/AuthService";
 import { AIService } from "../src/services/AIService";
 import { AnalyticsService } from "../src/services/AnalyticsService";
@@ -233,11 +233,11 @@ app.use((req, res, next) => {
 
 // --- SYSTEM ROUTES ---
 app.get("/api/v1/ping", (req, res) => res.json({ status: "ok" }));
-app.get("/api/healthz", (req, res) => res.json({ status: "ok" }));
+app.get(["/api/healthz", "/api/v1/healthz"], (_req, res) => res.json({ status: "ok" }));
 
 // --- AUTH ROUTES ---
 
-app.post("/api/v1/auth/register", async (req, res) => {
+app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], async (req, res) => {
   const start = Date.now();
   const { email, password, firstName, lastName } = req.body;
   const validationError = validateEmailAndPassword(email, password);
@@ -288,7 +288,7 @@ app.post("/api/v1/auth/register", async (req, res) => {
   }
 });
 
-app.post("/api/v1/auth/login", async (req, res) => {
+app.post(["/api/v1/auth/login", "/api/auth/login", "/auth/login"], async (req, res) => {
   const start = Date.now();
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: "Email and password required" });
@@ -332,13 +332,15 @@ app.post("/api/v1/auth/login", async (req, res) => {
   }
 });
 
-app.get("/api/v1/auth/user", async (req, res) => {
+app.get(["/api/v1/auth/user", "/api/auth/user", "/auth/user"], async (req, res) => {
   const token = getBearerOrCookieToken(req);
   const payload = AuthService.verifyAccessToken(token);
   if (!payload) return res.json({ user: null });
   try {
     const user = await db.query.users.findFirst({ where: eq(users.id, payload.userId) });
     if (!user) return res.json({ user: null });
+    const prefs = await db.query.userPreferences.findFirst({ where: eq(userPreferences.userId, payload.userId) });
+    const persisted = (prefs?.data as Record<string, any>) || {};
     
     res.json({ 
       user: {
@@ -353,9 +355,53 @@ app.get("/api/v1/auth/user", async (req, res) => {
         savingsGoal: user.savingsGoal ?? 15000,
         investStyle: user.investStyle ?? "balanced",
         twoFactorEnabled: Boolean(user.twoFactorEnabled),
+        preferences: persisted,
       } 
     });
   } catch (error) { res.status(500).json({ error: "DB error" }); }
+});
+
+app.get("/api/v1/user-data", async (req, res) => {
+  const token = getBearerOrCookieToken(req);
+  const payload = AuthService.verifyAccessToken(token);
+  if (!payload) return res.status(401).json({ error: "Unauthorized" });
+
+  try {
+    const prefs = await db.query.userPreferences.findFirst({ where: eq(userPreferences.userId, payload.userId) });
+    return res.json({ data: (prefs?.data as Record<string, any>) || {} });
+  } catch (error) {
+    return res.status(500).json({ error: "Failed to fetch user data" });
+  }
+});
+
+app.post("/api/v1/user-data/upsert", async (req, res) => {
+  const token = getBearerOrCookieToken(req);
+  const payload = AuthService.verifyAccessToken(token);
+  if (!payload) return res.status(401).json({ error: "Unauthorized" });
+
+  const data = req.body?.data;
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return res.status(400).json({ error: "Valid data object is required" });
+  }
+
+  try {
+    const result = await db.execute(sql`
+      INSERT INTO user_preferences (user_id, data, updated_at)
+      VALUES (${payload.userId}, ${JSON.stringify(data)}::jsonb, now())
+      ON CONFLICT (user_id)
+      DO UPDATE SET data = excluded.data, updated_at = now()
+      RETURNING data, updated_at
+    `);
+
+    const row = result.rows?.[0] as { data?: unknown; updated_at?: unknown } | undefined;
+    return res.json({
+      message: "User data saved successfully",
+      data: row?.data ?? data,
+      updatedAt: row?.updated_at ?? new Date().toISOString(),
+    });
+  } catch (error) {
+    return res.status(500).json({ error: "Failed to persist user data" });
+  }
 });
 
 app.post("/api/v1/auth/user/update", async (req, res) => {
@@ -364,6 +410,7 @@ app.post("/api/v1/auth/user/update", async (req, res) => {
   if (!payload) return res.status(401).json({ error: "Unauthorized" });
 
   const {
+    email,
     firstName,
     lastName,
     monthlyIncome,
@@ -375,9 +422,20 @@ app.post("/api/v1/auth/user/update", async (req, res) => {
     twoFactorEnabled,
   } = req.body;
   try {
+    if (email) {
+      if (!EMAIL_REGEX.test(email)) {
+        return res.status(400).json({ error: "Invalid email format" });
+      }
+      const existing = await db.query.users.findFirst({ where: sql`${users.email} = ${email}` });
+      if (existing && existing.id !== payload.userId) {
+        return res.status(400).json({ error: "Email is already in use" });
+      }
+    }
+
     const [updatedUser] = await db
       .update(users)
       .set({
+        email,
         firstName,
         lastName,
         monthlyIncome,
@@ -390,6 +448,32 @@ app.post("/api/v1/auth/user/update", async (req, res) => {
       })
       .where(eq(users.id, payload.userId))
       .returning();
+
+    // Keep user_preferences in sync so edited values always persist across sessions.
+    const preferencePayload = {
+      profile: {
+        name: [firstName, lastName].filter(Boolean).join(" ").trim(),
+        email: email ?? updatedUser.email,
+        income: monthlyIncome?.toString?.() ?? updatedUser.monthlyIncome?.toString?.() ?? "0",
+        goals: financialGoals ?? "",
+        avatar: profileImageUrl ?? "",
+      },
+      preferences: {
+        riskLevel: riskLevel ?? "medium",
+        savingsGoal: typeof savingsGoal === "number" ? savingsGoal : 15000,
+        investStyle: investStyle ?? "balanced",
+      },
+      security: {
+        twoFactorEnabled: typeof twoFactorEnabled === "boolean" ? twoFactorEnabled : Boolean(updatedUser.twoFactorEnabled),
+      },
+    };
+
+    await db.execute(sql`
+      INSERT INTO user_preferences (user_id, data, updated_at)
+      VALUES (${payload.userId}, ${JSON.stringify(preferencePayload)}::jsonb, now())
+      ON CONFLICT (user_id)
+      DO UPDATE SET data = excluded.data, updated_at = now()
+    `);
 
     return res.json({
       user: {
@@ -475,7 +559,7 @@ app.post("/api/v1/auth/reset-password", async (req, res) => {
 
 // --- SYSTEM ROUTES ---
 app.get("/api/v1/ping", (req, res) => res.json({ status: "ok" }));
-app.get("/api/healthz", (req, res) => res.json({ status: "ok" }));
+app.get(["/api/healthz", "/api/v1/healthz"], (_req, res) => res.json({ status: "ok" }));
 
 // --- AUTH ROUTES ---
 
@@ -488,6 +572,102 @@ app.get(["/api/v1/auth/logout", "/api/v1/logout"], (req, res) => {
 });
 
 app.get("/", (req, res) => res.send("🚀 NEXORA_SECURE_VAULT_ACTIVE"));
+
+// --- TRANSACTIONS CRUD ---
+
+app.get(["/api/v1/transactions", "/api/transactions"], async (req, res) => {
+  const token = getBearerOrCookieToken(req);
+  const payload = AuthService.verifyAccessToken(token);
+  if (!payload) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    const userTransactions = await db.query.transactions.findMany({
+      where: sql`account_id IN (SELECT id FROM accounts WHERE user_id = ${payload.userId})`,
+      orderBy: [desc(transactions.timestamp)]
+    });
+    const formatted = userTransactions.map(tx => ({
+      ...tx,
+      id: String(tx.id),
+      amount: Number(tx.amount),
+      date: String(tx.timestamp).slice(0, 10),
+    }));
+    res.json(formatted);
+  } catch (error) {
+    console.error("GET transactions error:", error);
+    res.status(500).json({ error: "Failed to fetch transactions" });
+  }
+});
+
+app.post(["/api/v1/transactions", "/api/transactions"], async (req, res) => {
+  const token = getBearerOrCookieToken(req);
+  const payload = AuthService.verifyAccessToken(token);
+  if (!payload) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    const account = await db.query.accounts.findFirst({ where: eq(accounts.userId, payload.userId) });
+    if (!account) return res.status(400).json({ error: "No account found" });
+    const { amount, type, category, description, date } = req.body;
+    console.log("➕ Adding Transaction:", { amount, type, category, date });
+    const [newTx] = await db.insert(transactions).values({
+      accountId: account.id,
+      amount: String(amount),
+      type,
+      category,
+      description,
+      timestamp: date ? new Date(date) : new Date()
+    }).returning();
+    res.json({ ...newTx, id: String(newTx.id), amount: Number(newTx.amount), date: String(newTx.timestamp).slice(0, 10) });
+  } catch (error) {
+    console.error("POST transaction error:", error);
+    res.status(500).json({ error: "Failed to add transaction" });
+  }
+});
+
+app.patch(["/api/v1/transactions/:id", "/api/transactions/:id"], async (req, res) => {
+  const token = getBearerOrCookieToken(req);
+  const payload = AuthService.verifyAccessToken(token);
+  if (!payload) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    const txId = parseInt(req.params.id);
+    if (isNaN(txId)) return res.status(400).json({ error: "Invalid transaction ID" });
+    console.log("✏️ Editing Transaction ID:", txId);
+    const existingTx = await db.query.transactions.findFirst({
+      where: sql`id = ${txId} AND account_id IN (SELECT id FROM accounts WHERE user_id = ${payload.userId})`
+    });
+    if (!existingTx) return res.status(404).json({ error: "Transaction not found" });
+    const { amount, type, category, description, date } = req.body;
+    console.log("💵 Updated Amount:", amount);
+    const [updatedTx] = await db.update(transactions).set({
+      ...(amount !== undefined && { amount: String(amount) }),
+      ...(type !== undefined && { type }),
+      ...(category !== undefined && { category }),
+      ...(description !== undefined && { description }),
+      ...(date !== undefined && { timestamp: new Date(date) }),
+    }).where(eq(transactions.id, txId)).returning();
+    console.log("✅ Update response:", updatedTx);
+    res.json({ ...updatedTx, id: String(updatedTx.id), amount: Number(updatedTx.amount), date: String(updatedTx.timestamp).slice(0, 10) });
+  } catch (error) {
+    console.error("PATCH transaction error:", error);
+    res.status(500).json({ error: "Failed to update transaction" });
+  }
+});
+
+app.delete(["/api/v1/transactions/:id", "/api/transactions/:id"], async (req, res) => {
+  const token = getBearerOrCookieToken(req);
+  const payload = AuthService.verifyAccessToken(token);
+  if (!payload) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    const txId = parseInt(req.params.id);
+    if (isNaN(txId)) return res.status(400).json({ error: "Invalid transaction ID" });
+    const existingTx = await db.query.transactions.findFirst({
+      where: sql`id = ${txId} AND account_id IN (SELECT id FROM accounts WHERE user_id = ${payload.userId})`
+    });
+    if (!existingTx) return res.status(404).json({ error: "Transaction not found" });
+    await db.delete(transactions).where(eq(transactions.id, txId));
+    res.status(204).send();
+  } catch (error) {
+    console.error("DELETE transaction error:", error);
+    res.status(500).json({ error: "Failed to delete transaction" });
+  }
+});
 
 // --- 404 CATCH-ALL (DIAGNOSTIC) ---
 app.use((req, res) => {

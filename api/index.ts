@@ -1,9 +1,7 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import helmet from "helmet";
-import { rateLimit } from "express-rate-limit";
-import { db, users, accounts, transactions, eq, sql } from "../artifacts/api-server/src/db";
+import { db, users, accounts, transactions, eq, sql, desc } from "../artifacts/api-server/src/db";
 import { AuthService } from "../artifacts/api-server/src/services/AuthService";
 import { AIService } from "../artifacts/api-server/src/services/AIService";
 import { AnalyticsService } from "../artifacts/api-server/src/services/AnalyticsService";
@@ -11,7 +9,6 @@ import { logger } from "../artifacts/api-server/src/lib/logger";
 
 const app = express();
 
-app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({ 
@@ -76,9 +73,117 @@ const getPrediction = async (req: any, res: any) => {
 };
 app.get(["/api/v1/analytics/predict", "/api/analytics/predict"], getPrediction);
 
+// --- TRANSACTIONS ---
+
+app.get(["/api/v1/transactions", "/api/transactions"], async (req, res) => {
+  const token = req.cookies?.nexora_access;
+  const payload = AuthService.verifyAccessToken(token);
+  if (!payload) return res.status(401).json({ error: "Unauthorized" });
+
+  try {
+    const userTransactions = await db.query.transactions.findMany({
+      where: sql`account_id IN (SELECT id FROM accounts WHERE user_id = ${payload.userId})`,
+      orderBy: [desc(transactions.timestamp)]
+    });
+    
+    const formatted = userTransactions.map(tx => ({
+      ...tx,
+      date: new Date(tx.timestamp).toISOString()
+    }));
+    res.json(formatted);
+  } catch (error) { 
+    console.error("GET transactions error:", error);
+    res.status(500).json({ error: "Failed to fetch transactions" }); 
+  }
+});
+
+app.post(["/api/v1/transactions", "/api/transactions"], async (req, res) => {
+  const token = req.cookies?.nexora_access;
+  const payload = AuthService.verifyAccessToken(token);
+  if (!payload) return res.status(401).json({ error: "Unauthorized" });
+
+  try {
+    const account = await db.query.accounts.findFirst({
+      where: eq(accounts.userId, payload.userId)
+    });
+    if (!account) return res.status(400).json({ error: "No account found" });
+
+    const { amount, type, category, description, date } = req.body;
+    
+    const [newTx] = await db.insert(transactions).values({
+      accountId: account.id,
+      amount: String(amount),
+      type,
+      category,
+      description,
+      timestamp: date ? new Date(date) : new Date()
+    }).returning();
+
+    res.json({ ...newTx, date: new Date(newTx.timestamp).toISOString() });
+  } catch (error) { 
+    console.error("POST transaction error:", error);
+    res.status(500).json({ error: "Failed to add transaction" }); 
+  }
+});
+
+app.patch(["/api/v1/transactions/:id", "/api/transactions/:id"], async (req, res) => {
+  const token = req.cookies?.nexora_access;
+  const payload = AuthService.verifyAccessToken(token);
+  if (!payload) return res.status(401).json({ error: "Unauthorized" });
+
+  try {
+    const txId = parseInt(req.params.id);
+    if (isNaN(txId)) return res.status(400).json({ error: "Invalid ID" });
+
+    const existingTx = await db.query.transactions.findFirst({
+      where: sql`id = ${txId} AND account_id IN (SELECT id FROM accounts WHERE user_id = ${payload.userId})`
+    });
+    
+    if (!existingTx) return res.status(404).json({ error: "Transaction not found" });
+
+    const { amount, type, category, description, date } = req.body;
+
+    const [updatedTx] = await db.update(transactions).set({
+      amount: amount !== undefined ? String(amount) : undefined,
+      type,
+      category,
+      description,
+      timestamp: date ? new Date(date) : undefined
+    }).where(eq(transactions.id, txId)).returning();
+
+    res.json({ ...updatedTx, date: new Date(updatedTx.timestamp).toISOString() });
+  } catch (error) { 
+    console.error("PATCH transaction error:", error);
+    res.status(500).json({ error: "Failed to update transaction" }); 
+  }
+});
+
+app.delete(["/api/v1/transactions/:id", "/api/transactions/:id"], async (req, res) => {
+  const token = req.cookies?.nexora_access;
+  const payload = AuthService.verifyAccessToken(token);
+  if (!payload) return res.status(401).json({ error: "Unauthorized" });
+
+  try {
+    const txId = parseInt(req.params.id);
+    if (isNaN(txId)) return res.status(400).json({ error: "Invalid ID" });
+
+    const existingTx = await db.query.transactions.findFirst({
+      where: sql`id = ${txId} AND account_id IN (SELECT id FROM accounts WHERE user_id = ${payload.userId})`
+    });
+    
+    if (!existingTx) return res.status(404).json({ error: "Transaction not found" });
+
+    await db.delete(transactions).where(eq(transactions.id, txId));
+    res.status(204).send();
+  } catch (error) { 
+    console.error("DELETE transaction error:", error);
+    res.status(500).json({ error: "Failed to delete transaction" }); 
+  }
+});
+
 // --- AUTH ROUTES ---
 
-app.get("/api/v1/auth/user", async (req, res) => {
+app.get(["/api/v1/auth/user", "/api/auth/user", "/auth/user"], async (req, res) => {
   const token = req.cookies?.nexora_access;
   const payload = AuthService.verifyAccessToken(token);
   
@@ -109,7 +214,7 @@ app.get("/api/v1/auth/user", async (req, res) => {
   }
 });
 
-app.post("/api/v1/auth/register", async (req, res) => {
+app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], async (req, res) => {
   const { email, password, firstName, lastName } = req.body;
   if (!email || !password) return res.status(400).json({ error: "Email and password required" });
 
@@ -155,7 +260,7 @@ app.post("/api/v1/auth/register", async (req, res) => {
   }
 });
 
-app.post("/api/v1/auth/login", async (req, res) => {
+app.post(["/api/v1/auth/login", "/api/auth/login", "/auth/login"], async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: "Email and password required" });
 

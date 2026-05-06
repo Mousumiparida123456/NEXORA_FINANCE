@@ -4,8 +4,14 @@ export const apiBaseUrl = rawApiBaseUrl
   ? rawApiBaseUrl.replace(/\/+$/, "")
   : "http://localhost:9999";
 
-export const API_URL = `${apiBaseUrl}/api/v1`;
-console.log("🚀 NEXORA_ENGINE_ACTIVE:", API_URL);
+const hasVersionedPrefix = /\/api\/v1$/i.test(apiBaseUrl);
+const hasApiPrefix = /\/api$/i.test(apiBaseUrl);
+export const API_URL = hasVersionedPrefix
+  ? apiBaseUrl
+  : hasApiPrefix
+    ? `${apiBaseUrl}/v1`
+    : `${apiBaseUrl}/api/v1`;
+console.log("NEXORA_ENGINE_ACTIVE:", API_URL);
 
 export interface AuthUser {
   id: string;
@@ -19,6 +25,7 @@ export interface AuthUser {
   savingsGoal?: number;
   investStyle?: "safe" | "balanced" | "aggressive";
   twoFactorEnabled?: boolean;
+  preferences?: Record<string, any>;
 }
 
 export interface ApiHealth {
@@ -51,6 +58,10 @@ class ApiClient {
       throw new Error(errorMessage);
     }
 
+    if (response.status === 204) {
+      return null as T;
+    }
+
     return response.json();
   }
 
@@ -63,6 +74,17 @@ class ApiClient {
       method: "POST",
       body: JSON.stringify(data),
     });
+  }
+
+  async patch<T>(endpoint: string, data: any): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async delete<T>(endpoint: string): Promise<T> {
+    return this.request<T>(endpoint, { method: "DELETE" });
   }
 
   async getCurrentUser(): Promise<AuthUser | null> {
@@ -113,6 +135,7 @@ class ApiClient {
   }
 
   async updateUserData(data: {
+    email?: string;
     firstName?: string;
     lastName?: string;
     monthlyIncome?: string;
@@ -124,6 +147,14 @@ class ApiClient {
     twoFactorEnabled?: boolean;
   }) {
     return this.post<{ user: AuthUser }>("/auth/user/update", data);
+  }
+
+  async getUserData() {
+    return this.get<{ data: Record<string, any> }>("/user-data");
+  }
+
+  async upsertUserData(data: Record<string, any>) {
+    return this.post<{ message: string; data: Record<string, any>; updatedAt: string }>("/user-data/upsert", { data });
   }
 
   async getAIInsights(): Promise<{ advice: string }> {

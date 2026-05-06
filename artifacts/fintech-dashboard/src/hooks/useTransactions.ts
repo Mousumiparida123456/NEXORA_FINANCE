@@ -5,6 +5,7 @@ import {
   type Transaction,
   type TransactionType,
 } from "@/components/transactions/transactionData";
+import { api } from "@/lib/api";
 
 export interface TransactionInput {
   amount: number;
@@ -33,58 +34,6 @@ interface UseTransactionsResult {
   refreshTransactions: () => Promise<void>;
 }
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL?.trim();
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
-const TRANSACTIONS_TABLE = import.meta.env.VITE_SUPABASE_TRANSACTIONS_TABLE?.trim() || "transactions";
-
-function canUseSupabase() {
-  return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
-}
-
-function mapRowToTransaction(row: any): Transaction {
-  return {
-    id: String(row.id),
-    amount: Number(row.amount),
-    type: row.type,
-    category: row.category,
-    description: row.description ?? "",
-    date: String(row.date).slice(0, 10),
-  };
-}
-
-function mapInputToRow(input: TransactionInput) {
-  return {
-    amount: input.amount,
-    type: input.type,
-    category: input.category,
-    description: input.description.trim() || input.category,
-    date: input.date,
-  };
-}
-
-async function supabaseRequest(path: string, init?: RequestInit) {
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    ...init,
-    headers: {
-      apikey: SUPABASE_ANON_KEY ?? "",
-      Authorization: `Bearer ${SUPABASE_ANON_KEY ?? ""}`,
-      "Content-Type": "application/json",
-      Prefer: "return=representation",
-      ...(init?.headers ?? {}),
-    },
-  });
-
-  if (!response.ok) {
-    const details = await response.text().catch(() => "");
-    throw new Error(details || `Supabase request failed: ${response.status}`);
-  }
-
-  if (response.status === 204) {
-    return null;
-  }
-  return response.json();
-}
-
 export function useTransactions(): UseTransactionsResult {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,17 +44,17 @@ export function useTransactions(): UseTransactionsResult {
     setLoading(true);
     setError("");
     try {
-      if (!canUseSupabase()) {
-        setTransactions(MOCK_TRANSACTIONS);
-        return;
-      }
-
-      const rows = (await supabaseRequest(
-        `${TRANSACTIONS_TABLE}?select=id,amount,type,category,description,date&order=date.desc`,
-        { method: "GET" },
-      )) as any[];
-      setTransactions(rows.map(mapRowToTransaction));
+      const data = await api.get<Transaction[]>("/transactions");
+      
+      const mapped = data.map(tx => ({
+        ...tx,
+        id: String(tx.id),
+        date: tx.date ? String(tx.date).slice(0, 10) : "",
+        amount: Number(tx.amount)
+      }));
+      setTransactions(mapped);
     } catch (err: any) {
+      console.warn("API Error, falling back to mock transactions", err);
       setError(err?.message || "Failed to fetch transactions.");
       setTransactions(MOCK_TRANSACTIONS);
     } finally {
@@ -117,18 +66,17 @@ export function useTransactions(): UseTransactionsResult {
     setSaving(true);
     setError("");
     try {
-      if (!canUseSupabase()) {
-        const localTx: Transaction = { id: Date.now().toString(), ...input };
-        setTransactions((prev) => [localTx, ...prev]);
-        return;
-      }
-
-      const rows = (await supabaseRequest(TRANSACTIONS_TABLE, {
-        method: "POST",
-        body: JSON.stringify([mapInputToRow(input)]),
-      })) as any[];
-      const created = mapRowToTransaction(rows[0]);
-      setTransactions((prev) => [created, ...prev]);
+      const created = await api.post<Transaction>("/transactions", input);
+      const mappedCreated = {
+        ...created,
+        id: String(created.id),
+        date: created.date ? String(created.date).slice(0, 10) : "",
+        amount: Number(created.amount)
+      };
+      setTransactions((prev) => [mappedCreated, ...prev]);
+    } catch (err: any) {
+        setError(err?.message || "Failed to add transaction.");
+        throw err;
     } finally {
       setSaving(false);
     }
@@ -138,20 +86,37 @@ export function useTransactions(): UseTransactionsResult {
     setSaving(true);
     setError("");
     try {
-      if (!canUseSupabase()) {
-        setTransactions((prev) =>
-          prev.map((tx) => (tx.id === id ? { ...tx, ...input, description: input.description.trim() || input.category } : tx)),
-        );
-        return;
-      }
+      console.log("✏️ Editing Transaction ID:", id);
+      console.log("💵 Updated Amount:", input.amount);
 
-      const rows = (await supabaseRequest(`${TRANSACTIONS_TABLE}?id=eq.${encodeURIComponent(id)}`, {
-        method: "PATCH",
-        body: JSON.stringify(mapInputToRow(input)),
-      })) as any[];
+      const updated = await api.patch<Transaction>(`/transactions/${id}`, input);
+      
+      console.log("✅ API/Supabase update response:", updated);
 
-      const updated = mapRowToTransaction(rows[0]);
-      setTransactions((prev) => prev.map((tx) => (tx.id === id ? updated : tx)));
+      // 1. Await completed properly. Update local state.
+      const mappedUpdated = {
+        ...updated,
+        id: String(updated.id),
+        date: updated.date ? String(updated.date).slice(0, 10) : "",
+        amount: Number(updated.amount)
+      };
+      setTransactions((prev) => prev.map((tx) => (tx.id === String(id) ? mappedUpdated : tx)));
+      
+      // 2. Refetch completely as requested by user to guarantee sync
+      const freshData = await api.get<Transaction[]>("/transactions");
+      const mappedFresh = freshData.map(tx => ({
+        ...tx,
+        id: String(tx.id),
+        date: tx.date ? String(tx.date).slice(0, 10) : "",
+        amount: Number(tx.amount)
+      }));
+      setTransactions(mappedFresh);
+      
+      console.log("🔄 Fetched fresh data after update:", mappedFresh);
+
+    } catch (err: any) {
+        setError(err?.message || "Failed to update transaction.");
+        throw err;
     } finally {
       setSaving(false);
     }
@@ -161,16 +126,11 @@ export function useTransactions(): UseTransactionsResult {
     setSaving(true);
     setError("");
     try {
-      if (!canUseSupabase()) {
-        setTransactions((prev) => prev.filter((tx) => tx.id !== id));
-        return;
-      }
-
-      await supabaseRequest(`${TRANSACTIONS_TABLE}?id=eq.${encodeURIComponent(id)}`, {
-        method: "DELETE",
-        headers: { Prefer: "return=minimal" },
-      });
-      setTransactions((prev) => prev.filter((tx) => tx.id !== id));
+      await api.delete(`/transactions/${id}`);
+      setTransactions((prev) => prev.filter((tx) => tx.id !== String(id)));
+    } catch (err: any) {
+        setError(err?.message || "Failed to delete transaction.");
+        throw err;
     } finally {
       setSaving(false);
     }
@@ -210,4 +170,3 @@ export function useTransactions(): UseTransactionsResult {
     refreshTransactions,
   };
 }
-

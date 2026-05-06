@@ -1,13 +1,9 @@
 import { motion } from "framer-motion";
 import { IndianRupee, CreditCard, PiggyBank, Activity, TrendingUp, TrendingDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useDashboard } from "@/lib/dashboard-context";
 
-const totals = {
-  income: 12450 * 83,
-  expenses: 7890 * 83,
-  savings: 4560 * 83,
-};
+import { useDashboard } from "@/lib/dashboard-context";
+import { useTransactions } from "@/hooks/useTransactions";
 
 const container = {
   hidden: { opacity: 0 },
@@ -25,7 +21,9 @@ const item = {
 };
 
 export function SummaryCards() {
+
   const { formatCurrency } = useDashboard();
+  const { summary } = useTransactions();
 
   return (
     <motion.div 
@@ -43,9 +41,10 @@ export function SummaryCards() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold tracking-tight text-slate-950 dark:text-slate-50">{formatCurrency(totals.income)}</div>
+            <div className="text-2xl font-bold tracking-tight text-slate-950 dark:text-slate-50">{formatCurrency(summary.totalIncome)}</div>
             <p className="mt-1 flex items-center text-xs font-medium text-emerald-400">
               <TrendingUp className="mr-1 h-3 w-3" />
+              {/* You can add a real comparison here if needed */}
               +8.2% vs last month
             </p>
           </CardContent>
@@ -61,9 +60,10 @@ export function SummaryCards() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold tracking-tight text-slate-950 dark:text-slate-50">{formatCurrency(totals.expenses)}</div>
+            <div className="text-2xl font-bold tracking-tight text-slate-950 dark:text-slate-50">{formatCurrency(summary.totalExpenses)}</div>
             <p className="mt-1 flex items-center text-xs font-medium text-rose-400">
               <TrendingDown className="mr-1 h-3 w-3" />
+              {/* You can add a real comparison here if needed */}
               -3.1% vs last month
             </p>
           </CardContent>
@@ -79,9 +79,10 @@ export function SummaryCards() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold tracking-tight text-slate-950 dark:text-slate-50">{formatCurrency(totals.savings)}</div>
+            <div className="text-2xl font-bold tracking-tight text-slate-950 dark:text-slate-50">{formatCurrency(summary.savings)}</div>
             <p className="mt-1 flex items-center text-xs font-medium text-teal-400">
               <TrendingUp className="mr-1 h-3 w-3" />
+              {/* You can add a real comparison here if needed */}
               +12.4% vs last month
             </p>
           </CardContent>

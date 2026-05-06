@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, numeric, index, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, numeric, index, boolean, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -48,6 +48,16 @@ export const accountsRelations = relations(accounts, ({ one, many }) => ({
   transactions: many(transactions),
 }));
 
+// User Preferences Table (durable per-user editable data)
+export const userPreferences = pgTable("user_preferences", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  data: jsonb("data").notNull().default({}),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  userUniqueIdx: uniqueIndex("user_preferences_user_id_unique").on(table.userId),
+}));
+
 // Transactions Table
 export const transactions = pgTable("transactions", {
   id: serial("id").primaryKey(),
@@ -73,6 +83,8 @@ export const insertAccountSchema = createInsertSchema(accounts);
 export const selectAccountSchema = createSelectSchema(accounts);
 export const insertTransactionSchema = createInsertSchema(transactions);
 export const selectTransactionSchema = createSelectSchema(transactions);
+export const insertUserPreferencesSchema = createInsertSchema(userPreferences);
+export const selectUserPreferencesSchema = createSelectSchema(userPreferences);
 
 // Types
 export type User = z.infer<typeof selectUserSchema>;
@@ -81,3 +93,5 @@ export type Account = z.infer<typeof selectAccountSchema>;
 export type NewAccount = z.infer<typeof insertAccountSchema>;
 export type Transaction = z.infer<typeof selectTransactionSchema>;
 export type NewTransaction = z.infer<typeof insertTransactionSchema>;
+export type UserPreferences = z.infer<typeof selectUserPreferencesSchema>;
+export type NewUserPreferences = z.infer<typeof insertUserPreferencesSchema>;

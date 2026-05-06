@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useDashboard } from "@/lib/dashboard-context";
 import { api } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 const formatINR = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -188,6 +189,7 @@ function ConfirmDialog({
 
 function ProfileSection() {
   const { user, setUser } = useDashboard();
+  const { toast } = useToast();
   const [name, setName]     = useState(user?.firstName ? `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}` : "John Doe");
   const [email, setEmail]   = useState(user?.email || "john.doe@example.com");
   const [income, setIncome] = useState(user?.monthlyIncome || "0");
@@ -195,6 +197,7 @@ function ProfileSection() {
   const [avatar, setAvatar] = useState(user?.profileImageUrl || "https://i.pravatar.cc/150?u=a042581f4e29026704d");
   const [saved, setSaved]   = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingPersisted, setLoadingPersisted] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -207,11 +210,38 @@ function ProfileSection() {
     }
   }, [user]);
 
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const { data } = await api.getUserData();
+        const profile = data?.profile || {};
+        if (!mounted) return;
+        if (profile.name) setName(profile.name);
+        if (profile.email) setEmail(profile.email);
+        if (profile.income) setIncome(String(profile.income));
+        if (profile.goals) setGoals(profile.goals);
+        if (profile.avatar) setAvatar(profile.avatar);
+      } catch {
+        // no-op
+      } finally {
+        if (mounted) setLoadingPersisted(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    setAvatar(url);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      if (result) setAvatar(result);
+    };
+    reader.readAsDataURL(file);
   }
 
   async function handleSave() {
@@ -222,11 +252,16 @@ function ProfileSection() {
       const lastName = names.slice(1).join(" ");
       
       const { user: updatedUser } = await api.updateUserData({
+        email,
         firstName,
         lastName,
         monthlyIncome: income,
         profileImageUrl: avatar,
         financialGoals: goals,
+      });
+      await api.upsertUserData({
+        ...(user?.preferences || {}),
+        profile: { name, email, income, goals, avatar },
       });
       
       setUser(updatedUser);
@@ -234,7 +269,11 @@ function ProfileSection() {
       setTimeout(() => setSaved(false), 2500);
     } catch (error) {
       console.error("Failed to save settings:", error);
-      alert("Failed to save changes. Please try again.");
+      toast({
+        title: "Save failed",
+        description: "Failed to save profile changes.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -244,6 +283,7 @@ function ProfileSection() {
     <div className="space-y-5">
       <Card>
         <SectionTitle icon={User} title="Personal Information" subtitle="Update your name, email, and avatar" />
+        {loadingPersisted && <p className="mb-3 text-xs text-slate-500">Loading your saved profile...</p>}
 
         {/* Avatar */}
         <div className="flex items-center gap-5 mb-6 pb-6 border-b border-slate-800/60">
@@ -360,11 +400,13 @@ const STYLE_OPTIONS: { id: InvestStyle; label: string; desc: string; icon: React
 
 function PreferencesSection() {
   const { user, setUser } = useDashboard();
+  const { toast } = useToast();
   const [risk, setRisk]         = useState<RiskLevel>((user?.riskLevel as RiskLevel) || "medium");
   const [savingsGoal, setSavings] = useState<number>(user?.savingsGoal ?? 15000);
   const [style, setStyle]       = useState<InvestStyle>((user?.investStyle as InvestStyle) || "balanced");
   const [saved, setSaved]       = useState(false);
   const [loading, setLoading]   = useState(false);
+  const [loadingPersisted, setLoadingPersisted] = useState(true);
 
   useEffect(() => {
     if (!user) return;
@@ -372,6 +414,27 @@ function PreferencesSection() {
     if (typeof user.savingsGoal === "number") setSavings(user.savingsGoal);
     if (user.investStyle) setStyle(user.investStyle as InvestStyle);
   }, [user]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const { data } = await api.getUserData();
+        const prefs = data?.preferences || {};
+        if (!mounted) return;
+        if (prefs.riskLevel) setRisk(prefs.riskLevel as RiskLevel);
+        if (typeof prefs.savingsGoal === "number") setSavings(prefs.savingsGoal);
+        if (prefs.investStyle) setStyle(prefs.investStyle as InvestStyle);
+      } catch {
+        // no-op
+      } finally {
+        if (mounted) setLoadingPersisted(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   async function handleSave() {
     setLoading(true);
@@ -381,12 +444,20 @@ function PreferencesSection() {
         savingsGoal,
         investStyle: style,
       });
+      await api.upsertUserData({
+        ...(user?.preferences || {}),
+        preferences: { riskLevel: risk, savingsGoal, investStyle: style },
+      });
       setUser(updatedUser);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (error) {
       console.error("Failed to save preferences:", error);
-      alert("Failed to save preferences. Please try again.");
+      toast({
+        title: "Save failed",
+        description: "Failed to save preferences.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -397,6 +468,7 @@ function PreferencesSection() {
       {/* Risk Level */}
       <Card>
         <SectionTitle icon={BarChart2} title="Risk Tolerance" subtitle="How comfortable are you with investment risk?" />
+        {loadingPersisted && <p className="mb-3 text-xs text-slate-500">Loading your saved preferences...</p>}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {RISK_OPTIONS.map((opt) => (
             <button
@@ -503,10 +575,12 @@ function PreferencesSection() {
 // ─── Security Section ──────────────────────────────────────────────────────────
 
 function SecuritySection() {
+  const { user, setUser } = useDashboard();
+  const { toast } = useToast();
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw]         = useState("");
   const [confirmPw, setConfirmPw] = useState("");
-  const [twoFA, setTwoFA]         = useState(false);
+  const [twoFA, setTwoFA]         = useState(Boolean(user?.twoFactorEnabled));
   const [pwSaved, setPwSaved]     = useState(false);
   const [pwLoading, setPwLoading] = useState(false);
   const [pwError, setPwError]     = useState("");
@@ -529,11 +603,31 @@ function SecuritySection() {
 
   function handleToggle2FA() {
     if (!twoFA) { setTwoFADialog(true); setTwoFAPending(true); }
-    else { setTwoFA(false); }
+    else {
+      setTwoFA(false);
+      api.updateUserData({ twoFactorEnabled: false })
+        .then(({ user: updatedUser }) => setUser(updatedUser))
+        .catch(() => {
+          toast({
+            title: "Update failed",
+            description: "Could not disable 2FA preference.",
+            variant: "destructive",
+          });
+        });
+    }
   }
 
   function confirm2FA() {
     setTwoFADialog(false); setTwoFA(true); setTwoFAPending(false);
+    api.updateUserData({ twoFactorEnabled: true })
+      .then(({ user: updatedUser }) => setUser(updatedUser))
+      .catch(() => {
+        toast({
+          title: "Update failed",
+          description: "Could not enable 2FA preference.",
+          variant: "destructive",
+        });
+      });
   }
 
   function handleLogoutAll() {

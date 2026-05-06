@@ -37,6 +37,15 @@ SMTP: ${smtpReady ? "configured" : "NOT CONFIGURED"}`);
       await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS savings_goal integer DEFAULT 15000');
       await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS invest_style text DEFAULT \'balanced\'');
       await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_enabled boolean DEFAULT false');
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS user_preferences (
+          id serial PRIMARY KEY,
+          user_id integer NOT NULL REFERENCES users(id),
+          data jsonb NOT NULL DEFAULT '{}'::jsonb,
+          updated_at timestamp NOT NULL DEFAULT now()
+        )
+      `);
+      await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS user_preferences_user_id_unique ON user_preferences(user_id)');
       console.log("Database Schema Verified & Healed");
     } catch (e) {
       console.warn("Schema verification notice:", e instanceof Error ? e.message : String(e));
