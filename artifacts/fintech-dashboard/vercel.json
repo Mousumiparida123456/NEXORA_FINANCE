@@ -1,5 +1,8 @@
 {
+  "buildCommand": "cd ../.. && pnpm install && cd artifacts/fintech-dashboard && pnpm run build",
+  "installCommand": "cd ../.. && pnpm install",
   "outputDirectory": "dist/public",
+  "framework": null,
   "rewrites": [
     {
       "source": "/(.*)",
