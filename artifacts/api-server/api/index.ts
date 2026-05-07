@@ -12,7 +12,11 @@ import crypto from "crypto";
 import nodemailer from "nodemailer";
 
 const app = express();
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+const CLIENT_ORIGIN =
+  process.env.CLIENT_ORIGIN ||
+  (process.env.NODE_ENV === "production"
+    ? "https://nexora-finance-fintech-dashboard.vercel.app"
+    : "http://localhost:5173");
 const COOKIE_SECURE = process.env.NODE_ENV === "production";
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const STRONG_PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,64}$/;

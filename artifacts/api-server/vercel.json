@@ -1,6 +1,13 @@
 {
   "version": 2,
+  "env": {
+    "NODE_ENV": "production"
+  },
   "rewrites": [
+    {
+      "source": "/api/v1/:path*",
+      "destination": "/api/index.ts"
+    },
     {
       "source": "/api/:path*",
       "destination": "/api/index.ts"

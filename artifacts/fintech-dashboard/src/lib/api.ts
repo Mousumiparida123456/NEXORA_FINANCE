@@ -110,8 +110,13 @@ class ApiClient {
   }
 
   async logout(): Promise<void> {
+    try {
+      await this.get("/auth/logout");
+    } catch {
+      // ignore errors, still clear token and redirect
+    }
     window.localStorage.removeItem(this.tokenKey);
-    window.location.href = `${this.baseUrl}/logout`;
+    window.location.href = "/login";
   }
 
   setAccessToken(token: string) {
@@ -165,6 +170,7 @@ class ApiClient {
 export const api = new ApiClient();
 
 export async function fetchApiHealth(signal?: AbortSignal): Promise<ApiHealth> {
-  const response = await fetch("http://localhost:9999/api/healthz", { signal });
+  const healthUrl = `${apiBaseUrl}/api/healthz`;
+  const response = await fetch(healthUrl, { signal });
   return response.json();
 }
