@@ -3,6 +3,12 @@
   "env": {
     "NODE_ENV": "production"
   },
+  "builds": [
+    {
+      "src": "api/index.ts",
+      "use": "@vercel/node"
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/v1/:path*",
