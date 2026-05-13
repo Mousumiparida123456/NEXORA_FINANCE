@@ -1,8 +1,12 @@
 const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+const isProd = import.meta.env.PROD;
+const prodFallbackApiBaseUrl = "https://nexora-finance-api-server.vercel.app";
 
 export const apiBaseUrl = rawApiBaseUrl
   ? rawApiBaseUrl.replace(/\/+$/, "")
-  : "http://localhost:9999";
+  : isProd
+    ? prodFallbackApiBaseUrl
+    : "http://localhost:9999";
 
 const hasVersionedPrefix = /\/api\/v1$/i.test(apiBaseUrl);
 const hasApiPrefix = /\/api$/i.test(apiBaseUrl);
@@ -41,16 +45,21 @@ class ApiClient {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const token = window.localStorage.getItem(this.tokenKey);
-    
-    const response = await fetch(url, {
-      ...options,
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...options.headers,
-      },
-    });
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        ...options,
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...options.headers,
+        },
+      });
+    } catch (error) {
+      throw new Error(`Unable to reach API at ${this.baseUrl}. Check backend URL/CORS/deployment.`);
+    }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
