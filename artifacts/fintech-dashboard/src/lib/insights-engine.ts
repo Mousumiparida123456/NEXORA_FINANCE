@@ -267,3 +267,164 @@ export function calculateNextMilestone(transactions: Transaction[]) {
     progressPct: progress 
   };
 }
+
+// =================== RECURRING DETECTION ===================
+
+export interface RecurringTransaction {
+  id: string;
+  title: string;
+  category: string;
+  amount: number;
+  direction: "income" | "expense";
+  frequency: string;
+  lastDate: string;
+  occurrences: number;
+}
+
+export function detectRecurringTransactions(transactions: Transaction[]): RecurringTransaction[] {
+  if (transactions.length < 2) return [];
+
+  const groups = new Map<string, Transaction[]>();
+  transactions.forEach(tx => {
+    const key = `${(tx.description || tx.category).toLowerCase().trim()}:${tx.type}`;
+    const existing = groups.get(key) || [];
+    groups.set(key, [...existing, tx]);
+  });
+
+  const recurring: RecurringTransaction[] = [];
+
+  groups.forEach((txns) => {
+    if (txns.length < 2) return;
+
+    const amounts = txns.map(t => Number(t.amount));
+    const avgAmount = amounts.reduce((a, b) => a + b, 0) / amounts.length;
+    const allConsistent = amounts.every(a => Math.abs(a - avgAmount) / Math.max(avgAmount, 1) < 0.25);
+    if (!allConsistent) return;
+
+    const sorted = [...txns].sort((a, b) => new Date(b.date || "").getTime() - new Date(a.date || "").getTime());
+    const latest = sorted[0];
+
+    const dates = sorted.map(t => new Date(t.date || "").getTime()).filter(d => !isNaN(d));
+    if (dates.length < 2) return;
+
+    const avgGapDays = dates.slice(0, -1).reduce((sum, d, i) =>
+      sum + Math.abs(d - dates[i + 1]) / (1000 * 60 * 60 * 24), 0) / (dates.length - 1);
+
+    let frequency = "";
+    if (avgGapDays >= 25 && avgGapDays <= 35) frequency = "monthly";
+    else if (avgGapDays >= 6 && avgGapDays <= 8) frequency = "weekly";
+    else if (avgGapDays >= 85 && avgGapDays <= 95) frequency = "quarterly";
+    else if (avgGapDays >= 355 && avgGapDays <= 375) frequency = "yearly";
+
+    if (!frequency) return;
+
+    recurring.push({
+      id: `${latest.description || latest.category}-${latest.type}`,
+      title: latest.description || latest.category,
+      category: latest.category,
+      amount: Math.round(avgAmount),
+      direction: latest.type === "income" ? "income" : "expense",
+      frequency,
+      lastDate: latest.date || "",
+      occurrences: txns.length,
+    });
+  });
+
+  return recurring.sort((a, b) => b.amount - a.amount);
+}
+
+// =================== INVESTMENT ANALYTICS ===================
+
+export interface InvestmentAnalytics {
+  totalInvested: number;
+  totalReturns: number;
+  netGain: number;
+  roiPercent: number;
+  monthlyTrend: { month: string; invested: number }[];
+  categoryBreakdown: { name: string; amount: number; color: string; value: number }[];
+}
+
+const INVESTMENT_CATEGORIES = ["investment", "stocks", "mutual funds", "crypto", "sip", "gold", "real estate"];
+
+export function calculateInvestmentAnalytics(transactions: Transaction[]): InvestmentAnalytics {
+  const investTxns = transactions.filter(tx =>
+    INVESTMENT_CATEGORIES.some(c => (tx.category || "").toLowerCase().includes(c))
+  );
+
+  const invested = investTxns.filter(t => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
+  const returns = investTxns.filter(t => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
+  const netGain = returns - invested;
+  const roiPercent = invested > 0 ? (netGain / invested) * 100 : 0;
+
+  const now = new Date();
+  const monthlyTrend = Array.from({ length: 6 }, (_, i) => {
+    const d = subMonths(now, 5 - i);
+    const monthTxns = investTxns.filter(t => t.date && isSameMonth(parseISO(t.date), d) && t.type === "expense");
+    return { month: format(d, "MMM"), invested: monthTxns.reduce((s, t) => s + Number(t.amount), 0) };
+  });
+
+  const catMap = new Map<string, number>();
+  investTxns.filter(t => t.type === "expense").forEach(tx => {
+    catMap.set(tx.category, (catMap.get(tx.category) || 0) + Number(tx.amount));
+  });
+
+  const catColors = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4"];
+  const total = Array.from(catMap.values()).reduce((s, v) => s + v, 0);
+  const categoryBreakdown = Array.from(catMap.entries()).map(([name, amount], i) => ({
+    name, amount, color: catColors[i % catColors.length],
+    value: total > 0 ? Math.round((amount / total) * 100) : 0,
+  }));
+
+  return { totalInvested: invested, totalReturns: returns, netGain, roiPercent, monthlyTrend, categoryBreakdown };
+}
+
+// =================== CREDIT SCORE ESTIMATION ===================
+
+export interface CreditScoreData {
+  score: number;
+  band: "Excellent" | "Good" | "Fair" | "Poor";
+  bandColor: string;
+  paymentConsistency: number;
+  debtUtilization: number;
+  incomeStability: number;
+  savingsRate: number;
+}
+
+export function calculateCreditScore(transactions: Transaction[]): CreditScoreData {
+  if (transactions.length === 0) {
+    return { score: 650, band: "Fair", bandColor: "#f59e0b", paymentConsistency: 50, debtUtilization: 50, incomeStability: 50, savingsRate: 0 };
+  }
+
+  const income = transactions.filter(t => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
+  const expenses = transactions.filter(t => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
+  const savingsRate = income > 0 ? ((income - expenses) / income) * 100 : 0;
+
+  const recurring = detectRecurringTransactions(transactions);
+  const hasRecurringIncome = recurring.some(r => r.direction === "income");
+  const paymentConsistency = hasRecurringIncome ? 85 : 60;
+  const debtUtilization = income > 0 ? Math.min(100, (expenses / income) * 100) : 80;
+  const incomeCount = transactions.filter(t => t.type === "income").length;
+  const incomeStability = Math.min(100, 50 + incomeCount * 5);
+
+  let score = 500;
+  score += savingsRate > 20 ? 100 : savingsRate > 10 ? 70 : savingsRate > 0 ? 40 : 0;
+  score += paymentConsistency > 80 ? 80 : paymentConsistency > 60 ? 50 : 20;
+  score += debtUtilization < 30 ? 80 : debtUtilization < 50 ? 50 : debtUtilization < 80 ? 20 : 0;
+  score += Math.min(40, incomeStability / 2.5);
+  score = Math.min(900, Math.max(300, Math.round(score)));
+
+  let band: CreditScoreData["band"] = "Poor";
+  let bandColor = "#ef4444";
+  if (score >= 750) { band = "Excellent"; bandColor = "#10b981"; }
+  else if (score >= 650) { band = "Good"; bandColor = "#3b82f6"; }
+  else if (score >= 550) { band = "Fair"; bandColor = "#f59e0b"; }
+
+  return {
+    score, band, bandColor,
+    paymentConsistency: Math.round(paymentConsistency),
+    debtUtilization: Math.round(debtUtilization),
+    incomeStability: Math.round(incomeStability),
+    savingsRate: Math.round(savingsRate),
+  };
+}
+
