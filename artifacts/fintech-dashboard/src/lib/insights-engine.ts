@@ -286,7 +286,12 @@ export function detectRecurringTransactions(transactions: Transaction[]): Recurr
 
   const groups = new Map<string, Transaction[]>();
   transactions.forEach(tx => {
-    const key = `${(tx.description || tx.category).toLowerCase().trim()}:${tx.type}`;
+    // Income (e.g., Salary) is more reliable by category; expenses by description when possible.
+    const incomeLike = tx.type === "income";
+    const baseKey = incomeLike
+      ? (tx.category || tx.description || "").toLowerCase().trim()
+      : (tx.description || tx.category || "").toLowerCase().trim();
+    const key = `${baseKey}:${tx.type}`;
     const existing = groups.get(key) || [];
     groups.set(key, [...existing, tx]);
   });
@@ -311,10 +316,17 @@ export function detectRecurringTransactions(transactions: Transaction[]): Recurr
       sum + Math.abs(d - dates[i + 1]) / (1000 * 60 * 60 * 24), 0) / (dates.length - 1);
 
     let frequency = "";
-    if (avgGapDays >= 25 && avgGapDays <= 35) frequency = "monthly";
-    else if (avgGapDays >= 6 && avgGapDays <= 8) frequency = "weekly";
-    else if (avgGapDays >= 85 && avgGapDays <= 95) frequency = "quarterly";
-    else if (avgGapDays >= 355 && avgGapDays <= 375) frequency = "yearly";
+    if (avgGapDays >= 22 && avgGapDays <= 40) frequency = "monthly";
+    else if (avgGapDays >= 5 && avgGapDays <= 10) frequency = "weekly";
+    else if (avgGapDays >= 80 && avgGapDays <= 105) frequency = "quarterly";
+    else if (avgGapDays >= 330 && avgGapDays <= 390) frequency = "yearly";
+
+    // Salary fallback: if there are at least 2 income entries and amount is consistent, treat as monthly.
+    if (!frequency && latest.type === "income" && txns.length >= 2) {
+      const looksLikeSalary = (latest.category || "").toLowerCase().includes("salary")
+        || (latest.description || "").toLowerCase().includes("salary");
+      if (looksLikeSalary) frequency = "monthly";
+    }
 
     if (!frequency) return;
 
@@ -427,4 +439,3 @@ export function calculateCreditScore(transactions: Transaction[]): CreditScoreDa
     savingsRate: Math.round(savingsRate),
   };
 }
-
