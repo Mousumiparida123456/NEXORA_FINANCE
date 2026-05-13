@@ -313,7 +313,7 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || "http://localhost:9999/api/v1/auth/google/callback";
 
-app.get(["/api/v1/auth/google", "/api/auth/google"], (req, res) => {
+app.get([/^\/api(\/v1)?\/auth\/google\/?$/], (req, res) => {
   const rootUrl = "https://accounts.google.com/o/oauth2/v2/auth";
   const options = {
     redirect_uri: GOOGLE_REDIRECT_URI,
@@ -331,7 +331,7 @@ app.get(["/api/v1/auth/google", "/api/auth/google"], (req, res) => {
   res.redirect(`${rootUrl}?${qs.toString()}`);
 });
 
-app.get(["/api/v1/auth/google/callback", "/api/auth/google/callback"], async (req, res) => {
+app.get([/^\/api(\/v1)?\/auth\/google\/callback\/?$/], async (req, res) => {
   const code = req.query.code as string;
   const clientOrigin = "http://localhost:5173";
 
