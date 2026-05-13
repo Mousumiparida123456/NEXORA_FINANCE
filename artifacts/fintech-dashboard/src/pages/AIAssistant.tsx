@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Sparkles, User, RotateCcw, Zap } from "lucide-react";
+import { useTransactions } from "@/hooks/useTransactions";
 
 // ─── AI Response Engine ────────────────────────────────────────────────────────
 
@@ -87,13 +88,33 @@ function localizeCurrencyToINR(text: string) {
     .replaceAll("$", "₹");
 }
 
-function getAIResponse(input: string): string {
+type FinanceContext = {
+  monthlyIncome: number;
+  monthlyExpenses: number;
+  monthlySavings: number;
+  savingsRate: number;
+  investmentTxCount: number;
+};
+
+function withContext(text: string, context: FinanceContext): string {
+  const savingsSign = context.monthlySavings >= 0 ? "" : "-";
+  const absSavings = Math.abs(context.monthlySavings).toLocaleString();
+  const summary = `\n\nLive snapshot from your transactions:\nâ€¢ Monthly income: â‚¹${context.monthlyIncome.toLocaleString()}\nâ€¢ Monthly expenses: â‚¹${context.monthlyExpenses.toLocaleString()}\nâ€¢ Monthly savings: ${savingsSign}â‚¹${absSavings}\nâ€¢ Savings rate: ${context.savingsRate}%\nâ€¢ Investment transactions: ${context.investmentTxCount}`;
+  return `${text}${summary}`;
+}
+
+function getAIResponse(input: string, context: FinanceContext): string {
   const q = input.toLowerCase();
   for (const r of RESPONSES) {
-    if (r.keywords.some((k) => q.includes(k))) return localizeCurrencyToINR(r.text);
+    if (r.keywords.some((k) => q.includes(k))) {
+      return withContext(localizeCurrencyToINR(r.text), context);
+    }
   }
-  return localizeCurrencyToINR(
-    FALLBACK_RESPONSES[Math.floor(Math.random() * FALLBACK_RESPONSES.length)],
+  return withContext(
+    localizeCurrencyToINR(
+      FALLBACK_RESPONSES[Math.floor(Math.random() * FALLBACK_RESPONSES.length)],
+    ),
+    context,
   );
 }
 
@@ -134,6 +155,31 @@ function TypingDots() {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function AIAssistant() {
+  const { transactions } = useTransactions();
+  const financeContext = useCallback((): FinanceContext => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const monthTx = transactions.filter((tx) => {
+      const d = new Date(tx.date || "");
+      return !Number.isNaN(d.getTime()) && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    });
+
+    const monthlyIncome = monthTx.filter((t) => t.type === "income").reduce((sum, t) => sum + Number(t.amount), 0);
+    const monthlyExpenses = monthTx.filter((t) => t.type === "expense").reduce((sum, t) => sum + Number(t.amount), 0);
+    const monthlySavings = monthlyIncome - monthlyExpenses;
+    const savingsRate = monthlyIncome > 0 ? Math.round((monthlySavings / monthlyIncome) * 100) : 0;
+    const investmentTxCount = monthTx.filter((t) => (t.category || "").toLowerCase().includes("investment")).length;
+
+    return {
+      monthlyIncome: Math.round(monthlyIncome),
+      monthlyExpenses: Math.round(monthlyExpenses),
+      monthlySavings: Math.round(monthlySavings),
+      savingsRate,
+      investmentTxCount,
+    };
+  }, [transactions]);
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -171,7 +217,7 @@ export function AIAssistant() {
     // Simulate AI thinking delay
     const delay = 1000 + Math.random() * 800;
     setTimeout(() => {
-      const aiText = getAIResponse(trimmed);
+      const aiText = getAIResponse(trimmed, financeContext());
       const aiMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: "ai",
@@ -181,7 +227,7 @@ export function AIAssistant() {
       setMessages((prev) => [...prev, aiMsg]);
       setIsTyping(false);
     }, delay);
-  }, [isTyping]);
+  }, [isTyping, financeContext]);
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter" && !e.shiftKey) {
