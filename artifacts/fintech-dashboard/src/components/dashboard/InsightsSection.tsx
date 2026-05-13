@@ -31,91 +31,114 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDashboard } from "@/lib/dashboard-context";
 import { cn } from "@/lib/utils";
 
-const categoryTrendData = [
-  { month: "Oct", Housing: 850, Shopping: 950, "Food & Dining": 430, Utilities: 95 },
-  { month: "Nov", Housing: 1200, Shopping: 820, "Food & Dining": 510, Utilities: 115 },
-  { month: "Dec", Housing: 1120, Shopping: 1080, "Food & Dining": 720, Utilities: 130 },
-  { month: "Jan", Housing: 980, Shopping: 740, "Food & Dining": 600, Utilities: 105 },
-  { month: "Feb", Housing: 1040, Shopping: 860, "Food & Dining": 690, Utilities: 120 },
-  { month: "Mar", Housing: 1180, Shopping: 780, "Food & Dining": 650, Utilities: 140 },
-];
-
-const topCategories = [
-  { name: "Housing", amount: 5100, value: 42.4, transactions: 6, color: "#ef4444" },
-  { name: "Shopping", amount: 2850, value: 23.7, transactions: 8, color: "#f97316" },
-  { name: "Food & Dining", amount: 2030, value: 16.9, transactions: 18, color: "#f59e0b" },
-  { name: "Utilities", amount: 523, value: 4.3, transactions: 6, color: "#22c55e" },
-  { name: "Education", amount: 470, value: 3.9, transactions: 3, color: "#3b82f6" },
-  { name: "Health", amount: 435, value: 3.6, transactions: 5, color: "#14b8a6" },
-];
-
-const comparisonData = [
-  { month: "Oct 2024", income: 5450, expenses: 1580 },
-  { month: "Nov 2024", income: 5700, expenses: 1860 },
-  { month: "Dec 2024", income: 6700, expenses: 2615 },
-  { month: "Jan 2025", income: 5100, expenses: 1608 },
-  { month: "Feb 2025", income: 5650, expenses: 2620 },
-  { month: "Mar 2025", income: 6600, expenses: 1740 },
-];
-
-const breakdownData = [
-  { month: "Mar 2025", income: 6600, expenses: 1740, change: "34%", net: 4860, savings: 74 },
-  { month: "Feb 2025", income: 5650, expenses: 2620, change: "63%", net: 3030, savings: 54 },
-  { month: "Jan 2025", income: 5100, expenses: 1608, change: "39%", net: 3492, savings: 68 },
-  { month: "Dec 2024", income: 6700, expenses: 2615, change: "41%", net: 4085, savings: 61 },
-  { month: "Nov 2024", income: 5700, expenses: 1860, change: "18%", net: 3840, savings: 67 },
-  { month: "Oct 2024", income: 5450, expenses: 1580, change: "—", net: 3870, savings: 71 },
-];
-
-const observations = [
-  {
-    title: "Top Spending Category",
-    value: "Housing",
-    detail: "₹5,100.00 total — 42.4% of all expenses",
-    icon: ShieldCheck,
-    accent: "text-red-500 bg-red-500/10",
-  },
-  {
-    title: "Month-over-Month Expenses",
-    value: "-33.6%",
-    detail: "Expenses decreased from ₹2,620.00 to ₹1,740.00",
-    icon: TrendingDown,
-    accent: "text-emerald-500 bg-emerald-500/10",
-  },
-  {
-    title: "Current Month Savings Rate",
-    value: "73.6%",
-    detail: "Great job! You’re saving well above the 20% benchmark.",
-    icon: PiggyBank,
-    accent: "text-emerald-700 bg-emerald-500/10",
-  },
-  {
-    title: "Largest Transaction",
-    value: "₹4,800.00",
-    detail: "Monthly salary (raise) on Mar 1, 2025",
-    icon: DollarSign,
-    accent: "text-sky-600 bg-sky-500/10",
-  },
-  {
-    title: "Most Frequent Category",
-    value: "Food & Dining",
-    detail: "18 transactions — small amounts add up quickly",
-    icon: BarChart3,
-    accent: "text-emerald-600 bg-emerald-500/10",
-  },
-  {
-    title: "Overall Net Balance",
-    value: "₹23,177.00",
-    detail: "You’ve saved ₹23,177.00 across all recorded transactions.",
-    icon: CircleDot,
-    accent: "text-slate-900 bg-slate-200",
-  },
-];
+import { useTransactions } from "@/hooks/useTransactions";
+import { 
+  calculateTopCategories, 
+  calculateCategoryTrends, 
+  calculateMonthlyComparison, 
+  calculateAIConfidence, 
+  calculateMarketSentiment, 
+  generateSmartInsights, 
+  calculateNextMilestone 
+} from "@/lib/insights-engine";
 
 export function InsightsSection() {
   const { formatCurrency, formatCompactCurrency, theme } = useDashboard();
+  const { transactions } = useTransactions();
+  
   const [advice, setAdvice] = useState<string>("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+
+  // --- Dynamic Insights Engine ---
+  const topCategories = useState(() => calculateTopCategories(transactions))[0]; // Actually, we should useMemo
+  const topCatMemo = React.useMemo(() => calculateTopCategories(transactions), [transactions]);
+  const categoryTrendData = React.useMemo(() => calculateCategoryTrends(transactions, topCatMemo), [transactions, topCatMemo]);
+  const breakdownData = React.useMemo(() => calculateMonthlyComparison(transactions), [transactions]);
+  const comparisonData = React.useMemo(() => [...breakdownData].reverse(), [breakdownData]); // Reverse back for chronological chart
+
+  const confidenceScore = React.useMemo(() => calculateAIConfidence(transactions), [transactions]);
+  const sentimentScore = React.useMemo(() => calculateMarketSentiment(transactions), [transactions]);
+  const nextMilestone = React.useMemo(() => calculateNextMilestone(transactions), [transactions]);
+  const smartInsights = React.useMemo(() => generateSmartInsights(transactions, breakdownData), [transactions, breakdownData]);
+
+  // Generate dynamic observations
+  const observations = React.useMemo(() => {
+    if (transactions.length === 0) return [];
+    
+    const obs = [];
+    const expenses = transactions.filter(t => t.type === "expense");
+    const income = transactions.filter(t => t.type === "income");
+    
+    // 1. Top Spending Category
+    if (topCatMemo.length > 0) {
+      const top = topCatMemo[0];
+      obs.push({
+        title: "Top Spending Category",
+        value: top.name,
+        detail: `${formatCurrency(top.amount)} total — ${top.value.toFixed(1)}% of all expenses`,
+        icon: ShieldCheck,
+        accent: "text-red-500 bg-red-500/10",
+      });
+    }
+
+    // 2. Month-over-Month Expenses
+    if (breakdownData.length >= 2) {
+      const current = breakdownData[0];
+      const prev = breakdownData[1];
+      const diff = current.expenses - prev.expenses;
+      const isUp = diff > 0;
+      obs.push({
+        title: "Month-over-Month Expenses",
+        value: current.change,
+        detail: `Expenses ${isUp ? "increased" : "decreased"} from ${formatCurrency(prev.expenses)} to ${formatCurrency(current.expenses)}`,
+        icon: isUp ? TrendingUp : TrendingDown,
+        accent: isUp ? "text-rose-500 bg-rose-500/10" : "text-emerald-500 bg-emerald-500/10",
+      });
+      
+      // 3. Current Month Savings Rate
+      obs.push({
+        title: "Current Month Savings Rate",
+        value: `${current.savings}%`,
+        detail: current.savings >= 20 ? "Great job! You’re saving well above the 20% benchmark." : "You're saving below the recommended 20% benchmark.",
+        icon: PiggyBank,
+        accent: current.savings >= 20 ? "text-emerald-700 bg-emerald-500/10" : "text-amber-600 bg-amber-500/10",
+      });
+    }
+
+    // 4. Largest Transaction
+    if (transactions.length > 0) {
+      const sorted = [...transactions].sort((a, b) => Number(b.amount) - Number(a.amount));
+      const largest = sorted[0];
+      obs.push({
+        title: "Largest Transaction",
+        value: formatCurrency(Number(largest.amount)),
+        detail: `${largest.description || largest.category} on ${new Date(largest.date!).toLocaleDateString()}`,
+        icon: DollarSign,
+        accent: "text-sky-600 bg-sky-500/10",
+      });
+    }
+
+    // 5. Overall Net Balance
+    const totalExp = expenses.reduce((acc, t) => acc + Number(t.amount), 0);
+    const totalInc = income.reduce((acc, t) => acc + Number(t.amount), 0);
+    const net = totalInc - totalExp;
+    obs.push({
+      title: "Overall Net Balance",
+      value: formatCurrency(net),
+      detail: `You've ${net >= 0 ? 'saved' : 'overspent'} ${formatCurrency(Math.abs(net))} across all recorded transactions.`,
+      icon: CircleDot,
+      accent: net >= 0 ? "text-slate-900 bg-slate-200 dark:bg-slate-800 dark:text-slate-100" : "text-rose-900 bg-rose-200",
+    });
+
+    return obs;
+  }, [transactions, topCatMemo, breakdownData, formatCurrency]);
+
+  // Load default dynamic insights initially
+  useEffect(() => {
+    if (!advice) {
+      setAdvice(smartInsights.map(s => `* ${s}`).join('\n'));
+    }
+  }, [smartInsights]);
 
   const fetchAdvice = async () => {
     setLoading(true);
@@ -124,15 +147,24 @@ export function InsightsSection() {
       setAdvice(res.advice);
     } catch (error) {
       console.error("AI Fetch Error:", error);
-      setAdvice("Nexora is currently analyzing your deeper data patterns. Please check back in a few moments for elite financial strategies.");
+      // Fallback to dynamic frontend insights
+      setAdvice(smartInsights.map(s => `* ${s}`).join('\n'));
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchAdvice();
-  }, []);
+  if (transactions.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="h-16 w-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
+          <Sparkles className="h-8 w-8 text-emerald-500" />
+        </div>
+        <h3 className="text-xl font-bold text-slate-900 dark:text-slate-50 mb-2">No data available</h3>
+        <p className="text-slate-500 max-w-sm mb-6">Add more transactions to generate smarter insights and unlock the Financial Intelligence Engine.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -208,7 +240,7 @@ export function InsightsSection() {
                 <div className="mb-6 space-y-1">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">AI Confidence</p>
                   <div className="flex items-center gap-2">
-                    <span className="text-2xl font-black text-emerald-500">98%</span>
+                    <span className="text-2xl font-black text-emerald-500">{confidenceScore}%</span>
                     <TrendingUp className="h-4 w-4 text-emerald-500" />
                   </div>
                 </div>
@@ -216,13 +248,16 @@ export function InsightsSection() {
                   <div>
                     <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">Market Sentiment</p>
                     <div className="h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-800">
-                      <div className="h-1.5 w-[75%] rounded-full bg-emerald-500" />
+                      <div className="h-1.5 rounded-full bg-emerald-500" style={{ width: `${sentimentScore}%` }} />
                     </div>
                   </div>
                   <div className="rounded-xl bg-white p-3 shadow-sm dark:bg-slate-900">
                     <p className="text-[10px] font-bold text-slate-400">NEXT MILESTONE</p>
-                    <p className="mt-1 text-xs font-bold text-slate-900 dark:text-slate-100">Financial Freedom</p>
-                    <p className="mt-0.5 text-[10px] text-emerald-500">4.2 years remaining</p>
+                    <p className="mt-1 text-xs font-bold text-slate-900 dark:text-slate-100">{nextMilestone.title}</p>
+                    <p className="mt-0.5 text-[10px] text-emerald-500">{nextMilestone.years} remaining</p>
+                    <div className="mt-2 h-1 w-full rounded-full bg-slate-200 dark:bg-slate-800">
+                      <div className="h-1 rounded-full bg-emerald-500" style={{ width: `${nextMilestone.progressPct}%` }} />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -252,10 +287,12 @@ export function InsightsSection() {
                   <YAxis stroke={theme === "dark" ? "#64748b" : "#64748b"} tickLine={false} axisLine={false} tick={{ fill: theme === "dark" ? "#94a3b8" : "#64748b", fontSize: 12 }} />
                   <Tooltip contentStyle={{ borderRadius: 14, border: theme === "dark" ? "1px solid #334155" : "1px solid #e2e8f0", backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff" }} cursor={{ stroke: theme === "dark" ? "#475569" : "#cbd5e1", strokeWidth: 1, strokeDasharray: "4 4" }} />
                   <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: 10, fontSize: 12, color: theme === "dark" ? "#94a3b8" : "#64748b" }} />
-                  <Line type="monotone" dataKey="Housing" stroke="#ef4444" strokeWidth={3} dot={false} />
-                  <Line type="monotone" dataKey="Shopping" stroke="#f97316" strokeWidth={3} dot={false} />
-                  <Line type="monotone" dataKey="Food & Dining" stroke="#f59e0b" strokeWidth={3} dot={false} />
-                  <Line type="monotone" dataKey="Utilities" stroke="#22c55e" strokeWidth={3} dot={false} />
+                  {topCatMemo.slice(0, 4).map((cat, i) => {
+                    const colors = ["#ef4444", "#f97316", "#f59e0b", "#22c55e"];
+                    return (
+                      <Line key={cat.name} type="monotone" dataKey={cat.name} stroke={colors[i]} strokeWidth={3} dot={false} />
+                    )
+                  })}
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
@@ -273,7 +310,7 @@ export function InsightsSection() {
               <p className={cn("text-sm text-slate-500", theme === "dark" ? "text-slate-400" : "text-slate-600")}>By total amount spent — all time.</p>
             </CardHeader>
             <CardContent className="space-y-4 pt-0">
-              {topCategories.map((category) => (
+              {topCatMemo.slice(0, 6).map((category) => (
                 <div key={category.name} className="rounded-3xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/80">
                   <div className="flex items-center justify-between gap-3">
                     <div>
@@ -282,7 +319,7 @@ export function InsightsSection() {
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-slate-950 dark:text-slate-100">{formatCurrency(category.amount)}</p>
-                      <p className={cn("text-xs font-medium", category.name === "Housing" ? "text-slate-500" : "text-slate-500")}>{category.value.toFixed(1)}%</p>
+                      <p className={cn("text-xs font-medium", "text-slate-500")}>{category.value.toFixed(1)}%</p>
                     </div>
                   </div>
                   <div className="mt-4 h-2 rounded-full bg-slate-200 dark:bg-slate-800">
@@ -290,6 +327,9 @@ export function InsightsSection() {
                   </div>
                 </div>
               ))}
+              {topCatMemo.length === 0 && (
+                <p className="text-sm text-slate-500 text-center py-4">No categories tracked yet.</p>
+              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -352,12 +392,19 @@ export function InsightsSection() {
                         <td className="px-4 py-4 text-emerald-600 dark:text-emerald-400">{formatCurrency(row.income)}</td>
                         <td className="px-4 py-4 text-rose-600 dark:text-rose-400">{formatCurrency(row.expenses)}</td>
                         <td className="px-4 py-4 text-slate-500 dark:text-slate-400">{row.change === "—" ? "—" : row.change}</td>
-                        <td className="px-4 py-4 text-emerald-600 dark:text-emerald-400">+{formatCurrency(row.net)}</td>
+                        <td className={cn("px-4 py-4", row.net >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")}>
+                          {row.net >= 0 ? '+' : '-'}{formatCurrency(Math.abs(row.net))}
+                        </td>
                         <td className="px-4 py-4">
-                          <span className="inline-flex rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-700">{row.savings}%</span>
+                          <span className={cn("inline-flex rounded-full px-3 py-1 text-xs font-semibold", row.savings >= 20 ? "bg-emerald-500/10 text-emerald-700" : row.savings > 0 ? "bg-amber-500/10 text-amber-700" : "bg-rose-500/10 text-rose-700")}>
+                            {row.savings}%
+                          </span>
                         </td>
                       </tr>
                     ))}
+                    {breakdownData.length === 0 && (
+                      <tr><td colSpan={6} className="text-center py-4 text-slate-500">No monthly data available.</td></tr>
+                    )}
                   </tbody>
                 </table>
               </div>
