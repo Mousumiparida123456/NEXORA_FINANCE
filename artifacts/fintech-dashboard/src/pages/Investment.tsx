@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTransactions } from "@/hooks/useTransactions";
+import { calculateInvestmentAnalytics } from "@/lib/insights-engine";
 import {
   AreaChart,
   Area,
   CartesianGrid,
+  PieChart,
+  Pie,
+  Cell,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -380,10 +385,73 @@ function PlanCard({
 }
 
 export function Investment() {
+  const { transactions } = useTransactions();
+
+  // Derive avg monthly income/expenses from real transactions to pre-populate the planner
+  const txSummary = useMemo(() => {
+    if (transactions.length === 0) return { income: 5200, expenses: 3100 };
+    const totalIncome = transactions.filter(t => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
+    const totalExpenses = transactions.filter(t => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
+    // Estimate months of data
+    const dates = transactions.map(t => new Date(t.date || "").getTime()).filter(d => !isNaN(d));
+    const months = dates.length > 1
+      ? Math.max(1, (Math.max(...dates) - Math.min(...dates)) / (1000 * 60 * 60 * 24 * 30))
+      : 1;
+    return {
+      income: Math.round(totalIncome / months),
+      expenses: Math.round(totalExpenses / months),
+    };
+  }, [transactions]);
+
+  // Live investment analytics (transactions in Investment category)
+  const investAnalytics = useMemo(() => calculateInvestmentAnalytics(transactions), [transactions]);
+  const portfolioStats = useMemo(() => {
+    const totalInvested = investAnalytics.totalInvested;
+    const currentValue = totalInvested + investAnalytics.netGain;
+    const roiPct = totalInvested > 0 ? (investAnalytics.netGain / totalInvested) * 100 : 0;
+    const dates = transactions.map((t) => new Date(t.date || "").getTime()).filter((d) => !Number.isNaN(d));
+    const years = dates.length > 1 ? Math.max(1 / 12, (Math.max(...dates) - Math.min(...dates)) / (1000 * 60 * 60 * 24 * 365)) : 1;
+    const cagr = totalInvested > 0 && currentValue > 0 ? (Math.pow(currentValue / totalInvested, 1 / years) - 1) * 100 : 0;
+    return { totalInvested, currentValue, profitLoss: investAnalytics.netGain, roiPct, cagr };
+  }, [investAnalytics, transactions]);
+
+  const investmentTypeAllocation = useMemo(() => {
+    const bucket = new Map<string, number>();
+    const classify = (text: string) => {
+      const s = text.toLowerCase();
+      if (s.includes("stock") || s.includes("equity")) return "Stocks";
+      if (s.includes("mutual") || s.includes("fund")) return "Mutual Funds";
+      if (s.includes("sip")) return "SIP";
+      if (s.includes("crypto") || s.includes("bitcoin") || s.includes("eth")) return "Crypto";
+      if (s.includes("gold")) return "Gold";
+      if (s.includes("fd") || s.includes("fixed deposit")) return "Fixed Deposits";
+      return "Others";
+    };
+    transactions
+      .filter((t) => t.type === "expense" && (t.category || "").toLowerCase().includes("investment"))
+      .forEach((t) => {
+        const key = classify(`${t.category} ${t.description || ""}`);
+        bucket.set(key, (bucket.get(key) || 0) + Number(t.amount));
+      });
+    const total = Array.from(bucket.values()).reduce((s, v) => s + v, 0);
+    const palette = ["#22c55e", "#3b82f6", "#f59e0b", "#a855f7", "#f43f5e", "#06b6d4", "#94a3b8"];
+    return Array.from(bucket.entries()).map(([name, amount], i) => ({
+      name,
+      amount,
+      pct: total > 0 ? (amount / total) * 100 : 0,
+      color: palette[i % palette.length],
+    }));
+  }, [transactions]);
+
+  const monthlyInvestmentTrend = useMemo(
+    () => investAnalytics.monthlyTrend.map((m) => ({ ...m, value: m.invested })),
+    [investAnalytics],
+  );
+
   const [selectedPlanId, setSelectedPlanId] = useState<PlanId>("balanced");
 
-  const [income, setIncome] = useState(5200);
-  const [expenses, setExpenses] = useState(3100);
+  const [income, setIncome] = useState(txSummary.income);
+  const [expenses, setExpenses] = useState(txSummary.expenses);
 
   const investable = Math.max(0, income - expenses);
 
@@ -403,6 +471,15 @@ export function Investment() {
   useEffect(() => {
     setMonthlyInvestment((cur) => clamp(cur, 0, investable));
   }, [investable]);
+
+  // Sync from real transaction data whenever it loads/changes
+  useEffect(() => {
+    if (transactions.length > 0) {
+      setIncome(txSummary.income);
+      setExpenses(txSummary.expenses);
+    }
+  }, [txSummary.income, txSummary.expenses]);
+
 
   const selectedPlan = useMemo(
     () => PLANS.find((p) => p.id === selectedPlanId) ?? PLANS[0],
@@ -544,6 +621,46 @@ export function Investment() {
             Dark · Minimal · Projection-first
           </span>
         </div>
+      </div>
+
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <Card className="border border-white/10 bg-slate-900/60"><CardContent className="p-4"><p className="text-xs text-slate-400">Total Invested</p><p className="mt-1 text-xl font-bold text-slate-100">{formatCurrency(portfolioStats.totalInvested)}</p></CardContent></Card>
+        <Card className="border border-white/10 bg-slate-900/60"><CardContent className="p-4"><p className="text-xs text-slate-400">Current Value</p><p className="mt-1 text-xl font-bold text-cyan-300">{formatCurrency(portfolioStats.currentValue)}</p></CardContent></Card>
+        <Card className="border border-white/10 bg-slate-900/60"><CardContent className="p-4"><p className="text-xs text-slate-400">Profit / Loss</p><p className={cn("mt-1 text-xl font-bold", portfolioStats.profitLoss >= 0 ? "text-emerald-300" : "text-rose-300")}>{portfolioStats.profitLoss >= 0 ? "+" : ""}{formatCurrency(portfolioStats.profitLoss)}</p></CardContent></Card>
+        <Card className="border border-white/10 bg-slate-900/60"><CardContent className="p-4"><p className="text-xs text-slate-400">ROI %</p><p className={cn("mt-1 text-xl font-bold", portfolioStats.roiPct >= 0 ? "text-emerald-300" : "text-rose-300")}>{portfolioStats.roiPct.toFixed(1)}%</p></CardContent></Card>
+        <Card className="border border-white/10 bg-slate-900/60"><CardContent className="p-4"><p className="text-xs text-slate-400">CAGR</p><p className={cn("mt-1 text-xl font-bold", portfolioStats.cagr >= 0 ? "text-emerald-300" : "text-rose-300")}>{portfolioStats.cagr.toFixed(1)}%</p></CardContent></Card>
+      </div>
+
+      <div className="mb-8 grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <Card className="border border-white/10 bg-slate-900/60 shadow-lg shadow-black/20">
+          <CardHeader><CardTitle className="text-slate-50">Monthly Investment Trend</CardTitle><CardDescription className="text-slate-400">Auto-generated from your investment transactions.</CardDescription></CardHeader>
+          <CardContent className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={monthlyInvestmentTrend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                <XAxis dataKey="month" stroke="#94a3b8" />
+                <YAxis stroke="#94a3b8" />
+                <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                <Area dataKey="value" type="monotone" stroke="#22c55e" fill="#22c55e33" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+        <Card className="border border-white/10 bg-slate-900/60 shadow-lg shadow-black/20">
+          <CardHeader><CardTitle className="text-slate-50">Asset Allocation</CardTitle><CardDescription className="text-slate-400">Stocks, Mutual Funds, SIP, Crypto, Gold, FD split.</CardDescription></CardHeader>
+          <CardContent className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={investmentTypeAllocation} dataKey="amount" nameKey="name" outerRadius={90} innerRadius={50}>
+                  {investmentTypeAllocation.map((entry) => (
+                    <Cell key={entry.name} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(v: number, _n, payload: any) => `${formatCurrency(v)} (${payload?.payload?.pct?.toFixed?.(1) ?? "0"}%)`} />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
       </div>
 
       <Card className="border border-white/10 bg-slate-900/60 shadow-lg shadow-black/20 mb-8">
