@@ -13,6 +13,6 @@
     "skipDefaultLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*.ts", "api/**/*.ts", "index.ts"],
+  "include": ["src/**/*.ts", "api/**/*.ts", "types/**/*.d.ts", "index.ts"],
   "exclude": ["node_modules"]
 }

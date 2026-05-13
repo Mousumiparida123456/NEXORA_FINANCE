@@ -9,6 +9,9 @@ import { logger } from "../artifacts/api-server/src/lib/logger";
 
 const app = express();
 
+const firstParam = (value: string | string[] | undefined): string | undefined =>
+  Array.isArray(value) ? value[0] : value;
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({ 
@@ -132,7 +135,8 @@ app.patch(["/api/v1/transactions/:id", "/api/transactions/:id"], async (req, res
   if (!payload) return res.status(401).json({ error: "Unauthorized" });
 
   try {
-    const txId = parseInt(req.params.id);
+    const idParam = firstParam(req.params.id);
+    const txId = Number.parseInt(idParam ?? "", 10);
     if (isNaN(txId)) return res.status(400).json({ error: "Invalid ID" });
 
     const existingTx = await db.query.transactions.findFirst({
@@ -164,7 +168,8 @@ app.delete(["/api/v1/transactions/:id", "/api/transactions/:id"], async (req, re
   if (!payload) return res.status(401).json({ error: "Unauthorized" });
 
   try {
-    const txId = parseInt(req.params.id);
+    const idParam = firstParam(req.params.id);
+    const txId = Number.parseInt(idParam ?? "", 10);
     if (isNaN(txId)) return res.status(400).json({ error: "Invalid ID" });
 
     const existingTx = await db.query.transactions.findFirst({

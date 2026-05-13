@@ -596,7 +596,7 @@ app.get(["/api/v1/transactions", "/api/transactions"], async (req, res) => {
       ...tx,
       id: String(tx.id),
       amount: Number(tx.amount),
-      date: String(tx.timestamp).slice(0, 10),
+      date: tx.timestamp ? new Date(tx.timestamp).toISOString().split('T')[0] : "",
     }));
     res.json(formatted);
   } catch (error) {
@@ -622,7 +622,7 @@ app.post(["/api/v1/transactions", "/api/transactions"], async (req, res) => {
       description,
       timestamp: date ? new Date(date) : new Date()
     }).returning();
-    res.json({ ...newTx, id: String(newTx.id), amount: Number(newTx.amount), date: String(newTx.timestamp).slice(0, 10) });
+    res.json({ ...newTx, id: String(newTx.id), amount: Number(newTx.amount), date: newTx.timestamp ? new Date(newTx.timestamp).toISOString().split('T')[0] : "" });
   } catch (error) {
     console.error("POST transaction error:", error);
     res.status(500).json({ error: "Failed to add transaction" });
@@ -651,7 +651,7 @@ app.patch(["/api/v1/transactions/:id", "/api/transactions/:id"], async (req, res
       ...(date !== undefined && { timestamp: new Date(date) }),
     }).where(eq(transactions.id, txId)).returning();
     console.log("✅ Update response:", updatedTx);
-    res.json({ ...updatedTx, id: String(updatedTx.id), amount: Number(updatedTx.amount), date: String(updatedTx.timestamp).slice(0, 10) });
+    res.json({ ...updatedTx, id: String(updatedTx.id), amount: Number(updatedTx.amount), date: updatedTx.timestamp ? new Date(updatedTx.timestamp).toISOString().split('T')[0] : "" });
   } catch (error) {
     console.error("PATCH transaction error:", error);
     res.status(500).json({ error: "Failed to update transaction" });

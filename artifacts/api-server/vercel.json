@@ -3,16 +3,12 @@
   "env": {
     "NODE_ENV": "production"
   },
-  "installCommand": "npm install",
-  "builds": [
-    {
-      "src": "api/index.ts",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": ["src/**", "api/**"]
-      }
+  "functions": {
+    "api/index.ts": {
+      "runtime": "@vercel/node@3.0.7",
+      "includeFiles": "src/**"
     }
-  ],
+  },
   "rewrites": [
     {
       "source": "/api/v1/:path*",
