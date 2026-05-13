@@ -634,7 +634,7 @@ app.patch(["/api/v1/transactions/:id", "/api/transactions/:id"], async (req, res
   const payload = AuthService.verifyAccessToken(token);
   if (!payload) return res.status(401).json({ error: "Unauthorized" });
   try {
-    const txId = parseInt(req.params.id);
+    const txId = parseInt(req.params.id as string);
     if (isNaN(txId)) return res.status(400).json({ error: "Invalid transaction ID" });
     console.log("✏️ Editing Transaction ID:", txId);
     const existingTx = await db.query.transactions.findFirst({
@@ -663,7 +663,7 @@ app.delete(["/api/v1/transactions/:id", "/api/transactions/:id"], async (req, re
   const payload = AuthService.verifyAccessToken(token);
   if (!payload) return res.status(401).json({ error: "Unauthorized" });
   try {
-    const txId = parseInt(req.params.id);
+    const txId = parseInt(req.params.id as string);
     if (isNaN(txId)) return res.status(400).json({ error: "Invalid transaction ID" });
     const existingTx = await db.query.transactions.findFirst({
       where: sql`id = ${txId} AND account_id IN (SELECT id FROM accounts WHERE user_id = ${payload.userId})`
