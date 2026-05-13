@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { useDashboard } from "@/lib/dashboard-context";
 import { useTransactions } from "@/hooks/useTransactions";
+import { GamificationBadges } from "@/components/dashboard/GamificationBadges";
 
 const container = {
   hidden: { opacity: 0 },
@@ -161,6 +162,9 @@ export function SummaryCards() {
               </svg>
             </div>
           </CardContent>
+          <div className="px-6 pb-6 pt-0">
+            <GamificationBadges />
+          </div>
         </Card>
       </motion.div>
     </motion.div>

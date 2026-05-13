@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import { DashboardProvider } from "@/lib/dashboard-context";
 import { TransactionsProvider } from "@/lib/transactions-context";
 import { AnalyticsStoreProvider } from "@/lib/analytics-store";
+import { CurrencyProvider } from "@/lib/currency-context";
 
 const queryClient = new QueryClient();
 
@@ -216,9 +217,11 @@ function App() {
         <DashboardProvider>
           <TransactionsProvider>
             <AnalyticsStoreProvider>
-              <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-                <Router authStatus={authStatus} />
-              </WouterRouter>
+              <CurrencyProvider>
+                <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                  <Router authStatus={authStatus} />
+                </WouterRouter>
+              </CurrencyProvider>
             </AnalyticsStoreProvider>
           </TransactionsProvider>
         </DashboardProvider>

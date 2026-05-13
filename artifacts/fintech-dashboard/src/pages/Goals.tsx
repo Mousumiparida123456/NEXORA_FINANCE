@@ -6,6 +6,9 @@ import { useDashboard } from "@/lib/dashboard-context";
 import { useTransactions } from "@/hooks/useTransactions";
 import { cn } from "@/lib/utils";
 import { isSameMonth, parseISO, subMonths } from "date-fns";
+import { buildTrajectory, predictNetWorth } from "@/lib/financial-engine/goal-engine";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { motion } from "framer-motion";
 
 type IconKey = "PiggyBank" | "Plane" | "Laptop" | "Home";
 
@@ -166,6 +169,14 @@ export function Goals() {
 
   const activeTheme = theme === "dark";
 
+  const trajectoryData = useMemo(() => {
+    return buildTrajectory(totals.saved, monthlyAutoGoalContribution, 0.08, 3); // 3-year projection
+  }, [totals.saved, monthlyAutoGoalContribution]);
+
+  const netWorthPredictions = useMemo(() => {
+    return predictNetWorth(totals.saved, monthlyAutoGoalContribution, 0.08);
+  }, [totals.saved, monthlyAutoGoalContribution]);
+
   const cardBase = activeTheme
     ? "border-slate-800/70 bg-slate-950 text-slate-100"
     : "border-slate-200 bg-white text-slate-950";
@@ -298,6 +309,67 @@ export function Goals() {
         </CardContent>
       </Card>
 
+      {/* Net Worth Forecasting */}
+      <div className="mb-6 grid gap-4 lg:grid-cols-3">
+        <Card className={cn("col-span-2 border shadow-sm", activeTheme ? "border-slate-800 bg-slate-950" : "border-slate-200 bg-white")}>
+          <CardHeader className="pb-3">
+            <CardTitle className={cn("text-lg font-semibold", activeTheme ? "text-slate-100" : "text-slate-950")}>Savings Trajectory</CardTitle>
+            <p className={cn("text-sm", activeTheme ? "text-slate-400" : "text-slate-600")}>3-year projection combining current savings, monthly contribution, and 8% assumed annual return.</p>
+          </CardHeader>
+          <CardContent className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={trajectoryData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorProjected" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorMattress" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#64748b" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#64748b" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={activeTheme ? "#334155" : "#e2e8f0"} />
+                <XAxis dataKey="date" stroke={activeTheme ? "#64748b" : "#94a3b8"} tick={{ fill: activeTheme ? "#94a3b8" : "#64748b" }} tickMargin={10} minTickGap={30} />
+                <YAxis tickFormatter={(val) => formatCurrency(val)} stroke={activeTheme ? "#64748b" : "#94a3b8"} tick={{ fill: activeTheme ? "#94a3b8" : "#64748b" }} width={80} />
+                <Tooltip 
+                  formatter={(value: number) => formatCurrency(value)}
+                  contentStyle={{ backgroundColor: activeTheme ? "#0f172a" : "#fff", borderColor: activeTheme ? "#334155" : "#e2e8f0", borderRadius: 8 }}
+                />
+                <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: '12px', color: activeTheme ? "#94a3b8" : "#64748b" }}/>
+                <Area type="monotone" dataKey="projectedValue" name="With Compounding (8%)" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorProjected)" />
+                <Area type="monotone" dataKey="mattressValue" name="Without Compounding" stroke="#64748b" strokeWidth={2} strokeDasharray="5 5" fillOpacity={1} fill="url(#colorMattress)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* 1/3/5 Year Predictions */}
+        <div className="flex flex-col gap-4">
+          {[
+            { label: "1-Year Forecast", value: netWorthPredictions.oneYear, delay: 0.1 },
+            { label: "3-Year Forecast", value: netWorthPredictions.threeYear, delay: 0.2 },
+            { label: "5-Year Forecast", value: netWorthPredictions.fiveYear, delay: 0.3 },
+          ].map((item, idx) => (
+            <motion.div
+              key={item.label}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: item.delay, duration: 0.5 }}
+              className="h-full"
+            >
+              <Card className={cn("border shadow-sm h-full flex flex-col justify-center", activeTheme ? "border-slate-800 bg-slate-950" : "border-slate-200 bg-white")}>
+                <CardContent className="p-6">
+                  <p className={cn("text-xs font-semibold uppercase tracking-wider mb-2", activeTheme ? "text-slate-400" : "text-slate-500")}>
+                    {item.label}
+                  </p>
+                  <p className="text-2xl font-bold text-emerald-500">{formatCurrency(item.value)}</p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      </div>
       <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
         {goals.map((goal) => {
           const autoSavedPreview = goal.saved + monthlyAutoGoalContribution;

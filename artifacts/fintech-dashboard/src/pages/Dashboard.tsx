@@ -7,6 +7,9 @@ import { useDashboard } from "@/lib/dashboard-context";
 import { AIInsights } from "@/components/dashboard/AIInsights";
 import { ForecastChart } from "@/components/dashboard/ForecastChart";
 import { SecurityAudit } from "@/components/dashboard/SecurityAudit";
+import { Download, FileText } from "lucide-react";
+import { exportDashboardToPDF } from "@/lib/pdf-export";
+import { useToast } from "@/hooks/use-toast";
 
 type ApiStatus = "checking" | "connected" | "error" | "missing";
 
@@ -18,6 +21,20 @@ export function Dashboard() {
   const [apiMessage, setApiMessage] = useState(
     apiBaseUrl ? "Checking backend connection..." : "Set VITE_API_BASE_URL in Vercel.",
   );
+  const [isExporting, setIsExporting] = useState(false);
+  const { toast } = useToast();
+
+  const handleExportPDF = async () => {
+    setIsExporting(true);
+    toast({ title: "Generating PDF...", description: "Please wait while we prepare your report." });
+    const success = await exportDashboardToPDF("dashboard-content", "Nexora_Monthly_Report.pdf");
+    setIsExporting(false);
+    if (success) {
+      toast({ title: "Success", description: "Report downloaded successfully!" });
+    } else {
+      toast({ title: "Error", description: "Failed to generate report.", variant: "destructive" });
+    }
+  };
 
   useEffect(() => {
     if (!apiBaseUrl) return;
@@ -58,11 +75,21 @@ export function Dashboard() {
         : "border-rose-500/30 bg-rose-500/10 text-rose-300";
 
   return (
-    <main className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-16 max-w-6xl">
+    <main id="dashboard-content" className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-16 max-w-6xl">
       <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className={theme === "dark" ? "text-3xl font-bold text-slate-50 tracking-tight" : "text-3xl font-bold text-slate-950 tracking-tight"}>Dashboard</h1>
-          <p className={theme === "dark" ? "mt-1.5 font-medium text-slate-400" : "mt-1.5 font-medium text-slate-500"}>Here's your financial overview for October 2024.</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className={theme === "dark" ? "text-3xl font-bold text-slate-50 tracking-tight" : "text-3xl font-bold text-slate-950 tracking-tight"}>Dashboard</h1>
+            <p className={theme === "dark" ? "mt-1.5 font-medium text-slate-400" : "mt-1.5 font-medium text-slate-500"}>Here's your financial overview for October 2024.</p>
+          </div>
+          <button
+            onClick={handleExportPDF}
+            disabled={isExporting}
+            className="hidden sm:flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-violet-500/20 hover:bg-violet-500 disabled:opacity-50 transition-all"
+          >
+            {isExporting ? <FileText className="h-4 w-4 animate-pulse" /> : <Download className="h-4 w-4" />}
+            {isExporting ? "Exporting..." : "Download Report"}
+          </button>
         </div>
         <div className={`rounded-2xl border px-4 py-3 text-sm shadow-sm ${apiBadgeClassName}`}>
           <p className="font-semibold">

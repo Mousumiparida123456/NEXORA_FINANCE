@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { AddTransactionForm } from "@/components/transactions/AddTransactionForm";
 import { TransactionList } from "@/components/transactions/TransactionList";
 import { EditTransactionModal } from "@/components/transactions/EditTransactionModal";
+import { CSVUploader } from "@/components/transactions/CSVUploader";
 import { type Transaction } from "@/components/transactions/transactionData";
 import { useDashboard } from "@/lib/dashboard-context";
 import { cn } from "@/lib/utils";
@@ -55,6 +56,29 @@ export function Transactions() {
       title: "Transaction added",
       description: "Your record has been saved successfully.",
     });
+  }
+
+  async function handleImport(payload: any[]) {
+    try {
+      // In a real app we'd want a bulk insert endpoint. Here we'll map promises for simplicity as requested.
+      await Promise.all(payload.map(tx => addTransaction({
+        amount: tx.amount,
+        category: tx.category,
+        type: tx.type as "income" | "expense",
+        description: tx.description,
+        date: tx.date,
+      })));
+      toast({
+        title: "Import Successful",
+        description: `Imported ${payload.length} transactions.`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Import Failed",
+        description: err?.message || "Could not complete import.",
+        variant: "destructive",
+      });
+    }
   }
 
   async function handleUpdate(id: string, tx: Omit<Transaction, "id">) {
@@ -120,6 +144,8 @@ export function Transactions() {
           <p className="mt-0.5 text-xs text-indigo-300/90">{healthScoreLabel}</p>
         </div>
       </div>
+
+      <CSVUploader onImport={handleImport} />
 
       <motion.div
         initial={{ opacity: 0, y: 16 }}

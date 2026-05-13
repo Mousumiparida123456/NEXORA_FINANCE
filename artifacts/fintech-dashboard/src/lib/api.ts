@@ -174,6 +174,10 @@ class ApiClient {
   async getAIInsights(): Promise<{ advice: string }> {
     return this.post<{ advice: string }>("/ai/insights", {});
   }
+
+  async askAIAssistant(data: { message: string; context: any }): Promise<{ advice: string }> {
+    return this.post<{ advice: string }>("/ai/insights", data);
+  }
 }
 
 export const api = new ApiClient();

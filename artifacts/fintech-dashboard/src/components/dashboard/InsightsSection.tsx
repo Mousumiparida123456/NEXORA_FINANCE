@@ -41,6 +41,7 @@ import {
   generateSmartInsights, 
   calculateNextMilestone 
 } from "@/lib/insights-engine";
+import { GamificationBadges } from "./GamificationBadges";
 
 export function InsightsSection() {
   const { formatCurrency, formatCompactCurrency, theme } = useDashboard();
@@ -257,6 +258,10 @@ export function InsightsSection() {
                     <div className="mt-2 h-1 w-full rounded-full bg-slate-200 dark:bg-slate-800">
                       <div className="h-1 rounded-full bg-emerald-500" style={{ width: `${nextMilestone.progressPct}%` }} />
                     </div>
+                  </div>
+                  <div className="rounded-xl bg-white p-3 shadow-sm dark:bg-slate-900 mt-4">
+                    <p className="text-[10px] font-bold text-slate-400 mb-2">ACHIEVEMENTS</p>
+                    <GamificationBadges />
                   </div>
                 </div>
               </div>

@@ -402,6 +402,8 @@ function PreferencesSection() {
   const { user, setUser } = useDashboard();
   const { toast } = useToast();
   const [risk, setRisk]         = useState<RiskLevel>((user?.riskLevel as RiskLevel) || "medium");
+  const [budgetLimit, setBudgetLimit] = useState<number>(user?.preferences?.budgetLimit ?? 50000);
+  const [categoryBudgets, setCategoryBudgets] = useState<Record<string, number>>(user?.preferences?.categoryBudgets ?? { Housing: 15000, Food: 10000, Transport: 5000 });
   const [savingsGoal, setSavings] = useState<number>(user?.savingsGoal ?? 15000);
   const [style, setStyle]       = useState<InvestStyle>((user?.investStyle as InvestStyle) || "balanced");
   const [saved, setSaved]       = useState(false);
@@ -423,6 +425,8 @@ function PreferencesSection() {
         const prefs = data?.preferences || {};
         if (!mounted) return;
         if (prefs.riskLevel) setRisk(prefs.riskLevel as RiskLevel);
+        if (typeof prefs.budgetLimit === "number") setBudgetLimit(prefs.budgetLimit);
+        if (prefs.categoryBudgets) setCategoryBudgets(prefs.categoryBudgets);
         if (typeof prefs.savingsGoal === "number") setSavings(prefs.savingsGoal);
         if (prefs.investStyle) setStyle(prefs.investStyle as InvestStyle);
       } catch {
@@ -446,7 +450,7 @@ function PreferencesSection() {
       });
       await api.upsertUserData({
         ...(user?.preferences || {}),
-        preferences: { riskLevel: risk, savingsGoal, investStyle: style },
+        preferences: { riskLevel: risk, savingsGoal, budgetLimit, categoryBudgets, investStyle: style },
       });
       setUser(updatedUser);
       setSaved(true);
@@ -524,6 +528,40 @@ function PreferencesSection() {
             A common rule is the 50/30/20 method — save at least 20% of your income. On your income, that would be
             <span className="text-emerald-400 font-semibold"> ₹2,490/month</span>.
           </p>
+        </div>
+      </Card>
+
+      {/* Category Budget Limits */}
+      <Card>
+        <SectionTitle icon={Target} title="Category Budgets" subtitle="Set spending limits for your top categories" />
+        <div className="space-y-4">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm font-semibold text-slate-200">Overall Monthly Budget</span>
+            <span className="text-xl font-bold text-emerald-400">{formatINR.format(budgetLimit)}</span>
+          </div>
+          <input
+            type="range"
+            min={10000}
+            max={200000}
+            step={5000}
+            value={budgetLimit}
+            onChange={(e) => setBudgetLimit(Number(e.target.value))}
+            className="w-full accent-emerald-500 h-2 rounded-full cursor-pointer mb-6"
+          />
+          <div className="space-y-3">
+            <Label>Category Allocation (Optional)</Label>
+            {Object.entries(categoryBudgets).map(([category, amount]) => (
+              <div key={category} className="flex items-center gap-3">
+                <span className="w-24 text-sm font-medium text-slate-300">{category}</span>
+                <input
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setCategoryBudgets(curr => ({ ...curr, [category]: Number(e.target.value) }))}
+                  className="flex-1 rounded-xl border border-slate-700/60 bg-slate-800/50 px-3 py-2 text-sm text-slate-100 focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                />
+              </div>
+            ))}
+          </div>
         </div>
       </Card>
 

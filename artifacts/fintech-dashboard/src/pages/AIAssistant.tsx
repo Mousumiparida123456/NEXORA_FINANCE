@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Sparkles, User, RotateCcw, Zap } from "lucide-react";
 import { useTransactions } from "@/hooks/useTransactions";
+import { api } from "@/lib/api";
 
 // ─── AI Response Engine ────────────────────────────────────────────────────────
 
@@ -214,19 +215,37 @@ export function AIAssistant() {
     setInput("");
     setIsTyping(true);
 
-    // Simulate AI thinking delay
-    const delay = 1000 + Math.random() * 800;
-    setTimeout(() => {
-      const aiText = getAIResponse(trimmed, financeContext());
+    // Try calling the API first
+    try {
+      const response = await api.askAIAssistant({
+        message: trimmed,
+        context: financeContext()
+      });
+      
       const aiMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: "ai",
-        text: aiText,
+        text: response.advice,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, aiMsg]);
       setIsTyping(false);
-    }, delay);
+    } catch (error) {
+      // Fallback to local logic if the API fails
+      console.warn("API failed, falling back to local AI engine.", error);
+      const delay = 1000 + Math.random() * 800;
+      setTimeout(() => {
+        const aiText = getAIResponse(trimmed, financeContext());
+        const aiMsg: Message = {
+          id: (Date.now() + 1).toString(),
+          role: "ai",
+          text: aiText,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, aiMsg]);
+        setIsTyping(false);
+      }, delay);
+    }
   }, [isTyping, financeContext]);
 
   function handleKeyDown(e: React.KeyboardEvent) {
