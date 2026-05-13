@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Edit3, Home, Laptop, PiggyBank, Plane, Plus, Trash2 } from "lucide-react";
+import { Edit3, Home, Laptop, PiggyBank, Plane, Plus, Trash2, TrendingUp, TrendingDown, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDashboard } from "@/lib/dashboard-context";
+import { useTransactions } from "@/hooks/useTransactions";
 import { cn } from "@/lib/utils";
+import { isSameMonth, parseISO, subMonths } from "date-fns";
 
 type IconKey = "PiggyBank" | "Plane" | "Laptop" | "Home";
 
@@ -85,8 +87,52 @@ function formatGoalAmount(value: number, formatCurrency: (valueInINR: number) =>
   return formatCurrency(value);
 }
 
+function monthDiffFromNow(deadline: string) {
+  const now = new Date();
+  const target = new Date(deadline);
+  if (Number.isNaN(target.getTime())) return 0;
+  const months = (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth());
+  return Math.max(0, months);
+}
+
+type GoalHealth = "On Track" | "Achievable" | "Delayed" | "Risky";
+
+function getGoalHealth(projectedMonths: number, monthsLeft: number): GoalHealth {
+  if (!Number.isFinite(projectedMonths)) return "Risky";
+  if (projectedMonths <= monthsLeft * 0.9) return "On Track";
+  if (projectedMonths <= monthsLeft * 1.1) return "Achievable";
+  if (projectedMonths <= monthsLeft * 1.5) return "Delayed";
+  return "Risky";
+}
+
 export function Goals() {
   const { theme, formatCurrency } = useDashboard();
+  const { transactions } = useTransactions();
+  const [autoAllocationPct, setAutoAllocationPct] = useState(20);
+
+  const liveSummary = useMemo(() => {
+    const income = transactions.filter(t => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
+    const expenses = transactions.filter(t => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
+    return { income, expenses, net: income - expenses };
+  }, [transactions]);
+
+  const avgMonthlyNetSavings = useMemo(() => {
+    const now = new Date();
+    const buckets = Array.from({ length: 3 }, (_, i) => subMonths(now, i)).map((d) => {
+      const monthTx = transactions.filter((tx) => tx.date && isSameMonth(parseISO(tx.date), d));
+      const income = monthTx.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
+      const expenses = monthTx.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
+      return income - expenses;
+    });
+    const positive = buckets.map((v) => Math.max(0, v));
+    const avg = positive.reduce((s, v) => s + v, 0) / Math.max(positive.length, 1);
+    return Math.round(avg);
+  }, [transactions]);
+
+  const monthlyAutoGoalContribution = useMemo(() => {
+    return Math.round((avgMonthlyNetSavings * autoAllocationPct) / 100);
+  }, [avgMonthlyNetSavings, autoAllocationPct]);
+
   const [goals, setGoals] = useState<Goal[]>(() => {
     if (typeof window === "undefined") return defaultGoals;
     try {
@@ -195,11 +241,74 @@ export function Goals() {
         </Button>
       </div>
 
+      {/* Live Financial Summary from Real Transactions */}
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Card className={cn("border shadow-sm", activeTheme ? "border-slate-800 bg-slate-950" : "border-slate-200 bg-white")}>
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-1">
+              <TrendingUp className="h-4 w-4 text-emerald-500" />
+              <p className={cn("text-xs font-semibold uppercase tracking-wider", activeTheme ? "text-slate-400" : "text-slate-500")}>Total Income</p>
+            </div>
+            <p className="text-xl font-bold text-emerald-500">{formatCurrency(liveSummary.income)}</p>
+          </CardContent>
+        </Card>
+        <Card className={cn("border shadow-sm", activeTheme ? "border-slate-800 bg-slate-950" : "border-slate-200 bg-white")}>
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-1">
+              <TrendingDown className="h-4 w-4 text-rose-500" />
+              <p className={cn("text-xs font-semibold uppercase tracking-wider", activeTheme ? "text-slate-400" : "text-slate-500")}>Total Expenses</p>
+            </div>
+            <p className="text-xl font-bold text-rose-500">{formatCurrency(liveSummary.expenses)}</p>
+          </CardContent>
+        </Card>
+        <Card className={cn("border shadow-sm", activeTheme ? "border-emerald-900/30 bg-slate-950" : "border-emerald-100 bg-white")}>
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-1">
+              <Wallet className="h-4 w-4 text-blue-500" />
+              <p className={cn("text-xs font-semibold uppercase tracking-wider", activeTheme ? "text-slate-400" : "text-slate-500")}>Net Savings</p>
+            </div>
+            <p className={cn("text-xl font-bold", liveSummary.net >= 0 ? "text-blue-500" : "text-rose-500")}>{formatCurrency(liveSummary.net)}</p>
+            <p className={cn("text-xs mt-1", activeTheme ? "text-slate-500" : "text-slate-400")}>Available to allocate to goals</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className={cn("mb-6 border shadow-sm", activeTheme ? "border-slate-800 bg-slate-950" : "border-slate-200 bg-white")}>
+        <CardContent className="p-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className={cn("text-xs font-semibold uppercase tracking-wider", activeTheme ? "text-slate-400" : "text-slate-500")}>Auto Savings Allocation</p>
+              <p className={cn("mt-1 text-sm", activeTheme ? "text-slate-300" : "text-slate-700")}>
+                {autoAllocationPct}% of your average monthly savings auto-applied for projections.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min={5}
+                max={50}
+                value={autoAllocationPct}
+                onChange={(e) => setAutoAllocationPct(Number(e.target.value))}
+                className="w-40"
+              />
+              <span className={cn("text-sm font-semibold", activeTheme ? "text-slate-100" : "text-slate-900")}>{autoAllocationPct}%</span>
+              <span className={cn("text-sm", activeTheme ? "text-emerald-400" : "text-emerald-600")}>{formatCurrency(monthlyAutoGoalContribution)}/mo</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
         {goals.map((goal) => {
-          const percent = Math.min(100, Math.round((goal.saved / Math.max(1, goal.target)) * 100));
+          const autoSavedPreview = goal.saved + monthlyAutoGoalContribution;
+          const effectiveSaved = Math.min(goal.target, Math.max(goal.saved, autoSavedPreview));
+          const percent = Math.min(100, Math.round((effectiveSaved / Math.max(1, goal.target)) * 100));
           const daysLeft = getDaysLeft(goal.deadline);
-          const remaining = Math.max(0, goal.target - goal.saved);
+          const monthsLeft = monthDiffFromNow(goal.deadline);
+          const remaining = Math.max(0, goal.target - effectiveSaved);
+          const projectedMonths = monthlyAutoGoalContribution > 0 ? remaining / monthlyAutoGoalContribution : Number.POSITIVE_INFINITY;
+          const projectedMonthsLabel = Number.isFinite(projectedMonths) ? `${projectedMonths.toFixed(1)} months` : "Not enough savings rate";
+          const health = getGoalHealth(projectedMonths, Math.max(1, monthsLeft));
           const Icon = ICONS[goal.icon] ?? PiggyBank;
 
           return (
@@ -225,11 +334,12 @@ export function Goals() {
               </CardHeader>
 
               <CardContent className="space-y-4 py-0">
-                <div className="space-y-3 rounded-3xl border p-4" style={{ borderColor: activeTheme ? "rgba(148,163,184,0.18)" : "rgba(226,232,240,1)" }}>
+                  <div className="space-y-3 rounded-3xl border p-4" style={{ borderColor: activeTheme ? "rgba(148,163,184,0.18)" : "rgba(226,232,240,1)" }}>
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <p className={cn("text-xs uppercase tracking-[0.24em]", activeTheme ? "text-slate-500" : "text-slate-400")}>Saved</p>
                       <p className={cn("mt-1 text-lg font-semibold", activeTheme ? "text-slate-100" : "text-slate-950")}>{formatGoalAmount(goal.saved, formatCurrency)}</p>
+                      <p className={cn("mt-1 text-xs", activeTheme ? "text-slate-400" : "text-slate-500")}>+ {formatCurrency(monthlyAutoGoalContribution)} projected next month</p>
                     </div>
                     <div className="text-right">
                       <p className={cn("text-xs uppercase tracking-[0.24em]", activeTheme ? "text-slate-500" : "text-slate-400")}>Target</p>
@@ -247,6 +357,19 @@ export function Goals() {
                   <div className="flex items-center justify-between text-sm font-medium">
                     <span className={cn(activeTheme ? "text-slate-400" : "text-slate-500")}>Remaining: {formatGoalAmount(remaining, formatCurrency)}</span>
                     <span className={cn(activeTheme ? "text-slate-100" : "text-slate-900")}>{percent}%</span>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <div className={cn("rounded-2xl px-3 py-2 text-xs", activeTheme ? "bg-slate-900/80 text-slate-300" : "bg-slate-50 text-slate-700")}>
+                      Estimated completion: <span className="font-semibold">{projectedMonthsLabel}</span>
+                    </div>
+                    <div className={cn("rounded-2xl px-3 py-2 text-xs font-semibold",
+                      health === "On Track" ? "bg-emerald-500/10 text-emerald-500" :
+                      health === "Achievable" ? "bg-blue-500/10 text-blue-500" :
+                      health === "Delayed" ? "bg-amber-500/10 text-amber-500" :
+                      "bg-rose-500/10 text-rose-500"
+                    )}>
+                      Goal Health: {health}
+                    </div>
                   </div>
                 </div>
 
