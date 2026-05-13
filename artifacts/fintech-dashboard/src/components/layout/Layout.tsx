@@ -1,4 +1,3 @@
-import { useLocation } from "wouter";
 import { Sidebar } from "./Sidebar";
 import { MobileNav } from "./MobileNav";
 import { Topbar } from "./Topbar";
@@ -29,16 +28,18 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function Layout({ children }: { children: React.ReactNode }) {
-  const [location] = useLocation();
-  const isAuthRoute = location === "/login" || location.startsWith("/login/");
-
-  if (isAuthRoute) {
+export function Layout({
+  children,
+  showShell = false,
+}: {
+  children: React.ReactNode;
+  showShell?: boolean;
+}) {
+  if (!showShell) {
+    // Auth pages and loading states: full-page dark background, no sidebar
     return (
-      <div className="min-h-screen supports-[height:100dvh]:min-h-dvh bg-[#0f172a] text-slate-50 font-sans selection:bg-emerald-500/30 selection:text-emerald-200">
-        <div className="min-h-screen supports-[height:100dvh]:min-h-dvh">
-          {children}
-        </div>
+      <div className="min-h-screen supports-[height:100dvh]:min-h-dvh bg-[#060c20] text-slate-50 font-sans">
+        {children}
       </div>
     );
   }

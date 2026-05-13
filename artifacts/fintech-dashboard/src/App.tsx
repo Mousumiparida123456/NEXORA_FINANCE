@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useState } from "react";
-import { Switch, Route, Redirect, Router as WouterRouter } from "wouter";
+import { Switch, Route, Redirect, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -69,6 +69,15 @@ const NotFound = lazy(() => import("@/pages/not-found"));
 type AuthStatus = "checking" | "authenticated" | "unauthenticated";
 const LOCAL_PREVIEW_AUTH_KEY = "nexora.local-preview-auth";
 
+const FullPageSpinner = () => (
+  <div className="flex min-h-screen items-center justify-center bg-[#060c20]">
+    <div className="flex flex-col items-center gap-4">
+      <div className="h-10 w-10 rounded-full border-4 border-emerald-500/30 border-t-emerald-500 animate-spin" />
+      <p className="text-sm font-medium text-slate-400">Verifying secure session...</p>
+    </div>
+  </div>
+);
+
 function ProtectedRoute({
   component: Component,
   authStatus,
@@ -76,23 +85,25 @@ function ProtectedRoute({
   component: React.ComponentType;
   authStatus: AuthStatus;
 }) {
-  if (authStatus === "checking") {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center text-sm font-medium text-slate-400">
-        Verifying secure session...
-      </div>
-    );
-  }
-
+  if (authStatus === "checking") return <FullPageSpinner />;
   return authStatus === "authenticated" ? <Component /> : <Redirect to="/login" />;
 }
 
 function Router({ authStatus }: { authStatus: AuthStatus }) {
+  const [location] = useLocation();
+
+  const isAuthRoute =
+    location === "/" ||
+    location === "/login" ||
+    location.startsWith("/forgot-password") ||
+    location.startsWith("/reset-password");
+
+  // Only show the sidebar/shell when user is authenticated AND on a protected route
+  const showShell = authStatus === "authenticated" && !isAuthRoute;
+
   const loginEntry =
     authStatus === "checking" ? (
-      <div className="flex min-h-[40vh] items-center justify-center text-sm font-medium text-slate-400">
-        Verifying secure session...
-      </div>
+      <FullPageSpinner />
     ) : authStatus === "authenticated" ? (
       <Redirect to="/dashboard" />
     ) : (
@@ -100,7 +111,7 @@ function Router({ authStatus }: { authStatus: AuthStatus }) {
     );
 
   return (
-    <Layout>
+    <Layout showShell={showShell}>
       <Suspense
         fallback={
           <div className="flex min-h-[40vh] items-center justify-center text-sm font-medium text-slate-400">
@@ -203,7 +214,7 @@ function App() {
       <TooltipProvider>
         <DashboardProvider>
           <TransactionsProvider>
-            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}> 
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
               <Router authStatus={authStatus} />
             </WouterRouter>
           </TransactionsProvider>
