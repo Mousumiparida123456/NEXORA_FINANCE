@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout/Layout";
 import { api } from "@/lib/api";
 import { DashboardProvider } from "@/lib/dashboard-context";
+import { TransactionsProvider } from "@/lib/transactions-context";
 
 const queryClient = new QueryClient();
 
@@ -154,7 +155,6 @@ function App() {
     const oauthToken = url.searchParams.get("token");
     const oauthError = url.searchParams.get("error");
 
-    // Only treat ?token= as OAuth login token on login routes.
     if (oauthToken && isLoginRoute) {
       api.setAccessToken(oauthToken);
       url.searchParams.delete("token");
@@ -202,9 +202,11 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <DashboardProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}> 
-            <Router authStatus={authStatus} />
-          </WouterRouter>
+          <TransactionsProvider>
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}> 
+              <Router authStatus={authStatus} />
+            </WouterRouter>
+          </TransactionsProvider>
         </DashboardProvider>
         <Toaster />
       </TooltipProvider>

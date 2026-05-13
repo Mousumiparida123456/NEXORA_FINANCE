@@ -25,6 +25,34 @@ export function SummaryCards() {
   const { formatCurrency } = useDashboard();
   const { summary } = useTransactions();
 
+  const healthScore = summary.healthScore || 0;
+  
+  let healthStatus = "Poor";
+  let healthColor = "text-rose-500";
+  let healthBg = "bg-rose-500/10";
+  let healthRing = "ring-rose-500/20";
+  let healthShadow = "rgba(244,63,94,0.5)";
+  
+  if (healthScore >= 90) {
+    healthStatus = "Excellent";
+    healthColor = "text-emerald-500";
+    healthBg = "bg-emerald-500/10";
+    healthRing = "ring-emerald-500/20";
+    healthShadow = "rgba(16,185,129,0.5)";
+  } else if (healthScore >= 70) {
+    healthStatus = "Good";
+    healthColor = "text-teal-500";
+    healthBg = "bg-teal-500/10";
+    healthRing = "ring-teal-500/20";
+    healthShadow = "rgba(20,184,166,0.5)";
+  } else if (healthScore >= 50) {
+    healthStatus = "Average";
+    healthColor = "text-amber-500";
+    healthBg = "bg-amber-500/10";
+    healthRing = "ring-amber-500/20";
+    healthShadow = "rgba(245,158,11,0.5)";
+  }
+
   return (
     <motion.div 
       variants={container}
@@ -100,12 +128,12 @@ export function SummaryCards() {
           <CardContent className="flex items-center justify-between">
             <div>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-3xl font-bold tracking-tight text-slate-950 dark:text-slate-50">74</span>
+                <span className="text-3xl font-bold tracking-tight text-slate-950 dark:text-slate-50">{healthScore}</span>
                 <span className="text-sm font-medium text-slate-500 dark:text-slate-400">/100</span>
               </div>
               <div className="mt-1 flex items-center gap-2">
-                <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-500 ring-1 ring-inset ring-amber-500/20 uppercase tracking-wider">
-                  Average
+                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${healthBg} ${healthColor} ring-1 ring-inset ${healthRing}`}>
+                  {healthStatus}
                 </span>
               </div>
             </div>
@@ -121,8 +149,9 @@ export function SummaryCards() {
                   fill="none"
                 />
                 <path
-                  className="text-amber-500 drop-shadow-[0_0_3px_rgba(245,158,11,0.5)] transition-all duration-1000 ease-out"
-                  strokeDasharray="74, 100"
+                  className={`transition-all duration-1000 ease-out ${healthColor}`}
+                  style={{ filter: `drop-shadow(0 0 3px ${healthShadow})` }}
+                  strokeDasharray={`${healthScore}, 100`}
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                   stroke="currentColor"
                   strokeWidth="3.5"

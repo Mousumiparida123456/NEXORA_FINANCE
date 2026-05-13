@@ -4,32 +4,8 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDashboard } from "@/lib/dashboard-context";
+import { useTransactions } from "@/hooks/useTransactions";
 import { cn } from "@/lib/utils";
-
-const lineData = [
-  { name: "Jan", income: 8200, expenses: 6100 },
-  { name: "Feb", income: 9100, expenses: 6800 },
-  { name: "Mar", income: 8800, expenses: 7200 },
-  { name: "Apr", income: 10200, expenses: 6900 },
-  { name: "May", income: 9800, expenses: 7500 },
-  { name: "Jun", income: 11500, expenses: 7100 },
-  { name: "Jul", income: 10800, expenses: 7800 },
-  { name: "Aug", income: 12000, expenses: 7200 },
-  { name: "Sep", income: 11200, expenses: 8100 },
-  { name: "Oct", income: 12450, expenses: 7890 },
-  { name: "Nov", income: 11800, expenses: 7600 },
-  { name: "Dec", income: 12800, expenses: 8200 },
-];
-
-const pieData = [
-  { name: "Housing", value: 32, color: "#3b82f6" },
-  { name: "Food", value: 22, color: "#10b981" },
-  { name: "Transport", value: 15, color: "#f59e0b" },
-  { name: "Entertainment", value: 12, color: "#8b5cf6" },
-  { name: "Health", value: 8, color: "#ec4899" },
-  { name: "Shopping", value: 7, color: "#06b6d4" },
-  { name: "Other", value: 4, color: "#64748b" },
-];
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   const { formatCurrency, theme } = useDashboard();
@@ -57,6 +33,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 function DonutChart() {
   const { theme } = useDashboard();
+  const { expenseBreakdown, summary } = useTransactions();
   const size = 200;
   const cx = size / 2;
   const cy = size / 2;
@@ -67,13 +44,13 @@ function DonutChart() {
   const circumference = 2 * Math.PI * r;
 
   let cumulative = 0;
-  const total = pieData.reduce((s, d) => s + d.value, 0);
+  const total = expenseBreakdown.reduce((s, d) => s + d.amount, 0);
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      {pieData.map((item) => {
-        const pct = item.value / total;
-        const dash = pct * circumference - 2;
+      {expenseBreakdown.map((item) => {
+        const pct = total > 0 ? item.amount / total : 0;
+        const dash = pct * circumference - (pct < 1 ? 2 : 0);
         const offset = -cumulative * circumference;
         cumulative += pct;
         return (
@@ -92,16 +69,17 @@ function DonutChart() {
           />
         );
       })}
-      <text x={cx} y={cy - 8} textAnchor="middle" fill={theme === "dark" ? "#e2e8f0" : "#1e293b"} fontSize="22" fontWeight="700">74%</text>
-      <text x={cx} y={cy + 14} textAnchor="middle" fill={theme === "dark" ? "#64748b" : "#64748b"} fontSize="11">of budget</text>
+      <text x={cx} y={cy - 8} textAnchor="middle" fill={theme === "dark" ? "#e2e8f0" : "#1e293b"} fontSize="22" fontWeight="700">{summary.healthScore}%</text>
+      <text x={cx} y={cy + 14} textAnchor="middle" fill={theme === "dark" ? "#64748b" : "#64748b"} fontSize="11">health score</text>
     </svg>
   );
 }
 
 export function ChartsSection() {
   const { convertFromINR, formatCompactCurrency, theme } = useDashboard();
+  const { monthlyChartData, expenseBreakdown } = useTransactions();
 
-  const chartData = lineData.map((row) => ({
+  const chartData = monthlyChartData.map((row) => ({
     ...row,
     income: convertFromINR(row.income),
     expenses: convertFromINR(row.expenses),
@@ -200,7 +178,10 @@ export function ChartsSection() {
             
             <div className={cn("w-full mt-3 rounded-xl p-3 border", theme === "dark" ? "bg-slate-900/40 border-slate-800/50" : "bg-slate-50 border-slate-200")}>
               <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-xs">
-                {pieData.map((item) => (
+                {expenseBreakdown.length === 0 && (
+                  <div className="col-span-2 text-center text-slate-500 py-2">No expenses recorded yet.</div>
+                )}
+                {expenseBreakdown.map((item) => (
                   <div key={item.name} className="flex items-center gap-2">
                     <div className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
                     <span className={cn("truncate flex-1 font-medium", theme === "dark" ? "text-slate-400" : "text-slate-600")}>{item.name}</span>
