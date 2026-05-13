@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, R
 import { Transaction, TransactionInput, Category, TransactionType, MOCK_TRANSACTIONS } from "@/components/transactions/transactionData";
 import { api } from "@/lib/api";
 import { MonthlyData, ExpenseBreakdown, generateMonthlyChartData, generateExpenseBreakdown, calculateFinancialHealth } from "./financial-analytics";
+import { subscribeToTransactionsRealtime } from "@/lib/supabase-realtime-bridge";
 
 export interface FinancialSummary {
   totalIncome: number;
@@ -36,6 +37,7 @@ export interface TransactionsContextState {
 }
 
 const TransactionsContext = createContext<TransactionsContextState | undefined>(undefined);
+const TRANSACTION_SYNC_EVENT = "nexora:transactions:changed";
 
 export function TransactionsProvider({ children }: { children: ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -89,6 +91,7 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
         amount: Number(created.amount)
       };
       setTransactions((prev) => [mappedCreated, ...prev]);
+      window.dispatchEvent(new CustomEvent(TRANSACTION_SYNC_EVENT));
     } catch (err: any) {
       setError(err?.message || "Failed to add transaction.");
       throw err;
@@ -109,6 +112,7 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
         amount: Number(updated.amount)
       };
       setTransactions((prev) => prev.map((tx) => (tx.id === String(id) ? mappedUpdated : tx)));
+      window.dispatchEvent(new CustomEvent(TRANSACTION_SYNC_EVENT));
     } catch (err: any) {
       setError(err?.message || "Failed to update transaction.");
       throw err;
@@ -123,6 +127,7 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
     try {
       await api.delete(`/transactions/${id}`);
       setTransactions((prev) => prev.filter((tx) => tx.id !== String(id)));
+      window.dispatchEvent(new CustomEvent(TRANSACTION_SYNC_EVENT));
     } catch (err: any) {
       setError(err?.message || "Failed to delete transaction.");
       throw err;
@@ -176,6 +181,29 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
   // Initial fetch
   useEffect(() => {
     void refreshTransactions();
+  }, [refreshTransactions]);
+
+  // Centralized auto-sync: refresh on focus, visibility, interval, and supabase realtime.
+  useEffect(() => {
+    const onFocus = () => { void refreshTransactions(); };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") void refreshTransactions();
+    };
+    const onSync = () => { void refreshTransactions(); };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener(TRANSACTION_SYNC_EVENT, onSync);
+    const id = window.setInterval(() => { void refreshTransactions(); }, 20000);
+    const unsubscribeRealtime = subscribeToTransactionsRealtime(() => { void refreshTransactions(); });
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener(TRANSACTION_SYNC_EVENT, onSync);
+      window.clearInterval(id);
+      unsubscribeRealtime();
+    };
   }, [refreshTransactions]);
 
   return (

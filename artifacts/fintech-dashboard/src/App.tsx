@@ -7,6 +7,7 @@ import { Layout } from "@/components/layout/Layout";
 import { api } from "@/lib/api";
 import { DashboardProvider } from "@/lib/dashboard-context";
 import { TransactionsProvider } from "@/lib/transactions-context";
+import { AnalyticsStoreProvider } from "@/lib/analytics-store";
 
 const queryClient = new QueryClient();
 
@@ -214,9 +215,11 @@ function App() {
       <TooltipProvider>
         <DashboardProvider>
           <TransactionsProvider>
-            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-              <Router authStatus={authStatus} />
-            </WouterRouter>
+            <AnalyticsStoreProvider>
+              <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                <Router authStatus={authStatus} />
+              </WouterRouter>
+            </AnalyticsStoreProvider>
           </TransactionsProvider>
         </DashboardProvider>
         <Toaster />
