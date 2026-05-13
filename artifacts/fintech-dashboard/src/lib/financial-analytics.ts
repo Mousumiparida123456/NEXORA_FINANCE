@@ -33,8 +33,8 @@ const CATEGORY_COLORS: Record<string, string> = {
 export function generateMonthlyChartData(transactions: Transaction[]): MonthlyData[] {
   const monthlyMap = new Map<string, { income: number; expenses: number; sortIndex: number }>();
   
-  // Initialize last 6 months to ensure we have data points even if empty
-  for (let i = 5; i >= 0; i--) {
+  // Initialize last 12 months to ensure we have data points even if empty
+  for (let i = 11; i >= 0; i--) {
     const d = new Date();
     d.setMonth(d.getMonth() - i);
     const monthName = format(d, "MMM");

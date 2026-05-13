@@ -97,65 +97,67 @@ export function ChartsSection() {
           <CardHeader className="pb-4">
             <CardTitle className={cn("text-base font-semibold", theme === "dark" ? "text-slate-200" : "text-slate-900")}>Monthly Overview</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="colorExpenses" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="4 4" stroke={theme === "dark" ? "#334155" : "#e2e8f0"} vertical={false} opacity={0.5} />
-                  <XAxis 
-                    dataKey="name" 
-                    stroke={theme === "dark" ? "#64748b" : "#64748b"} 
-                    fontSize={12} 
-                    tickLine={false} 
-                    axisLine={false}
-                    dy={10}
-                    tick={{ fill: theme === "dark" ? '#64748b' : '#64748b' }}
-                  />
-                  <YAxis 
-                    stroke={theme === "dark" ? "#64748b" : "#64748b"} 
-                    fontSize={12} 
-                    tickLine={false} 
-                    axisLine={false} 
-                    tickFormatter={(value) => formatCompactCurrency(Number(value))}
-                    tick={{ fill: theme === "dark" ? '#64748b' : '#64748b' }}
-                  />
-                  <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#475569', strokeWidth: 1, strokeDasharray: '4 4' }} />
-                  <Legend 
-                    wrapperStyle={{ paddingTop: '20px', fontSize: '12px', fontWeight: 500, color: '#94a3b8' }} 
-                    iconType="circle"
-                  />
-                  <Area 
-                    type="monotone" 
-                    name="Income"
-                    dataKey="income" 
-                    stroke="#10b981" 
-                    strokeWidth={2.5}
-                    fillOpacity={1} 
-                    fill="url(#colorIncome)"
-                    activeDot={{ r: 6, fill: "#10b981", stroke: "#0f172a", strokeWidth: 2 }}
-                  />
-                  <Area 
-                    type="monotone" 
-                    name="Expenses"
-                    dataKey="expenses" 
-                    stroke="#f43f5e" 
-                    strokeWidth={2.5}
-                    fillOpacity={1} 
-                    fill="url(#colorExpenses)"
-                    activeDot={{ r: 6, fill: "#f43f5e", stroke: "#0f172a", strokeWidth: 2 }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+          <CardContent className="px-0 sm:px-6">
+            <div className="h-[300px] w-full overflow-x-auto overflow-y-hidden" style={{ scrollbarWidth: 'thin' }}>
+              <div style={{ minWidth: '700px', height: '100%', paddingRight: '10px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorExpenses" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="4 4" stroke={theme === "dark" ? "#334155" : "#e2e8f0"} vertical={false} opacity={0.5} />
+                    <XAxis 
+                      dataKey="name" 
+                      stroke={theme === "dark" ? "#64748b" : "#64748b"} 
+                      fontSize={12} 
+                      tickLine={false} 
+                      axisLine={false}
+                      dy={10}
+                      tick={{ fill: theme === "dark" ? '#64748b' : '#64748b' }}
+                    />
+                    <YAxis 
+                      stroke={theme === "dark" ? "#64748b" : "#64748b"} 
+                      fontSize={12} 
+                      tickLine={false} 
+                      axisLine={false} 
+                      tickFormatter={(value) => formatCompactCurrency(Number(value))}
+                      tick={{ fill: theme === "dark" ? '#64748b' : '#64748b' }}
+                    />
+                    <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#475569', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                    <Legend 
+                      wrapperStyle={{ paddingTop: '20px', fontSize: '12px', fontWeight: 500, color: '#94a3b8' }} 
+                      iconType="circle"
+                    />
+                    <Area 
+                      type="monotone" 
+                      name="Income"
+                      dataKey="income" 
+                      stroke="#10b981" 
+                      strokeWidth={2.5}
+                      fillOpacity={1} 
+                      fill="url(#colorIncome)"
+                      activeDot={{ r: 6, fill: "#10b981", stroke: "#0f172a", strokeWidth: 2 }}
+                    />
+                    <Area 
+                      type="monotone" 
+                      name="Expenses"
+                      dataKey="expenses" 
+                      stroke="#f43f5e" 
+                      strokeWidth={2.5}
+                      fillOpacity={1} 
+                      fill="url(#colorExpenses)"
+                      activeDot={{ r: 6, fill: "#f43f5e", stroke: "#0f172a", strokeWidth: 2 }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </CardContent>
         </Card>
