@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { api } from "@/lib/api";
 import {
   AreaChart,
@@ -50,19 +50,18 @@ export function InsightsSection() {
   const [loading, setLoading] = useState(false);
 
   // --- Dynamic Insights Engine ---
-  const topCategories = useState(() => calculateTopCategories(transactions))[0]; // Actually, we should useMemo
-  const topCatMemo = React.useMemo(() => calculateTopCategories(transactions), [transactions]);
-  const categoryTrendData = React.useMemo(() => calculateCategoryTrends(transactions, topCatMemo), [transactions, topCatMemo]);
-  const breakdownData = React.useMemo(() => calculateMonthlyComparison(transactions), [transactions]);
-  const comparisonData = React.useMemo(() => [...breakdownData].reverse(), [breakdownData]); // Reverse back for chronological chart
+  const topCatMemo = useMemo(() => calculateTopCategories(transactions), [transactions]);
+  const categoryTrendData = useMemo(() => calculateCategoryTrends(transactions, topCatMemo), [transactions, topCatMemo]);
+  const breakdownData = useMemo(() => calculateMonthlyComparison(transactions), [transactions]);
+  const comparisonData = useMemo(() => [...breakdownData].reverse(), [breakdownData]);
 
-  const confidenceScore = React.useMemo(() => calculateAIConfidence(transactions), [transactions]);
-  const sentimentScore = React.useMemo(() => calculateMarketSentiment(transactions), [transactions]);
-  const nextMilestone = React.useMemo(() => calculateNextMilestone(transactions), [transactions]);
-  const smartInsights = React.useMemo(() => generateSmartInsights(transactions, breakdownData), [transactions, breakdownData]);
+  const confidenceScore = useMemo(() => calculateAIConfidence(transactions), [transactions]);
+  const sentimentScore = useMemo(() => calculateMarketSentiment(transactions), [transactions]);
+  const nextMilestone = useMemo(() => calculateNextMilestone(transactions), [transactions]);
+  const smartInsights = useMemo(() => generateSmartInsights(transactions, breakdownData), [transactions, breakdownData]);
 
   // Generate dynamic observations
-  const observations = React.useMemo(() => {
+  const observations = useMemo(() => {
     if (transactions.length === 0) return [];
     
     const obs = [];
