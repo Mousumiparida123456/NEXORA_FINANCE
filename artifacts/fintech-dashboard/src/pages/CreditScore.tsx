@@ -48,6 +48,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tooltip as UiTooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useTransactions } from "@/hooks/useTransactions";
+import { detectRecurringTransactions } from "@/lib/insights-engine";
 
 const MIN_SCORE = 300;
 const MAX_SCORE = 900;
@@ -381,6 +383,7 @@ function ChartTooltip({ active, payload, label }: any) {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function CreditScore() {
+  const { transactions } = useTransactions();
   const [factors, setFactors] = useState<ScoreFactors>(INITIAL_FACTORS);
   const [score, setScore] = useState(() => scoreFromFactors(INITIAL_FACTORS));
   const [history, setHistory] = useState<HistoryEntry[]>([
@@ -398,6 +401,8 @@ export function CreditScore() {
   const [saveName, setSaveName] = useState("");
   const [saved, setSaved] = useState<SavedSimulation[]>([]);
   const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [loanPrincipal, setLoanPrincipal] = useState<number>(500000);
+  const [loanTenureMonths, setLoanTenureMonths] = useState<number>(60);
 
   const scoreInfo = getScoreInfo(score);
   const risk = riskLabelFromScore(score);
@@ -725,6 +730,80 @@ export function CreditScore() {
     return tips;
   }, [factors]);
 
+  const bankingMetrics = useMemo(() => {
+    const income = transactions.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
+    const expenses = transactions.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
+    const recurring = detectRecurringTransactions(transactions);
+    const recurringLiabilities = recurring
+      .filter((r) => r.direction === "expense")
+      .reduce((s, r) => s + (r.frequency === "monthly" ? r.amount : r.frequency === "weekly" ? r.amount * 4 : r.frequency === "quarterly" ? r.amount / 3 : r.frequency === "yearly" ? r.amount / 12 : r.amount), 0);
+    const monthlyIncome = income / Math.max(1, 3);
+    const monthlyExpense = expenses / Math.max(1, 3);
+    const savingsRatio = monthlyIncome > 0 ? ((monthlyIncome - monthlyExpense) / monthlyIncome) * 100 : 0;
+    const debtToIncomeRatio = monthlyIncome > 0 ? (recurringLiabilities / monthlyIncome) * 100 : 100;
+    const repaymentCapability = Math.max(0, monthlyIncome - monthlyExpense);
+    const spendingConsistency = Math.max(0, 100 - Math.min(100, Math.abs(savingsRatio - 20) * 2));
+    const estimatedCreditScore = clamp(
+      Math.round(
+        300 +
+          spendingConsistency * 2 +
+          Math.max(0, 100 - debtToIncomeRatio) * 1.8 +
+          Math.max(0, savingsRatio) * 2.2
+      ),
+      300,
+      900,
+    );
+    return {
+      monthlyIncome,
+      monthlyExpense,
+      recurringLiabilities,
+      savingsRatio,
+      debtToIncomeRatio,
+      repaymentCapability,
+      affordabilityScore: clamp(Math.round((Math.max(0, savingsRatio) * 0.45) + (Math.max(0, 100 - debtToIncomeRatio) * 0.55)), 0, 100),
+      estimatedCreditScore,
+    };
+  }, [transactions]);
+
+  const loanModel = useMemo(() => {
+    const yearlyRateByType: Record<LoanType, number> = {
+      home: 8.75,
+      auto: 10.5,
+      personal: 13.5,
+      credit_card: 18,
+    };
+    const annualRate = yearlyRateByType[loanType];
+    const r = annualRate / 12 / 100;
+    const n = Math.max(1, loanTenureMonths);
+    const p = Math.max(0, loanPrincipal);
+    const emi = r === 0 ? p / n : (p * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+    const safeEmi = Math.max(0, bankingMetrics.monthlyIncome * 0.35 - bankingMetrics.recurringLiabilities);
+    const safeLoanAmount = r === 0 ? safeEmi * n : safeEmi * ((Math.pow(1 + r, n) - 1) / (r * Math.pow(1 + r, n)));
+    const eligible = emi <= safeEmi && bankingMetrics.debtToIncomeRatio < 60;
+    return { annualRate, emi, safeEmi, safeLoanAmount, eligible };
+  }, [loanType, loanTenureMonths, loanPrincipal, bankingMetrics]);
+
+  const bankingInsights = useMemo(() => {
+    const tips: string[] = [];
+    if (bankingMetrics.debtToIncomeRatio > 45) {
+      tips.push("Your debt-to-income ratio is high. Reduce recurring liabilities before taking a new loan.");
+    }
+    if (bankingMetrics.savingsRatio < 15) {
+      tips.push("Increasing monthly savings rate to 20% can improve affordability and loan approval confidence.");
+    }
+    const entertainment = transactions
+      .filter((t) => t.type === "expense" && (t.category || "").toLowerCase().includes("entertainment"))
+      .reduce((s, t) => s + Number(t.amount), 0);
+    if (entertainment > 0) {
+      const reduced = entertainment * 0.1;
+      tips.push(`Reducing entertainment expenses by 10% could free ${Math.round(reduced).toLocaleString()} and improve affordability score.`);
+    }
+    if (tips.length === 0) {
+      tips.push("Your current transaction pattern supports healthy credit growth. Keep EMIs on time and utilization low.");
+    }
+    return tips;
+  }, [transactions, bankingMetrics]);
+
   return (
     <main className="container mx-auto px-4 py-8 pb-20 max-w-5xl">
 
@@ -740,6 +819,67 @@ export function CreditScore() {
           >
             Reset to {INITIAL_SCORE}
           </button>
+        </div>
+
+        <div className="mb-6 rounded-2xl border border-slate-700/60 bg-[#1e293b]/90 p-5 shadow-xl">
+          <h2 className="mb-4 text-base font-semibold text-slate-200 flex items-center gap-2">
+            <BarChart3 className="h-4.5 w-4.5 text-cyan-400" />
+            Banking System Credit Engine
+          </h2>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-3">
+              <p className="text-[11px] text-slate-500">Estimated Credit Score</p>
+              <p className="mt-1 text-xl font-bold text-cyan-400">{bankingMetrics.estimatedCreditScore}</p>
+            </div>
+            <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-3">
+              <p className="text-[11px] text-slate-500">Debt-to-Income Ratio</p>
+              <p className="mt-1 text-xl font-bold text-amber-400">{bankingMetrics.debtToIncomeRatio.toFixed(1)}%</p>
+            </div>
+            <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-3">
+              <p className="text-[11px] text-slate-500">Repayment Capability</p>
+              <p className="mt-1 text-xl font-bold text-emerald-400">₹{Math.round(bankingMetrics.repaymentCapability).toLocaleString()}/mo</p>
+            </div>
+            <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-3">
+              <p className="text-[11px] text-slate-500">Affordability Score</p>
+              <p className="mt-1 text-xl font-bold text-indigo-400">{bankingMetrics.affordabilityScore}/100</p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-4">
+              <p className="text-xs font-semibold text-slate-300 mb-3">Loan Eligibility + EMI Estimator</p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <p className="text-[11px] text-slate-500 mb-1">Principal (₹)</p>
+                  <Input type="number" value={loanPrincipal} onChange={(e) => setLoanPrincipal(Number(e.target.value) || 0)} />
+                </div>
+                <div>
+                  <p className="text-[11px] text-slate-500 mb-1">Tenure (months)</p>
+                  <Input type="number" value={loanTenureMonths} onChange={(e) => setLoanTenureMonths(Number(e.target.value) || 1)} />
+                </div>
+              </div>
+              <div className="mt-3 text-xs text-slate-400 space-y-1">
+                <p>Interest rate: <span className="text-slate-200 font-semibold">{loanModel.annualRate}% p.a.</span></p>
+                <p>Estimated EMI: <span className="text-slate-200 font-semibold">₹{Math.round(loanModel.emi).toLocaleString()}/mo</span></p>
+                <p>Safe EMI capacity: <span className="text-emerald-400 font-semibold">₹{Math.round(loanModel.safeEmi).toLocaleString()}/mo</span></p>
+                <p>Safe loan amount: <span className="text-cyan-400 font-semibold">₹{Math.round(loanModel.safeLoanAmount).toLocaleString()}</span></p>
+              </div>
+              <div className={`mt-3 inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${loanModel.eligible ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-rose-500/30 bg-rose-500/10 text-rose-300"}`}>
+                {loanModel.eligible ? "Eligible (Estimated)" : "High Risk / Not Safe Yet"}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-4">
+              <p className="text-xs font-semibold text-slate-300 mb-3">AI Affordability Insights</p>
+              <div className="space-y-2">
+                {bankingInsights.map((tip, idx) => (
+                  <div key={idx} className="rounded-lg border border-slate-800/60 bg-slate-950/40 px-3 py-2 text-xs text-slate-400">
+                    {tip}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
