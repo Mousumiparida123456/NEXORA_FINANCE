@@ -47,7 +47,7 @@ function DonutChart() {
   const total = expenseBreakdown.reduce((s, d) => s + d.amount, 0);
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+    <svg className="h-auto w-full max-w-[200px] aspect-square" viewBox={`0 0 ${size} ${size}`}>
       {expenseBreakdown.map((item) => {
         const pct = total > 0 ? item.amount / total : 0;
         const dash = pct * circumference - (pct < 1 ? 2 : 0);
@@ -98,10 +98,10 @@ export function ChartsSection() {
             <CardTitle className={cn("text-base font-semibold", theme === "dark" ? "text-slate-200" : "text-slate-900")}>Monthly Overview</CardTitle>
           </CardHeader>
           <CardContent className="px-2 sm:px-6">
-            <div className="h-[300px] w-full">
+            <div className="h-[240px] w-full sm:h-[300px]">
               <div className="h-full w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                  <AreaChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
                     <defs>
                       <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
@@ -120,6 +120,7 @@ export function ChartsSection() {
                       tickLine={false} 
                       axisLine={false}
                       dy={10}
+                      minTickGap={20}
                       tick={{ fill: theme === "dark" ? '#64748b' : '#64748b' }}
                     />
                     <YAxis 
@@ -132,7 +133,9 @@ export function ChartsSection() {
                     />
                     <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#475569', strokeWidth: 1, strokeDasharray: '4 4' }} />
                     <Legend 
-                      wrapperStyle={{ paddingTop: '20px', fontSize: '12px', fontWeight: 500, color: '#94a3b8' }} 
+                      verticalAlign="bottom"
+                      align="center"
+                      wrapperStyle={{ paddingTop: "10px", fontSize: "12px", fontWeight: 500, color: "#94a3b8" }} 
                       iconType="circle"
                     />
                     <Area 

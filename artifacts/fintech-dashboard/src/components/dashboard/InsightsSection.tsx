@@ -283,14 +283,14 @@ export function InsightsSection() {
                 <p className={cn("text-sm text-slate-500", theme === "dark" ? "text-slate-400" : "text-slate-600")}>Monthly expense trends for your top 4 categories.</p>
               </div>
             </CardHeader>
-            <CardContent className="h-[320px] pt-0">
+            <CardContent className="h-[240px] pt-0 sm:h-[320px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={categoryTrendData} margin={{ top: 10, right: 24, left: -10, bottom: 0 }}>
+                <LineChart data={categoryTrendData} margin={{ top: 10, right: 10, left: 0, bottom: 6 }}>
                   <CartesianGrid strokeDasharray="4 4" stroke={theme === "dark" ? "#334155" : "#e2e8f0"} vertical={false} opacity={0.5} />
-                  <XAxis dataKey="month" stroke={theme === "dark" ? "#64748b" : "#64748b"} tickLine={false} axisLine={false} tick={{ fill: theme === "dark" ? "#94a3b8" : "#64748b", fontSize: 12 }} />
-                  <YAxis stroke={theme === "dark" ? "#64748b" : "#64748b"} tickLine={false} axisLine={false} tick={{ fill: theme === "dark" ? "#94a3b8" : "#64748b", fontSize: 12 }} />
+                  <XAxis dataKey="month" stroke={theme === "dark" ? "#64748b" : "#64748b"} tickLine={false} axisLine={false} minTickGap={20} tick={{ fill: theme === "dark" ? "#94a3b8" : "#64748b", fontSize: 11 }} />
+                  <YAxis width={42} stroke={theme === "dark" ? "#64748b" : "#64748b"} tickLine={false} axisLine={false} tick={{ fill: theme === "dark" ? "#94a3b8" : "#64748b", fontSize: 11 }} />
                   <Tooltip contentStyle={{ borderRadius: 14, border: theme === "dark" ? "1px solid #334155" : "1px solid #e2e8f0", backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff" }} cursor={{ stroke: theme === "dark" ? "#475569" : "#cbd5e1", strokeWidth: 1, strokeDasharray: "4 4" }} />
-                  <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: 10, fontSize: 12, color: theme === "dark" ? "#94a3b8" : "#64748b" }} />
+                  <Legend verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ paddingTop: 8, fontSize: 12, color: theme === "dark" ? "#94a3b8" : "#64748b" }} />
                   {topCatMemo.slice(0, 4).map((cat, i) => {
                     const colors = ["#ef4444", "#f97316", "#f59e0b", "#22c55e"];
                     return (
@@ -350,14 +350,14 @@ export function InsightsSection() {
               <CardTitle className={cn("text-lg font-semibold", theme === "dark" ? "text-slate-100" : "text-slate-950")}>Monthly Comparison</CardTitle>
               <p className={cn("text-sm text-slate-500", theme === "dark" ? "text-slate-400" : "text-slate-600")}>Income vs expenses — last 6 months.</p>
             </CardHeader>
-            <CardContent className="h-[340px] pt-0">
+            <CardContent className="h-[260px] pt-0 sm:h-[340px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={comparisonData} margin={{ top: 10, right: 16, left: -20, bottom: 0 }}>
+                <BarChart data={comparisonData} margin={{ top: 10, right: 10, left: 0, bottom: 6 }}>
                   <CartesianGrid strokeDasharray="4 4" stroke={theme === "dark" ? "#334155" : "#e2e8f0"} vertical={false} opacity={0.5} />
-                  <XAxis dataKey="month" stroke={theme === "dark" ? "#64748b" : "#64748b"} tickLine={false} axisLine={false} tick={{ fill: theme === "dark" ? "#94a3b8" : "#64748b", fontSize: 12 }} />
-                  <YAxis stroke={theme === "dark" ? "#64748b" : "#64748b"} tickLine={false} axisLine={false} tick={{ fill: theme === "dark" ? "#94a3b8" : "#64748b", fontSize: 12 }} tickFormatter={(value) => formatCompactCurrency(value)} />
+                  <XAxis dataKey="month" stroke={theme === "dark" ? "#64748b" : "#64748b"} tickLine={false} axisLine={false} minTickGap={20} tick={{ fill: theme === "dark" ? "#94a3b8" : "#64748b", fontSize: 11 }} />
+                  <YAxis width={42} stroke={theme === "dark" ? "#64748b" : "#64748b"} tickLine={false} axisLine={false} tick={{ fill: theme === "dark" ? "#94a3b8" : "#64748b", fontSize: 11 }} tickFormatter={(value) => formatCompactCurrency(value)} />
                   <Tooltip contentStyle={{ borderRadius: 14, border: theme === "dark" ? "1px solid #334155" : "1px solid #e2e8f0", backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff" }} cursor={{ fill: theme === "dark" ? "rgba(148,163,184,0.08)" : "rgba(148,163,184,0.12)" }} />
-                  <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: 10, fontSize: 12, color: theme === "dark" ? "#94a3b8" : "#64748b" }} />
+                  <Legend verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ paddingTop: 8, fontSize: 12, color: theme === "dark" ? "#94a3b8" : "#64748b" }} />
                   <Bar dataKey="income" name="Income" fill="#10b981" radius={[8, 8, 0, 0]} />
                   <Bar dataKey="expenses" name="Expenses" fill="#f43f5e" radius={[8, 8, 0, 0]} />
                 </BarChart>
@@ -377,7 +377,7 @@ export function InsightsSection() {
               <p className={cn("text-sm text-slate-500", theme === "dark" ? "text-slate-400" : "text-slate-600")}>All recorded months with savings rate and expense trend.</p>
             </CardHeader>
             <CardContent className="overflow-x-auto pt-0">
-              <div className="min-w-[680px]">
+              <div className="min-w-[540px] sm:min-w-[680px]">
                 <table className="w-full border-separate border-spacing-y-3 text-sm">
                   <thead>
                     <tr className="text-left text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">

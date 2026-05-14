@@ -40,9 +40,9 @@ export function ForecastChart() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="h-[300px] w-full mt-4">
+        <div className="h-[240px] w-full mt-4 sm:h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data}>
+            <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 4 }}>
               <defs>
                 <linearGradient id="colorPredict" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
@@ -55,11 +55,12 @@ export function ForecastChart() {
                 axisLine={false}
                 tickLine={false}
                 tick={{ fontSize: 10, fill: '#64748b' }}
-                minTickGap={30}
+                minTickGap={20}
               />
               <YAxis 
                 axisLine={false}
                 tickLine={false}
+                width={42}
                 tick={{ fontSize: 10, fill: '#64748b' }}
                 tickFormatter={(value) => `₹${(value/1000).toFixed(0)}k`}
               />
