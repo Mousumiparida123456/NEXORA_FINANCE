@@ -29,6 +29,8 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useNotifications } from "@/lib/notification-context";
+import { generateInvestmentNotification } from "@/lib/notification-engine";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -386,10 +388,11 @@ function PlanCard({
 
 export function Investment() {
   const { transactions } = useTransactions();
+  const { addNotification } = useNotifications();
 
   // Derive avg monthly income/expenses from real transactions to pre-populate the planner
   const txSummary = useMemo(() => {
-    if (transactions.length === 0) return { income: 5200, expenses: 3100 };
+    if (transactions.length === 0) return { income: 52000, expenses: 31000 };
     const totalIncome = transactions.filter(t => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
     const totalExpenses = transactions.filter(t => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
     // Estimate months of data
@@ -497,6 +500,34 @@ export function Investment() {
     };
     setSipStepUpPct(stepUpByPlan[selectedPlanId]);
   }, [selectedPlan.expectedAnnualReturn, selectedPlanId]);
+
+  // Plan change notification
+  const handlePlanSelect = (id: PlanId) => {
+    setSelectedPlanId(id);
+    const plan = PLANS.find(p => p.id === id);
+    if (plan) {
+      addNotification(generateInvestmentNotification("sip", `Switched to ${plan.title} strategy. Target return: ${Math.round(plan.expectedAnnualReturn * 100)}% p.a.`));
+    }
+  };
+
+  // Investment milestone notification
+  useEffect(() => {
+    if (portfolioStats.totalInvested <= 0) return;
+    const seenKey = "nexora.investment-milestones";
+    let seen: number[] = [];
+    try {
+      seen = JSON.parse(localStorage.getItem(seenKey) || "[]");
+    } catch { /* ignore */ }
+
+    const milestones = [10000, 50000, 100000, 500000, 1000000];
+    for (const m of milestones) {
+      if (portfolioStats.totalInvested >= m && !seen.includes(m)) {
+        seen.push(m);
+        addNotification(generateInvestmentNotification("milestone", `Portfolio reached ${formatCurrency(m)}! Excellent progress.`));
+      }
+    }
+    localStorage.setItem(seenKey, JSON.stringify(seen));
+  }, [portfolioStats.totalInvested, addNotification]);
 
   const projection = useMemo(() => {
     const years = horizonYears;
@@ -799,7 +830,7 @@ export function Investment() {
             plan={plan}
             monthly={monthlyInvestment}
             selected={plan.id === selectedPlanId}
-            onSelect={() => setSelectedPlanId(plan.id)}
+            onSelect={() => handlePlanSelect(plan.id)}
           />
         ))}
       </div>

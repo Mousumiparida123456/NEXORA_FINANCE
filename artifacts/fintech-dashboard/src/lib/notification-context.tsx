@@ -80,6 +80,8 @@ interface NotificationContextValue {
   handleTransactionEvent: (event: TransactionEvent, formatCurrency: (v: number) => string) => void;
   checkGoals: (goals: { name: string; saved: number; target: number }[], formatCurrency: (v: number) => string) => void;
   checkBills: (bills: { title: string; amount: number; dueDate: string; status: string }[], formatCurrency: (v: number) => string) => void;
+  checkSpending: (analysis: any, formatCurrency: (v: number) => string) => void;
+  handleEvent: (category: NotificationCategory, type: string, details: string) => void;
   requestPushPermission: () => Promise<boolean>;
 }
 
@@ -187,10 +189,26 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     if (notifs.length > 0) addNotifications(notifs);
   }, [addNotifications]);
 
-  const checkBills = useCallback((bills: { title: string; amount: number; dueDate: string; status: string }[], formatCurrency: (v: number) => string) => {
-    const notifs = generateBillNotifications(bills, formatCurrency);
+  const checkSpending = useCallback((analysis: any, formatCurrency: (v: number) => string) => {
+    const notifs = generateSpendingAlerts(analysis, formatCurrency);
     if (notifs.length > 0) addNotifications(notifs);
   }, [addNotifications]);
+
+  const handleEvent = useCallback((category: NotificationCategory, type: string, details: string) => {
+    // This can be used for general events like Investment SIPs, Credit Score changes, etc.
+    // For now we use the ID generator and basic mapping.
+    const n: AppNotification = {
+      id: genId(),
+      title: type,
+      message: details,
+      type: "info",
+      category,
+      priority: "medium",
+      read: false,
+      createdAt: new Date().toISOString(),
+    };
+    addNotification(n);
+  }, [addNotification]);
 
   const requestPushPermission = useCallback(async () => {
     const granted = await requestBrowserNotificationPermission();
@@ -256,6 +274,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         handleTransactionEvent,
         checkGoals,
         checkBills,
+        checkSpending,
+        handleEvent,
         requestPushPermission,
       }}
     >

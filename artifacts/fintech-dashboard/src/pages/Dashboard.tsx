@@ -10,6 +10,10 @@ import { SecurityAudit } from "@/components/dashboard/SecurityAudit";
 import { Download, FileText } from "lucide-react";
 import { exportDashboardToPDF } from "@/lib/pdf-export";
 import { useToast } from "@/hooks/use-toast";
+import { useNotifications } from "@/lib/notification-context";
+import { useTransactionsContext } from "@/lib/transactions-context";
+import { useMemo } from "react";
+import { subMonths, isSameMonth, parseISO } from "date-fns";
 
 type ApiStatus = "checking" | "connected" | "error" | "missing";
 
@@ -23,6 +27,9 @@ export function Dashboard() {
   );
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
+  const { checkSpending } = useNotifications();
+  const { transactions, summary } = useTransactionsContext();
+  const { formatCurrency } = useDashboard();
 
   const handleExportPDF = async () => {
     setIsExporting(true);
@@ -66,6 +73,51 @@ export function Dashboard() {
 
     return () => controller.abort();
   }, []);
+
+  // AI Spending Analysis Trigger
+  useEffect(() => {
+    if (transactions.length < 5) return;
+
+    // Calculate overspends
+    const now = new Date();
+    const currentMonthTxns = transactions.filter(t => t.date && isSameMonth(parseISO(t.date), now) && t.type === "expense");
+    const last3Months = [subMonths(now, 1), subMonths(now, 2), subMonths(now, 3)];
+    
+    const categories = Array.from(new Set(transactions.map(t => t.category)));
+    const overspends: any[] = [];
+
+    categories.forEach(cat => {
+      const current = currentMonthTxns.filter(t => t.category === cat).reduce((s, t) => s + Number(t.amount), 0);
+      if (current === 0) return;
+
+      let historyTotal = 0;
+      let monthsWithData = 0;
+      last3Months.forEach(m => {
+        const monthAmt = transactions.filter(t => t.date && isSameMonth(parseISO(t.date), m) && t.category === cat && t.type === "expense")
+          .reduce((s, t) => s + Number(t.amount), 0);
+        if (monthAmt > 0) {
+          historyTotal += monthAmt;
+          monthsWithData++;
+        }
+      });
+
+      const average = monthsWithData > 0 ? historyTotal / monthsWithData : 0;
+      if (average > 0 && current > average * 1.2) {
+        overspends.push({
+          category: cat,
+          current,
+          average,
+          pctIncrease: ((current - average) / average) * 100
+        });
+      }
+    });
+
+    checkSpending({
+      categoryOverspends: overspends,
+      totalExpenses: summary.totalExpenses,
+      totalIncome: summary.totalIncome
+    }, formatCurrency);
+  }, [transactions, summary, checkSpending, formatCurrency]);
 
   const apiBadgeClassName =
     apiStatus === "connected"

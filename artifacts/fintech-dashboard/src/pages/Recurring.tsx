@@ -5,6 +5,8 @@ import { useDashboard } from "@/lib/dashboard-context";
 import { useTransactions } from "@/hooks/useTransactions";
 import { detectRecurringTransactions, type RecurringTransaction } from "@/lib/insights-engine";
 import { cn } from "@/lib/utils";
+import { useNotifications } from "@/lib/notification-context";
+import { generateRecurringNotification } from "@/lib/notification-engine";
 import { addDays, addMonths, format, parseISO, subMonths } from "date-fns";
 
 const SUBSCRIPTION_KEYWORDS = [
@@ -49,7 +51,8 @@ function isSubscription(item: RecurringTransaction): boolean {
 
 export function Recurring() {
   const { theme, formatCurrency } = useDashboard();
-  const { transactions } = useTransactions();
+  const { transactions } = useTransactionsContext();
+  const { addNotification } = useNotifications();
   const isDark = theme === "dark";
 
   const recurringItems = useMemo(() => detectRecurringTransactions(transactions), [transactions]);
@@ -92,6 +95,25 @@ export function Recurring() {
     () => unusedSubscriptions.reduce((sum, item) => sum + yearlyCost(item), 0),
     [unusedSubscriptions],
   );
+
+  // Auto-notify new recurring patterns
+  useMemo(() => {
+    const seenKey = "nexora.recurring-notified";
+    let notified: string[] = [];
+    try {
+      notified = JSON.parse(localStorage.getItem(seenKey) || "[]");
+    } catch { /* ignore */ }
+
+    recurringItems.forEach(item => {
+      const key = `${item.id}-${item.amount}`;
+      if (!notified.includes(key)) {
+        notified.push(key);
+        addNotification(generateRecurringNotification(item.title, item.amount, item.frequency, formatCurrency));
+      }
+    });
+
+    localStorage.setItem(seenKey, JSON.stringify(notified.slice(-100)));
+  }, [recurringItems, addNotification, formatCurrency]);
 
   return (
     <main className={cn("container mx-auto px-4 py-8 pb-16")}>

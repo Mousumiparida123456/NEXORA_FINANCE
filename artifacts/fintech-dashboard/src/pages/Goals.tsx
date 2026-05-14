@@ -10,6 +10,7 @@ import { buildTrajectory, predictNetWorth } from "@/lib/financial-engine/goal-en
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { motion } from "framer-motion";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useNotifications } from "@/lib/notification-context";
 
 type IconKey = "PiggyBank" | "Plane" | "Laptop" | "Home";
 
@@ -112,6 +113,7 @@ function getGoalHealth(projectedMonths: number, monthsLeft: number): GoalHealth 
 export function Goals() {
   const { theme, formatCurrency } = useDashboard();
   const { transactions } = useTransactions();
+  const { checkGoals } = useNotifications();
   const [autoAllocationPct, setAutoAllocationPct] = useState(20);
 
   const liveSummary = useMemo(() => {
@@ -168,7 +170,9 @@ export function Goals() {
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(goals));
-  }, [goals]);
+    window.dispatchEvent(new CustomEvent("nexora:goals:changed"));
+    checkGoals(goals, formatCurrency);
+  }, [goals, checkGoals, formatCurrency]);
 
   const totals = useMemo(() => {
     const saved = goals.reduce((sum, goal) => sum + goal.saved, 0);

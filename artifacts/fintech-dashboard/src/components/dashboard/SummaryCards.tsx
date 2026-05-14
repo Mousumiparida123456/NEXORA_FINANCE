@@ -22,9 +22,25 @@ const item = {
 };
 
 export function SummaryCards() {
-
   const { formatCurrency } = useDashboard();
   const { summary } = useTransactions();
+  const [goalsTotal, setGoalsTotal] = useState(0);
+
+  const updateGoalsTotal = useCallback(() => {
+    try {
+      const savedGoals = JSON.parse(localStorage.getItem("nexora.goals") || "[]");
+      const total = Array.isArray(savedGoals) ? savedGoals.reduce((sum: number, g: any) => sum + (Number(g.saved) || 0), 0) : 0;
+      setGoalsTotal(total);
+    } catch (e) {
+      console.error("Failed to parse goals", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    updateGoalsTotal();
+    window.addEventListener("nexora:goals:changed", updateGoalsTotal);
+    return () => window.removeEventListener("nexora:goals:changed", updateGoalsTotal);
+  }, [updateGoalsTotal]);
 
   const healthScore = summary.healthScore || 0;
   
@@ -54,12 +70,14 @@ export function SummaryCards() {
     healthShadow = "rgba(245,158,11,0.5)";
   }
 
+  const netSavings = Math.max(0, summary.savings - goalsTotal);
+
   return (
     <motion.div 
       variants={container}
       initial="hidden"
       animate="show"
-      className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"
+      className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5"
     >
       <motion.div variants={item}>
         <Card className="border-slate-200/80 bg-white/90 transition-all duration-300 shadow-sm hover:shadow-md dark:border-slate-800/70 dark:bg-[#091227]">
@@ -73,7 +91,6 @@ export function SummaryCards() {
             <div className="text-2xl font-bold tracking-tight text-slate-950 dark:text-slate-50">{formatCurrency(summary.totalIncome)}</div>
             <p className="mt-1 flex items-center text-xs font-medium text-emerald-400">
               <TrendingUp className="mr-1 h-3 w-3" />
-              {/* You can add a real comparison here if needed */}
               +8.2% vs last month
             </p>
           </CardContent>
@@ -92,7 +109,6 @@ export function SummaryCards() {
             <div className="text-2xl font-bold tracking-tight text-slate-950 dark:text-slate-50">{formatCurrency(summary.totalExpenses)}</div>
             <p className="mt-1 flex items-center text-xs font-medium text-rose-400">
               <TrendingDown className="mr-1 h-3 w-3" />
-              {/* You can add a real comparison here if needed */}
               -3.1% vs last month
             </p>
           </CardContent>
@@ -102,17 +118,32 @@ export function SummaryCards() {
       <motion.div variants={item}>
         <Card className="border-slate-200/80 bg-white/90 transition-all duration-300 shadow-sm hover:shadow-md dark:border-slate-800/70 dark:bg-[#091227]">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500 dark:text-slate-400">Savings</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-500 dark:text-slate-400">Net Savings</CardTitle>
+            <div className="h-8 w-8 rounded-full bg-blue-500/10 flex items-center justify-center">
+              <TrendingUp className="h-4 w-4 text-blue-500" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold tracking-tight text-slate-950 dark:text-slate-50">{formatCurrency(netSavings)}</div>
+            <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+              Available after goals
+            </p>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      <motion.div variants={item}>
+        <Card className="border-slate-200/80 bg-white/90 transition-all duration-300 shadow-sm hover:shadow-md dark:border-slate-800/70 dark:bg-[#091227]">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-slate-500 dark:text-slate-400">Goal Savings</CardTitle>
             <div className="h-8 w-8 rounded-full bg-teal-500/10 flex items-center justify-center">
               <PiggyBank className="h-4 w-4 text-teal-500" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold tracking-tight text-slate-950 dark:text-slate-50">{formatCurrency(summary.savings)}</div>
-            <p className="mt-1 flex items-center text-xs font-medium text-teal-400">
-              <TrendingUp className="mr-1 h-3 w-3" />
-              {/* You can add a real comparison here if needed */}
-              +12.4% vs last month
+            <div className="text-2xl font-bold tracking-tight text-slate-950 dark:text-slate-50">{formatCurrency(goalsTotal)}</div>
+            <p className="mt-1 text-xs font-medium text-teal-400">
+              Allocated to goals
             </p>
           </CardContent>
         </Card>

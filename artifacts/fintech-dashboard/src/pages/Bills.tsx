@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useDashboard } from "@/lib/dashboard-context";
 import { useTransactions } from "@/hooks/useTransactions";
+import { useNotifications } from "@/lib/notification-context";
 import { cn } from "@/lib/utils";
 import { addDays, addMonths, differenceInDays, format, isSameMonth, parseISO, subMonths } from "date-fns";
 import { detectRecurringTransactions } from "@/lib/insights-engine";
@@ -64,6 +65,7 @@ function nextDueDate(lastDate: string, frequency: string) {
 export function Bills() {
   const { theme, formatCurrency } = useDashboard();
   const { transactions } = useTransactions();
+  const { checkBills } = useNotifications();
   const isDark = theme === "dark";
   const [manuallyPaid, setManuallyPaid] = useState<Record<string, boolean>>({});
   const [payingBill, setPayingBill] = useState<SmartBill | null>(null);
@@ -127,6 +129,10 @@ export function Bills() {
     const order: Record<BillStatus, number> = { overdue: 0, upcoming: 1, paid: 2 };
     return rows.sort((a, b) => order[a.status] - order[b.status] || b.amount - a.amount);
   }, [transactions, recurring, manuallyPaid]);
+
+  useMemo(() => {
+    checkBills(bills, formatCurrency);
+  }, [bills, checkBills, formatCurrency]);
 
   const monthlyBillTotal = useMemo(() => bills.reduce((sum, b) => sum + b.amount, 0), [bills]);
   const paidTotal = useMemo(() => bills.filter((b) => b.status === "paid").reduce((sum, b) => sum + b.amount, 0), [bills]);
