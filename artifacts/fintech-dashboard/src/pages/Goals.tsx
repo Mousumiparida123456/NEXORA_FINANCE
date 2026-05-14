@@ -230,8 +230,7 @@ export function Goals() {
       current.map((goal) => {
         if (goal.id === addingToGoal.id) {
           if (manageType === "deposit") {
-            const actualDeposit = Math.min(depositValue, availableSavings);
-            return { ...goal, saved: Math.min(goal.target, goal.saved + actualDeposit) };
+            return { ...goal, saved: Math.min(goal.target, goal.saved + depositValue) };
           } else {
             const actualWithdraw = Math.min(depositValue, goal.saved);
             return { ...goal, saved: goal.saved - actualWithdraw };
@@ -556,23 +555,24 @@ export function Goals() {
               </TabsList>
 
               <TabsContent value="deposit">
-                <p className={cn("text-xs mb-3 font-medium", activeTheme ? "text-blue-400" : "text-blue-600")}>
-                  Available to deposit: {formatCurrency(availableSavings)}
-                </p>
+                <div className={cn("text-xs mb-3 font-medium flex items-center justify-between", activeTheme ? "text-slate-400" : "text-slate-500")}>
+                  <span>Net Savings: <span className="text-blue-500">{formatCurrency(liveSummary.net)}</span></span>
+                  <span>Remaining for goal: <span className="text-emerald-500">{addingToGoal ? formatCurrency(Math.max(0, addingToGoal.target - addingToGoal.saved)) : "--"}</span></span>
+                </div>
                 <label className="grid gap-2 text-sm font-medium">
                   Amount to Deposit
                   <input
                     type="number"
                     min={0}
-                    max={availableSavings}
+                    max={addingToGoal ? addingToGoal.target - addingToGoal.saved : undefined}
                     value={depositValue || ""}
                     onChange={(event) => setDepositValue(Number(event.target.value))}
                     className={cn("w-full rounded-2xl border px-4 py-3 text-sm outline-none transition", activeTheme ? "border-slate-700 bg-slate-900 text-slate-100" : "border-slate-200 bg-slate-50 text-slate-950")}
                     placeholder="Enter amount"
                   />
                 </label>
-                {depositValue > availableSavings && (
-                  <p className="mt-2 text-xs text-rose-500">Exceeds available unallocated savings.</p>
+                {addingToGoal && depositValue > (addingToGoal.target - addingToGoal.saved) && (
+                  <p className="mt-2 text-xs text-amber-500">Amount exceeds remaining goal target.</p>
                 )}
               </TabsContent>
 
@@ -604,7 +604,7 @@ export function Goals() {
                 onClick={handleAddSavings} 
                 disabled={
                   depositValue <= 0 || 
-                  (manageType === "deposit" && depositValue > availableSavings) ||
+                  (manageType === "deposit" && addingToGoal != null && depositValue > (addingToGoal.target - addingToGoal.saved)) ||
                   (manageType === "withdraw" && depositValue > (addingToGoal?.saved || 0))
                 }
               >
