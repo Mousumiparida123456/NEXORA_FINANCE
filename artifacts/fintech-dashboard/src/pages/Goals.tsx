@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Edit3, Home, Laptop, PiggyBank, Plane, Plus, Trash2, TrendingUp, TrendingDown, Wallet } from "lucide-react";
+import { Edit3, Home, Laptop, PiggyBank, Plane, Plus, Trash2, TrendingUp, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDashboard } from "@/lib/dashboard-context";
@@ -169,7 +169,6 @@ export function Goals() {
     return { saved, target };
   }, [goals]);
 
-  const availableSavings = Math.max(0, liveSummary.net - totals.saved);
 
   const activeTheme = theme === "dark";
 
@@ -264,33 +263,25 @@ export function Goals() {
       </div>
 
       {/* Live Financial Summary from Real Transactions */}
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card className={cn("border shadow-sm", activeTheme ? "border-slate-800 bg-slate-950" : "border-slate-200 bg-white")}>
           <CardContent className="p-5">
             <div className="flex items-center gap-2 mb-1">
-              <TrendingUp className="h-4 w-4 text-emerald-500" />
-              <p className={cn("text-xs font-semibold uppercase tracking-wider", activeTheme ? "text-slate-400" : "text-slate-500")}>Total Income</p>
+              <Wallet className="h-4 w-4 text-blue-500" />
+              <p className={cn("text-xs font-semibold uppercase tracking-wider", activeTheme ? "text-slate-400" : "text-slate-500")}>Net Savings</p>
             </div>
-            <p className="text-xl font-bold text-emerald-500">{formatCurrency(liveSummary.income)}</p>
-          </CardContent>
-        </Card>
-        <Card className={cn("border shadow-sm", activeTheme ? "border-slate-800 bg-slate-950" : "border-slate-200 bg-white")}>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 mb-1">
-              <TrendingDown className="h-4 w-4 text-rose-500" />
-              <p className={cn("text-xs font-semibold uppercase tracking-wider", activeTheme ? "text-slate-400" : "text-slate-500")}>Total Expenses</p>
-            </div>
-            <p className="text-xl font-bold text-rose-500">{formatCurrency(liveSummary.expenses)}</p>
+            <p className={cn("text-2xl font-bold", liveSummary.net >= 0 ? "text-blue-500" : "text-rose-500")}>{formatCurrency(liveSummary.net)}</p>
+            <p className={cn("text-xs mt-1.5", activeTheme ? "text-slate-500" : "text-slate-400")}>Income ({formatCurrency(liveSummary.income)}) − Expenses ({formatCurrency(liveSummary.expenses)})</p>
           </CardContent>
         </Card>
         <Card className={cn("border shadow-sm", activeTheme ? "border-emerald-900/30 bg-slate-950" : "border-emerald-100 bg-white")}>
           <CardContent className="p-5">
             <div className="flex items-center gap-2 mb-1">
-              <Wallet className="h-4 w-4 text-blue-500" />
-              <p className={cn("text-xs font-semibold uppercase tracking-wider", activeTheme ? "text-slate-400" : "text-slate-500")}>Unallocated Savings</p>
+              <PiggyBank className="h-4 w-4 text-emerald-500" />
+              <p className={cn("text-xs font-semibold uppercase tracking-wider", activeTheme ? "text-slate-400" : "text-slate-500")}>Goal Savings</p>
             </div>
-            <p className={cn("text-xl font-bold", availableSavings >= 0 ? "text-blue-500" : "text-rose-500")}>{formatCurrency(availableSavings)}</p>
-            <p className={cn("text-xs mt-1", activeTheme ? "text-slate-500" : "text-slate-400")}>Available to allocate to goals</p>
+            <p className="text-2xl font-bold text-emerald-500">{formatCurrency(totals.saved)}</p>
+            <p className={cn("text-xs mt-1.5", activeTheme ? "text-slate-500" : "text-slate-400")}>Total allocated across {goals.length} goal{goals.length !== 1 ? "s" : ""} of {formatCurrency(totals.target)} target</p>
           </CardContent>
         </Card>
       </div>
