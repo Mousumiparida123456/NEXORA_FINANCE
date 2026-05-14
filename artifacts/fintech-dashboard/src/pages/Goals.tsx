@@ -37,7 +37,7 @@ const defaultGoals: Goal[] = [
     id: "goal-1",
     name: "Emergency Fund",
     target: 150000,
-    saved: 62000,
+    saved: 0,
     deadline: "2025-01-24",
     icon: "PiggyBank",
     accent: "#6366f1",
@@ -46,7 +46,7 @@ const defaultGoals: Goal[] = [
     id: "goal-2",
     name: "Europe Vacation",
     target: 80000,
-    saved: 22000,
+    saved: 0,
     deadline: "2024-12-20",
     icon: "Plane",
     accent: "#f59e0b",
@@ -55,7 +55,7 @@ const defaultGoals: Goal[] = [
     id: "goal-3",
     name: "New Laptop",
     target: 90000,
-    saved: 45000,
+    saved: 0,
     deadline: "2024-07-20",
     icon: "Laptop",
     accent: "#10b981",
@@ -64,7 +64,7 @@ const defaultGoals: Goal[] = [
     id: "goal-4",
     name: "Home Down Payment",
     target: 500000,
-    saved: 120000,
+    saved: 0,
     deadline: "2025-04-30",
     icon: "Home",
     accent: "#ef4444",
@@ -140,6 +140,13 @@ export function Goals() {
   const [goals, setGoals] = useState<Goal[]>(() => {
     if (typeof window === "undefined") return defaultGoals;
     try {
+      // One-time migration: reset saved to 0 so Goal Savings starts fresh
+      const migrated = window.localStorage.getItem("nexora.goals-v2-migrated");
+      if (!migrated) {
+        window.localStorage.removeItem(STORAGE_KEY);
+        window.localStorage.setItem("nexora.goals-v2-migrated", "true");
+        return defaultGoals;
+      }
       const saved = window.localStorage.getItem(STORAGE_KEY);
       return saved ? JSON.parse(saved) : defaultGoals;
     } catch {
