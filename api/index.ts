@@ -415,6 +415,30 @@ app.get(
   handleGoogleCallback
 );
 
+// Vercel rewrite fallback: catch-all rewrites can forward path as ?path=...
+app.get("*", (req, res, next) => {
+  const rewrittenPathRaw = firstParam(req.query.path as string | string[] | undefined) || "";
+  const rewrittenPath = rewrittenPathRaw.replace(/^\/+/, "").replace(/\/+$/, "");
+
+  if (
+    rewrittenPath === "auth/google" ||
+    rewrittenPath === "api/auth/google" ||
+    rewrittenPath === "api/v1/auth/google"
+  ) {
+    return startGoogleAuth(req, res);
+  }
+
+  if (
+    rewrittenPath === "auth/google/callback" ||
+    rewrittenPath === "api/auth/google/callback" ||
+    rewrittenPath === "api/v1/auth/google/callback"
+  ) {
+    return handleGoogleCallback(req, res);
+  }
+
+  next();
+});
+
 app.use((req, res) => {
   console.log(`❌ 404 NOT FOUND: ${req.method} ${req.url}`);
   res.status(404).json({ 
