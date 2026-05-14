@@ -273,7 +273,7 @@ Useful for:
 
 ---
 
-# 💳 Transactions Section — Financial Data Engine
+# 3.💳 Transactions Section — Financial Data Engine
 
 The Transactions section is the backbone of Nexora.
 
@@ -334,7 +334,7 @@ without page reloads.
 
 ---
 
-# 3.🧾 Bills Section — Smart Bill Management System
+# 4.🧾 Bills Section — Smart Bill Management System
 
 The Bills module intelligently tracks monthly obligations and recurring utility payments.
 
@@ -390,7 +390,7 @@ Useful for:
 
 ---
 
-# 4. 🔁 Recurring Detector — Subscription & Salary Intelligence
+# 5.🔁 Recurring Detector — Subscription & Salary Intelligence
 
 The Recurring section automatically identifies repeating financial patterns.
 
@@ -453,7 +453,7 @@ Useful for:
 
 ---
 
-# 5.🎯 Goals Section — Smart Financial Goal Tracking
+# 6.🎯 Goals Section — Smart Financial Goal Tracking
 
 The Goals section helps users achieve financial milestones using automated savings analytics.
 
