@@ -81,7 +81,7 @@ export function SummaryCards() {
       className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5"
     >
       <motion.div variants={item}>
-        <Card className="border-slate-200/80 bg-white/90 transition-all duration-300 shadow-sm hover:shadow-md dark:border-slate-800/70 dark:bg-[#091227]">
+        <Card className="h-full border-slate-200/80 bg-white/90 transition-all duration-300 shadow-sm hover:shadow-md dark:border-slate-800/70 dark:bg-[#091227]">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Income</CardTitle>
             <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center">
@@ -99,7 +99,7 @@ export function SummaryCards() {
       </motion.div>
 
       <motion.div variants={item}>
-        <Card className="border-slate-200/80 bg-white/90 transition-all duration-300 shadow-sm hover:shadow-md dark:border-slate-800/70 dark:bg-[#091227]">
+        <Card className="h-full border-slate-200/80 bg-white/90 transition-all duration-300 shadow-sm hover:shadow-md dark:border-slate-800/70 dark:bg-[#091227]">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Expenses</CardTitle>
             <div className="h-8 w-8 rounded-full bg-rose-500/10 flex items-center justify-center">
@@ -117,7 +117,7 @@ export function SummaryCards() {
       </motion.div>
 
       <motion.div variants={item}>
-        <Card className="border-slate-200/80 bg-white/90 transition-all duration-300 shadow-sm hover:shadow-md dark:border-slate-800/70 dark:bg-[#091227]">
+        <Card className="h-full border-slate-200/80 bg-white/90 transition-all duration-300 shadow-sm hover:shadow-md dark:border-slate-800/70 dark:bg-[#091227]">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-slate-500 dark:text-slate-400">Net Savings</CardTitle>
             <div className="h-8 w-8 rounded-full bg-blue-500/10 flex items-center justify-center">
@@ -134,7 +134,7 @@ export function SummaryCards() {
       </motion.div>
 
       <motion.div variants={item}>
-        <Card className="border-slate-200/80 bg-white/90 transition-all duration-300 shadow-sm hover:shadow-md dark:border-slate-800/70 dark:bg-[#091227]">
+        <Card className="h-full border-slate-200/80 bg-white/90 transition-all duration-300 shadow-sm hover:shadow-md dark:border-slate-800/70 dark:bg-[#091227]">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-slate-500 dark:text-slate-400">Goal Savings</CardTitle>
             <div className="h-8 w-8 rounded-full bg-teal-500/10 flex items-center justify-center">
@@ -151,7 +151,7 @@ export function SummaryCards() {
       </motion.div>
 
       <motion.div variants={item}>
-        <Card className="relative overflow-hidden border-slate-200/80 bg-gradient-to-br from-white to-slate-50 shadow-[0_0_15px_rgba(245,158,11,0.05)] transition-all duration-300 hover:shadow-[0_0_20px_rgba(245,158,11,0.1)] dark:border-slate-700 dark:from-[#091227] dark:to-slate-900">
+        <Card className="h-full relative overflow-hidden border-slate-200/80 bg-gradient-to-br from-white to-slate-50 shadow-[0_0_15px_rgba(245,158,11,0.05)] transition-all duration-300 hover:shadow-[0_0_20px_rgba(245,158,11,0.1)] dark:border-slate-700 dark:from-[#091227] dark:to-slate-900">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-300">Financial Health</CardTitle>
             <div className="h-8 w-8 rounded-full bg-amber-500/10 flex items-center justify-center">
