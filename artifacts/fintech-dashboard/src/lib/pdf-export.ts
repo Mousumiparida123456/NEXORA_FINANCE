@@ -5,7 +5,7 @@ export async function exportDashboardToPDF(elementId: string, filename: string =
   const element = document.getElementById(elementId);
   if (!element) {
     console.error(`Element with id ${elementId} not found`);
-    return;
+    return false;
   }
 
   try {
