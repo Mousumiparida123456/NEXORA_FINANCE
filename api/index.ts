@@ -419,20 +419,14 @@ app.get(
 app.get("*", (req, res, next) => {
   const rewrittenPathRaw = firstParam(req.query.path as string | string[] | undefined) || "";
   const rewrittenPath = rewrittenPathRaw.replace(/^\/+/, "").replace(/\/+$/, "");
+  const normalizedCurrentPath = req.path.replace(/^\/+/, "").replace(/\/+$/, "");
+  const routeHint = `${normalizedCurrentPath} ${rewrittenPath}`.toLowerCase();
 
-  if (
-    rewrittenPath === "auth/google" ||
-    rewrittenPath === "api/auth/google" ||
-    rewrittenPath === "api/v1/auth/google"
-  ) {
+  if (routeHint.includes("auth/google") && !routeHint.includes("auth/google/callback")) {
     return startGoogleAuth(req, res);
   }
 
-  if (
-    rewrittenPath === "auth/google/callback" ||
-    rewrittenPath === "api/auth/google/callback" ||
-    rewrittenPath === "api/v1/auth/google/callback"
-  ) {
+  if (routeHint.includes("auth/google/callback")) {
     return handleGoogleCallback(req, res);
   }
 
