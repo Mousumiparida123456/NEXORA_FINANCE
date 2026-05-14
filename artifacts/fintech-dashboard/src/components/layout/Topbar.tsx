@@ -29,6 +29,7 @@ import { Sheet, SheetClose, SheetContent, SheetTrigger } from "@/components/ui/s
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useToast } from "@/hooks/use-toast"
 import { useDashboard } from "@/lib/dashboard-context"
+import { useNotifications } from "@/lib/notification-context"
 import { cn } from "@/lib/utils"
 
 const exportRows = [
@@ -65,13 +66,11 @@ export function Topbar() {
     role,
     setRole,
     canExport,
-    notifications,
-    unreadNotifications,
-    markAllNotificationsRead,
     theme,
     toggleTheme,
     formatCurrency,
   } = useDashboard()
+  const { notifications: liveNotifications, unreadCount: unreadNotifications, markAllRead: markAllNotificationsRead } = useNotifications()
   const { toast } = useToast()
 
   const exportDisabled = !canExport
@@ -87,7 +86,7 @@ export function Topbar() {
     : isDark
       ? "bg-slate-600/15 text-slate-300 ring-slate-700/30"
       : "bg-slate-100 text-slate-600 ring-slate-200"
-  const activeNotifications = useMemo(() => notifications, [notifications])
+  const recentNotifications = useMemo(() => liveNotifications.slice(0, 5), [liveNotifications])
 
   const handleExport = (format: "csv" | "json") => {
     const rows = [
@@ -303,7 +302,7 @@ export function Topbar() {
               </TooltipTrigger>
               <TooltipContent>View notifications</TooltipContent>
             </Tooltip>
-            <DropdownMenuContent className="w-[300px] p-3">
+            <DropdownMenuContent className="w-[340px] p-3">
               <div className="mb-3 flex items-center justify-between">
                 <p className="text-sm font-semibold text-slate-100">Notifications</p>
                 <button
@@ -314,24 +313,49 @@ export function Topbar() {
                   Mark all read
                 </button>
               </div>
-              <div className="space-y-2">
-                {activeNotifications.map((notification) => (
-                  <div
-                    key={notification.id}
-                    className={cn(
-                      "rounded-2xl border border-slate-800/70 bg-slate-950/80 p-3",
-                      notification.unread ? "ring-1 ring-emerald-500/20" : "opacity-90",
-                    )}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-100">{notification.title}</p>
-                        <p className="mt-1 text-xs text-slate-500">{notification.description}</p>
+              {recentNotifications.length === 0 ? (
+                <div className="py-6 text-center">
+                  <Bell className="mx-auto mb-2 h-6 w-6 text-slate-600" />
+                  <p className="text-xs text-slate-500">No notifications yet</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                  {recentNotifications.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className={cn(
+                        "rounded-2xl border border-slate-800/70 bg-slate-950/80 p-3",
+                        !notification.read ? "ring-1 ring-emerald-500/20" : "opacity-70",
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className={cn("text-sm font-semibold truncate", !notification.read ? "text-slate-100" : "text-slate-400")}>{notification.title}</p>
+                          <p className="mt-1 text-xs text-slate-500 line-clamp-2">{notification.message}</p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                          <span className={cn(
+                            "inline-block h-1.5 w-1.5 rounded-full flex-shrink-0",
+                            notification.priority === "critical" ? "bg-rose-500" :
+                            notification.priority === "high" ? "bg-amber-500" :
+                            notification.priority === "medium" ? "bg-blue-500" : "bg-slate-600"
+                          )} />
+                          <span className="text-[10px] text-slate-600 whitespace-nowrap">
+                            {new Date(notification.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
                       </div>
-                      <span className="text-[10px] uppercase tracking-[0.24em] text-slate-500">{notification.timestamp}</span>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              )}
+              <div className="mt-2 pt-2 border-t border-slate-800/60">
+                <a
+                  href="/notifications"
+                  className="flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-medium text-emerald-400 hover:text-emerald-300 transition-colors"
+                >
+                  View all notifications
+                </a>
               </div>
             </DropdownMenuContent>
           </DropdownMenu>

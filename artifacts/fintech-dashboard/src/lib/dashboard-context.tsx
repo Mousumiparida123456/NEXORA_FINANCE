@@ -36,14 +36,6 @@ const INITIAL_RATES = CURRENCIES.reduce<Record<string, number>>((acc, currency) 
   return acc
 }, {})
 
-type NotificationItem = {
-  id: string
-  title: string
-  description: string
-  timestamp: string
-  unread: boolean
-}
-
 interface DashboardContextValue {
   theme: ThemeMode
   toggleTheme: () => void
@@ -57,9 +49,6 @@ interface DashboardContextValue {
   isRefreshingRates: boolean
   refreshRates: () => Promise<void>
   canExport: boolean
-  notifications: NotificationItem[]
-  unreadNotifications: number
-  markAllNotificationsRead: () => void
   formatCurrency: (valueInINR: number) => string
   formatCompactCurrency: (valueInINR: number) => string
   convertFromINR: (valueInINR: number) => number
@@ -68,30 +57,6 @@ interface DashboardContextValue {
 }
 
 const DashboardContext = React.createContext<DashboardContextValue | undefined>(undefined)
-
-const initialNotifications: NotificationItem[] = [
-  {
-    id: "reminder",
-    title: "Investment reminder",
-    description: "Your monthly SIP review is ready.",
-    timestamp: "2m ago",
-    unread: true,
-  },
-  {
-    id: "report",
-    title: "Monthly report ready",
-    description: "October performance is available.",
-    timestamp: "1h ago",
-    unread: true,
-  },
-  {
-    id: "goal",
-    title: "Goal progress update",
-    description: "You are 7% closer to your emergency fund goal.",
-    timestamp: "3h ago",
-    unread: true,
-  },
-]
 
 function getSavedTheme(): ThemeMode {
   if (typeof window === "undefined") return "dark"
@@ -129,7 +94,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [rates, setRates] = React.useState<Record<string, number>>(INITIAL_RATES)
   const [isRatesOffline, setIsRatesOffline] = React.useState(false)
   const [isRefreshingRates, setIsRefreshingRates] = React.useState(false)
-  const [notifications, setNotifications] = React.useState<NotificationItem[]>(initialNotifications)
+  // Notifications are now managed by NotificationProvider (notification-context.tsx)
   const [user, setUser] = React.useState<AuthUser | null>(null)
 
   React.useEffect(() => {
@@ -247,14 +212,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     [rates, selectedCurrency],
   )
 
-  const unreadNotifications = React.useMemo(
-    () => notifications.filter((notification) => notification.unread).length,
-    [notifications],
-  )
-
-  const markAllNotificationsRead = React.useCallback(() => {
-    setNotifications((current) => current.map((notification) => ({ ...notification, unread: false })))
-  }, [])
+  // unreadNotifications and markAllNotificationsRead are now in NotificationContext
 
   return (
     <DashboardContext.Provider
@@ -271,9 +229,6 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         isRefreshingRates,
         refreshRates,
         canExport: role === "admin",
-        notifications,
-        unreadNotifications,
-        markAllNotificationsRead,
         formatCurrency,
         formatCompactCurrency,
         convertFromINR,

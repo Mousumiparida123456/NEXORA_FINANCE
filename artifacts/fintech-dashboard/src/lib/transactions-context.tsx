@@ -1,8 +1,17 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from "react";
-import { Transaction, TransactionInput, Category, TransactionType, MOCK_TRANSACTIONS } from "@/components/transactions/transactionData";
+import { Transaction, Category, TransactionType, MOCK_TRANSACTIONS } from "@/components/transactions/transactionData";
 import { api } from "@/lib/api";
 import { MonthlyData, ExpenseBreakdown, generateMonthlyChartData, generateExpenseBreakdown, calculateFinancialHealth } from "./financial-analytics";
 import { subscribeToTransactionsRealtime } from "@/lib/supabase-realtime-bridge";
+
+export interface TransactionInput {
+  description: string;
+  amount: number | string;
+  category: Category;
+  type: TransactionType;
+  date: string;
+}
+
 
 export interface FinancialSummary {
   totalIncome: number;
@@ -38,6 +47,7 @@ export interface TransactionsContextState {
 
 const TransactionsContext = createContext<TransactionsContextState | undefined>(undefined);
 const TRANSACTION_SYNC_EVENT = "nexora:transactions:changed";
+const TRANSACTION_NOTIFICATION_EVENT = "nexora:transaction:notify";
 
 export function TransactionsProvider({ children }: { children: ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -92,6 +102,9 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
       };
       setTransactions((prev) => [mappedCreated, ...prev]);
       window.dispatchEvent(new CustomEvent(TRANSACTION_SYNC_EVENT));
+      window.dispatchEvent(new CustomEvent(TRANSACTION_NOTIFICATION_EVENT, {
+        detail: { action: "add", description: input.description, category: input.category, amount: Number(input.amount), type: input.type }
+      }));
     } catch (err: any) {
       setError(err?.message || "Failed to add transaction.");
       throw err;
@@ -113,6 +126,9 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
       };
       setTransactions((prev) => prev.map((tx) => (tx.id === String(id) ? mappedUpdated : tx)));
       window.dispatchEvent(new CustomEvent(TRANSACTION_SYNC_EVENT));
+      window.dispatchEvent(new CustomEvent(TRANSACTION_NOTIFICATION_EVENT, {
+        detail: { action: "edit", description: input.description, category: input.category, amount: Number(input.amount), type: input.type }
+      }));
     } catch (err: any) {
       setError(err?.message || "Failed to update transaction.");
       throw err;
@@ -125,16 +141,20 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
     setSaving(true);
     setError("");
     try {
+      const txToDelete = transactions.find((tx) => tx.id === String(id));
       await api.delete(`/transactions/${id}`);
       setTransactions((prev) => prev.filter((tx) => tx.id !== String(id)));
       window.dispatchEvent(new CustomEvent(TRANSACTION_SYNC_EVENT));
+      window.dispatchEvent(new CustomEvent(TRANSACTION_NOTIFICATION_EVENT, {
+        detail: { action: "delete", description: txToDelete?.description, category: txToDelete?.category, amount: txToDelete?.amount, type: txToDelete?.type }
+      }));
     } catch (err: any) {
       setError(err?.message || "Failed to delete transaction.");
       throw err;
     } finally {
       setSaving(false);
     }
-  }, []);
+  }, [transactions]);
 
   // Compute derived state dynamically
   const { filteredTransactions, summary, monthlyChartData, expenseBreakdown } = useMemo(() => {

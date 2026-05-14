@@ -7,8 +7,11 @@ import {
   Database, Download, RefreshCw, Link2,
   CheckCircle2, AlertTriangle, Eye, EyeOff,
   ChevronRight, Info, X, Wifi, Building2,
+  Bell, Globe, Volume2, VolumeX, BellRing, Shield,
 } from "lucide-react";
 import { useDashboard } from "@/lib/dashboard-context";
+import { useNotifications, type NotificationSettings } from "@/lib/notification-context";
+import { requestBrowserNotificationPermission } from "@/lib/notification-engine";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
@@ -20,13 +23,15 @@ const formatINR = new Intl.NumberFormat("en-IN", {
 
 // ─── Tab config ────────────────────────────────────────────────────────────────
 
-type Tab = "profile" | "preferences" | "security" | "data";
+type Tab = "profile" | "preferences" | "notifications" | "security" | "data" | "system";
 
 const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
-  { id: "profile",     label: "Profile",      icon: User        },
-  { id: "preferences", label: "Preferences",  icon: TrendingUp  },
-  { id: "security",    label: "Security",     icon: ShieldCheck },
-  { id: "data",        label: "Financial Data", icon: Database  },
+  { id: "profile",        label: "Profile",        icon: User        },
+  { id: "preferences",    label: "Preferences",    icon: TrendingUp  },
+  { id: "notifications",  label: "Notifications",  icon: Bell        },
+  { id: "security",       label: "Security",       icon: ShieldCheck },
+  { id: "data",           label: "Data",           icon: Database    },
+  { id: "system",         label: "System",         icon: Globe       },
 ];
 
 // ─── Shared UI pieces ──────────────────────────────────────────────────────────
@@ -987,6 +992,217 @@ function DataSection() {
   );
 }
 
+// ─── Notifications Settings Section ────────────────────────────────────────────
+
+function NotificationsSection() {
+  const { settings, updateSettings, requestPushPermission } = useNotifications();
+  const { toast } = useToast();
+
+  const categories: { key: keyof NotificationSettings; label: string; desc: string; icon: React.ElementType }[] = [
+    { key: "enableTransactions", label: "Transaction Alerts", desc: "Notifications when transactions are added, edited, or deleted", icon: IndianRupee },
+    { key: "enableGoals",        label: "Goal Alerts",        desc: "Milestone updates and goal completion notifications",            icon: Target },
+    { key: "enableBills",        label: "Bill Reminders",     desc: "Due date reminders and overdue bill alerts",                    icon: AlertTriangle },
+    { key: "enableRecurring",    label: "Recurring Payments", desc: "Subscription detection and recurring expense alerts",           icon: RefreshCw },
+    { key: "enableInvestments",  label: "Investment Alerts",  desc: "Portfolio changes, SIP reminders, and milestone updates",       icon: TrendingUp },
+    { key: "enableCredit",       label: "Credit Alerts",      desc: "Credit health changes and affordability warnings",             icon: ShieldCheck },
+    { key: "enableAIInsights",   label: "AI Insights",        desc: "Smart spending analysis and personalized recommendations",     icon: BarChart2 },
+    { key: "enableSystem",       label: "System Alerts",      desc: "App updates, maintenance notices, and system messages",        icon: Database },
+  ];
+
+  function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+    return (
+      <button
+        onClick={() => onChange(!checked)}
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none flex-shrink-0
+          ${checked ? "bg-emerald-500" : "bg-slate-700"}`}
+      >
+        <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-6" : "translate-x-1"}`} />
+      </button>
+    );
+  }
+
+  async function handleEnablePush() {
+    const granted = await requestPushPermission();
+    if (!granted) {
+      toast({ title: "Permission denied", description: "Browser notifications were blocked. Enable them in your browser settings.", variant: "destructive" });
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Category Toggles */}
+      <Card>
+        <SectionTitle icon={BellRing} title="Notification Categories" subtitle="Choose which types of alerts you receive" />
+        <div className="space-y-1">
+          {categories.map((cat) => (
+            <div key={cat.key} className="flex items-center justify-between rounded-xl px-4 py-3 hover:bg-slate-800/30 transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-lg bg-slate-700/50 flex items-center justify-center flex-shrink-0">
+                  <cat.icon className="h-4 w-4 text-slate-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-200">{cat.label}</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">{cat.desc}</p>
+                </div>
+              </div>
+              <Toggle
+                checked={settings[cat.key] as boolean}
+                onChange={(v) => updateSettings({ [cat.key]: v })}
+              />
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Delivery Settings */}
+      <Card>
+        <SectionTitle icon={Bell} title="Delivery Preferences" subtitle="How you want to receive notifications" />
+        <div className="space-y-1">
+          <div className="flex items-center justify-between rounded-xl px-4 py-3 hover:bg-slate-800/30 transition-colors">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-lg bg-slate-700/50 flex items-center justify-center flex-shrink-0">
+                <Bell className="h-4 w-4 text-slate-400" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-200">Browser Push Notifications</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">Receive desktop alerts even when the tab is in background</p>
+              </div>
+            </div>
+            {settings.enableBrowserPush ? (
+              <Toggle checked={true} onChange={(v) => updateSettings({ enableBrowserPush: v })} />
+            ) : (
+              <button
+                onClick={handleEnablePush}
+                className="rounded-xl bg-emerald-500/15 border border-emerald-500/25 px-3 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/25 transition-all"
+              >
+                Enable
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between rounded-xl px-4 py-3 hover:bg-slate-800/30 transition-colors">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-lg bg-slate-700/50 flex items-center justify-center flex-shrink-0">
+                {settings.enableSound ? <Volume2 className="h-4 w-4 text-slate-400" /> : <VolumeX className="h-4 w-4 text-slate-400" />}
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-200">Notification Sounds</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">Play a sound for high-priority alerts</p>
+              </div>
+            </div>
+            <Toggle checked={settings.enableSound} onChange={(v) => updateSettings({ enableSound: v })} />
+          </div>
+
+          <div className="flex items-center justify-between rounded-xl px-4 py-3 hover:bg-slate-800/30 transition-colors">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-lg bg-slate-700/50 flex items-center justify-center flex-shrink-0">
+                <Mail className="h-4 w-4 text-slate-400" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-200">Email Alerts</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">Daily financial summaries and critical alerts via email</p>
+              </div>
+            </div>
+            <Toggle checked={settings.enableEmailAlerts} onChange={(v) => updateSettings({ enableEmailAlerts: v })} />
+          </div>
+        </div>
+
+        {settings.enableEmailAlerts && (
+          <div className="mt-4 flex items-start gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-3">
+            <Info className="h-3.5 w-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
+            <p className="text-[11px] text-amber-300/80">Email alerts require a backend email service. This is currently in demo mode.</p>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+// ─── System & Privacy Section ──────────────────────────────────────────────────
+
+function SystemSection() {
+  const [realtimeSync, setRealtimeSync] = useState(true);
+  const [autoRefresh, setAutoRefresh] = useState(20);
+  const [animations, setAnimations] = useState(true);
+  const [aiPersonalization, setAiPersonalization] = useState(true);
+  const [analyticsTracking, setAnalyticsTracking] = useState(true);
+
+  function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+    return (
+      <button
+        onClick={() => onChange(!checked)}
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none flex-shrink-0
+          ${checked ? "bg-emerald-500" : "bg-slate-700"}`}
+      >
+        <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-6" : "translate-x-1"}`} />
+      </button>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <Card>
+        <SectionTitle icon={Globe} title="System Performance" subtitle="Control sync and rendering settings" />
+        <div className="space-y-1">
+          <div className="flex items-center justify-between rounded-xl px-4 py-3 hover:bg-slate-800/30 transition-colors">
+            <div>
+              <p className="text-sm font-semibold text-slate-200">Realtime Sync</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">Auto-sync data across tabs and devices</p>
+            </div>
+            <Toggle checked={realtimeSync} onChange={setRealtimeSync} />
+          </div>
+          <div className="flex items-center justify-between rounded-xl px-4 py-3 hover:bg-slate-800/30 transition-colors">
+            <div>
+              <p className="text-sm font-semibold text-slate-200">Auto-refresh Interval</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">How often data refreshes in seconds</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="range" min={5} max={60} step={5}
+                value={autoRefresh}
+                onChange={(e) => setAutoRefresh(Number(e.target.value))}
+                className="w-24 accent-emerald-500 h-1.5 rounded-full cursor-pointer"
+              />
+              <span className="text-xs font-semibold text-slate-300 w-8 text-right">{autoRefresh}s</span>
+            </div>
+          </div>
+          <div className="flex items-center justify-between rounded-xl px-4 py-3 hover:bg-slate-800/30 transition-colors">
+            <div>
+              <p className="text-sm font-semibold text-slate-200">Animations</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">Enable smooth transitions and micro-animations</p>
+            </div>
+            <Toggle checked={animations} onChange={setAnimations} />
+          </div>
+        </div>
+      </Card>
+
+      <Card>
+        <SectionTitle icon={Shield} title="Privacy Controls" subtitle="Manage how your data is used" />
+        <div className="space-y-1">
+          <div className="flex items-center justify-between rounded-xl px-4 py-3 hover:bg-slate-800/30 transition-colors">
+            <div>
+              <p className="text-sm font-semibold text-slate-200">AI Personalization</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">Allow AI to analyze spending patterns for personalized insights</p>
+            </div>
+            <Toggle checked={aiPersonalization} onChange={setAiPersonalization} />
+          </div>
+          <div className="flex items-center justify-between rounded-xl px-4 py-3 hover:bg-slate-800/30 transition-colors">
+            <div>
+              <p className="text-sm font-semibold text-slate-200">Analytics Tracking</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">Help us improve by sharing anonymized usage data</p>
+            </div>
+            <Toggle checked={analyticsTracking} onChange={setAnalyticsTracking} />
+          </div>
+        </div>
+        <div className="mt-4 flex items-start gap-2 rounded-xl bg-slate-800/40 border border-slate-700/40 px-4 py-3">
+          <Shield className="h-3.5 w-3.5 text-slate-500 flex-shrink-0 mt-0.5" />
+          <p className="text-[11px] text-slate-500">Your financial data is encrypted end-to-end. We never sell or share your personal information.</p>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export function Settings() {
@@ -996,7 +1212,7 @@ export function Settings() {
     <main className="px-4 sm:px-6 py-6 sm:py-8 pb-20 max-w-3xl mx-auto">
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
         <h1 className="text-3xl font-bold text-slate-50 tracking-tight">Settings</h1>
-        <p className="text-slate-400 mt-1.5 font-medium">Manage your profile, preferences, and account security.</p>
+        <p className="text-slate-400 mt-1.5 font-medium">Manage your profile, preferences, notifications, and account security.</p>
       </motion.div>
 
       {/* Tab bar */}
@@ -1030,10 +1246,12 @@ export function Settings() {
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.18 }}
         >
-          {activeTab === "profile"     && <ProfileSection />}
-          {activeTab === "preferences" && <PreferencesSection />}
-          {activeTab === "security"    && <SecuritySection />}
-          {activeTab === "data"        && <DataSection />}
+          {activeTab === "profile"        && <ProfileSection />}
+          {activeTab === "preferences"    && <PreferencesSection />}
+          {activeTab === "notifications"  && <NotificationsSection />}
+          {activeTab === "security"       && <SecuritySection />}
+          {activeTab === "data"           && <DataSection />}
+          {activeTab === "system"         && <SystemSection />}
         </motion.div>
       </AnimatePresence>
     </main>

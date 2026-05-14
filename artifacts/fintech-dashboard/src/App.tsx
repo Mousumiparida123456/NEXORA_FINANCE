@@ -7,6 +7,7 @@ import { Layout } from "@/components/layout/Layout";
 import { api } from "@/lib/api";
 import { DashboardProvider } from "@/lib/dashboard-context";
 import { TransactionsProvider } from "@/lib/transactions-context";
+import { NotificationProvider } from "@/lib/notification-context";
 import { AnalyticsStoreProvider } from "@/lib/analytics-store";
 import { CurrencyProvider } from "@/lib/currency-context";
 
@@ -216,13 +217,15 @@ function App() {
       <TooltipProvider>
         <DashboardProvider>
           <TransactionsProvider>
-            <AnalyticsStoreProvider>
-              <CurrencyProvider>
-                <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-                  <Router authStatus={authStatus} />
-                </WouterRouter>
-              </CurrencyProvider>
-            </AnalyticsStoreProvider>
+            <NotificationProvider>
+              <AnalyticsStoreProvider>
+                <CurrencyProvider>
+                  <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                    <Router authStatus={authStatus} />
+                  </WouterRouter>
+                </CurrencyProvider>
+              </AnalyticsStoreProvider>
+            </NotificationProvider>
           </TransactionsProvider>
         </DashboardProvider>
         <Toaster />
