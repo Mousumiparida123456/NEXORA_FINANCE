@@ -318,7 +318,7 @@ const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || DEFAULT_CLIENT_ORIGIN;
 const GOOGLE_REDIRECT_URI =
   process.env.GOOGLE_REDIRECT_URI || `${API_ORIGIN.replace(/\/+$/, "")}/api/v1/auth/google/callback`;
 
-app.get([/^\/api(\/v1)?\/auth\/google\/?$/], (req, res) => {
+const startGoogleAuth = (req: express.Request, res: express.Response) => {
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
     return res.status(500).json({ error: "Google OAuth is not configured on server." });
   }
@@ -338,9 +338,9 @@ app.get([/^\/api(\/v1)?\/auth\/google\/?$/], (req, res) => {
 
   const qs = new URLSearchParams(options);
   res.redirect(`${rootUrl}?${qs.toString()}`);
-});
+};
 
-app.get([/^\/api(\/v1)?\/auth\/google\/callback\/?$/], async (req, res) => {
+const handleGoogleCallback = async (req: express.Request, res: express.Response) => {
   const code = req.query.code as string;
   const clientOrigin = CLIENT_ORIGIN;
 
@@ -407,7 +407,13 @@ app.get([/^\/api(\/v1)?\/auth\/google\/callback\/?$/], async (req, res) => {
     console.error("Google Auth Error:", error);
     res.redirect(`${clientOrigin}/login?error=auth_failed`);
   }
-});
+};
+
+app.get(["/api/auth/google", "/api/v1/auth/google", "/auth/google"], startGoogleAuth);
+app.get(
+  ["/api/auth/google/callback", "/api/v1/auth/google/callback", "/auth/google/callback"],
+  handleGoogleCallback
+);
 
 app.use((req, res) => {
   console.log(`❌ 404 NOT FOUND: ${req.method} ${req.url}`);
