@@ -1,12 +1,12 @@
-# nexora
+# NEXORA
 
-## Live Demo
+## LIVE DEMO LINK
 https://nexora-finance-fintech-dashboard.vercel.app/
 
 ## BACKENED
 https://nexora-finance-api-server.vercel.app/
 
-# 🌍 Problem Statement
+# PROBLEM STATEMENT
 
 Managing personal finances has become increasingly difficult in today’s fast-moving digital world. People use multiple payment methods, subscriptions, investment platforms, UPI applications, online banking systems, and digital wallets daily, making it challenging to maintain a clear understanding of their overall financial condition.
 
@@ -43,7 +43,7 @@ There is a strong need for a modern, intelligent, and realtime financial managem
 
 ---
 
-# 💡 Solution
+# 💡 SOLUTION
 
 Nexora is developed as an AI-powered realtime fintech dashboard that transforms raw transaction data into meaningful financial intelligence.
 
@@ -89,53 +89,9 @@ By combining:
 
 Nexora delivers a modern fintech experience similar to advanced digital finance platforms while maintaining a clean, futuristic, and highly interactive user interface.
 
----
-
-# Nexora Finance Dashboard
-
-A next-generation AI-powered fintech platform designed to help users manage money smarter through realtime analytics, intelligent financial insights, automated tracking systems, and predictive financial monitoring.
-
-Nexora transforms raw transaction data into meaningful financial intelligence by automatically analyzing spending behavior, recurring payments, investments, goals, savings trends, and overall financial health — all in one unified dashboard.
-
----
-
-# 🚀 Live Demo
-
-[Nexora Finance Dashboard](https://nexora-finance-fintech-dashboard.vercel.app/?utm_source=chatgpt.com)
-
----
-
-# 🌟 Overview
-
-Nexora is not just a finance tracker.
-
-It behaves like a complete digital financial command center where:
-
-* every transaction updates analytics in realtime
-* AI-style systems analyze financial behavior
-* goals track automatically
-* recurring payments are detected intelligently
-* investments are monitored dynamically
-* insights are generated from actual spending patterns
-
-The platform is built to simulate the experience of modern fintech applications like:
-
-* Groww
-* Zerodha
-* CRED
-* Walnut
-* Mint
-* INDmoney
-
-while maintaining a futuristic and highly interactive user interface.
-
----
-
 # ✨ Core Features
 
----
-
-# 📊 Dashboard — Your Financial Command Center
+# 1.📊 Dashboard — Your Financial Command Center
 
 The Dashboard acts as the central overview of the user's financial condition.
 
@@ -223,7 +179,7 @@ Useful for:
 
 ---
 
-# 🧠 Insights Section — AI Financial Intelligence System
+# 2.🧠 Insights Section — AI Financial Intelligence System
 
 The Insights section transforms transaction data into smart financial recommendations and behavioral analysis.
 
@@ -378,7 +334,7 @@ without page reloads.
 
 ---
 
-# 🧾 Bills Section — Smart Bill Management System
+# 3.🧾 Bills Section — Smart Bill Management System
 
 The Bills module intelligently tracks monthly obligations and recurring utility payments.
 
@@ -434,7 +390,7 @@ Useful for:
 
 ---
 
-# 🔁 Recurring Detector — Subscription & Salary Intelligence
+# 4. 🔁 Recurring Detector — Subscription & Salary Intelligence
 
 The Recurring section automatically identifies repeating financial patterns.
 
@@ -497,7 +453,7 @@ Useful for:
 
 ---
 
-# 🎯 Goals Section — Smart Financial Goal Tracking
+# 5.🎯 Goals Section — Smart Financial Goal Tracking
 
 The Goals section helps users achieve financial milestones using automated savings analytics.
 
