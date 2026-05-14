@@ -133,9 +133,18 @@ app.use(cors({
 }));
 
 // --- HIGH PRIORITY DUAL-PATH ROUTES ---
-app.get("/api/v1/auth/google", (req, res) => {
+const DEFAULT_API_ORIGIN = "https://nexora-finance-api-server.vercel.app";
+const API_ORIGIN = process.env.API_ORIGIN || DEFAULT_API_ORIGIN;
+
+const startGoogleAuth = (req: express.Request, res: express.Response) => {
   const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-  const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || "http://localhost:9999/api/v1/auth/google/callback";
+  const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+  const GOOGLE_REDIRECT_URI =
+    process.env.GOOGLE_REDIRECT_URI || `${API_ORIGIN.replace(/\/+$/, "")}/api/auth/google/callback`;
+
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+    return res.status(500).json({ error: "Google OAuth is not configured on server." });
+  }
   
   const rootUrl = "https://accounts.google.com/o/oauth2/v2/auth";
   const options = {
@@ -152,9 +161,9 @@ app.get("/api/v1/auth/google", (req, res) => {
 
   const qs = new URLSearchParams(options);
   res.redirect(`${rootUrl}?${qs.toString()}`);
-});
+};
 
-app.get("/api/v1/auth/google/callback", async (req, res) => {
+const handleGoogleCallback = async (req: express.Request, res: express.Response) => {
   const code = req.query.code as string;
   const clientOrigin = CLIENT_ORIGIN;
 
@@ -163,7 +172,8 @@ app.get("/api/v1/auth/google/callback", async (req, res) => {
   try {
     const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
     const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-    const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || "http://localhost:9999/api/v1/auth/google/callback";
+    const GOOGLE_REDIRECT_URI =
+      process.env.GOOGLE_REDIRECT_URI || `${API_ORIGIN.replace(/\/+$/, "")}/api/auth/google/callback`;
 
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -203,7 +213,13 @@ app.get("/api/v1/auth/google/callback", async (req, res) => {
     console.error("Google Auth Error:", error);
     res.redirect(`${clientOrigin}/login?error=auth_failed`);
   }
-});
+};
+
+app.get(["/api/v1/auth/google", "/api/auth/google", "/auth/google"], startGoogleAuth);
+app.get(
+  ["/api/v1/auth/google/callback", "/api/auth/google/callback", "/auth/google/callback"],
+  handleGoogleCallback
+);
 
 // --- HIGH PRIORITY DUAL-PATH ROUTES ---
 const aiPaths = ["/api/v1/ai/insights", "/api/ai/insights", "/ai/insights"];
@@ -675,6 +691,23 @@ app.delete(["/api/v1/transactions/:id", "/api/transactions/:id"], async (req, re
     console.error("DELETE transaction error:", error);
     res.status(500).json({ error: "Failed to delete transaction" });
   }
+});
+
+// Vercel rewrite fallback: some rewrites forward catch-all route via ?path=...
+app.get("*", (req, res, next) => {
+  const queryPath = req.query.path;
+  const rewrittenPathRaw = Array.isArray(queryPath) ? queryPath[0] : (queryPath as string | undefined) || "";
+  const rewrittenPath = rewrittenPathRaw.replace(/^\/+/, "").replace(/\/+$/, "").toLowerCase();
+  const normalizedCurrentPath = req.path.replace(/^\/+/, "").replace(/\/+$/, "").toLowerCase();
+  const routeHint = `${normalizedCurrentPath} ${rewrittenPath}`;
+
+  if (routeHint.includes("auth/google/callback")) {
+    return handleGoogleCallback(req, res);
+  }
+  if (routeHint.includes("auth/google")) {
+    return startGoogleAuth(req, res);
+  }
+  next();
 });
 
 // --- 404 CATCH-ALL (DIAGNOSTIC) ---
