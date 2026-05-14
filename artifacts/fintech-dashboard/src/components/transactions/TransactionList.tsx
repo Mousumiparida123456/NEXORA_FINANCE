@@ -14,6 +14,7 @@ import {
   type TransactionType,
   CATEGORIES,
 } from "./transactionData";
+import { cn } from "@/lib/utils";
 
 interface TransactionListProps {
   transactions: Transaction[];
