@@ -189,6 +189,11 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     if (notifs.length > 0) addNotifications(notifs);
   }, [addNotifications]);
 
+  const checkBills = useCallback((bills: { title: string; amount: number; dueDate: string; status: string }[], formatCurrency: (v: number) => string) => {
+    const notifs = generateBillNotifications(bills, formatCurrency);
+    if (notifs.length > 0) addNotifications(notifs);
+  }, [addNotifications]);
+
   const checkSpending = useCallback((analysis: any, formatCurrency: (v: number) => string) => {
     const notifs = generateSpendingAlerts(analysis, formatCurrency);
     if (notifs.length > 0) addNotifications(notifs);
