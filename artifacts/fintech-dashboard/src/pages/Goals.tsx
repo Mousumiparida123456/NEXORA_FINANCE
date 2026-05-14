@@ -270,8 +270,8 @@ export function Goals() {
               <Wallet className="h-4 w-4 text-blue-500" />
               <p className={cn("text-xs font-semibold uppercase tracking-wider", activeTheme ? "text-slate-400" : "text-slate-500")}>Net Savings</p>
             </div>
-            <p className={cn("text-2xl font-bold", liveSummary.net >= 0 ? "text-blue-500" : "text-rose-500")}>{formatCurrency(liveSummary.net)}</p>
-            <p className={cn("text-xs mt-1.5", activeTheme ? "text-slate-500" : "text-slate-400")}>Income ({formatCurrency(liveSummary.income)}) − Expenses ({formatCurrency(liveSummary.expenses)})</p>
+            <p className={cn("text-2xl font-bold", (liveSummary.net - totals.saved) >= 0 ? "text-blue-500" : "text-rose-500")}>{formatCurrency(liveSummary.net - totals.saved)}</p>
+            <p className={cn("text-xs mt-1.5", activeTheme ? "text-slate-500" : "text-slate-400")}>Available balance after goal allocations</p>
           </CardContent>
         </Card>
         <Card className={cn("border shadow-sm", activeTheme ? "border-emerald-900/30 bg-slate-950" : "border-emerald-100 bg-white")}>
