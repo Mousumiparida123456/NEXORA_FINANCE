@@ -417,7 +417,7 @@ export function InsightsSection() {
         </motion.div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-3 auto-rows-fr">
+      <div className="grid gap-4 xl:grid-cols-3 sm:auto-rows-fr">
         {observations.map((item) => {
           const Icon = item.icon;
           return (
