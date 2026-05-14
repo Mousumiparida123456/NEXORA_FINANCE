@@ -311,9 +311,18 @@ app.get(["/api/v1/auth/logout", "/api/v1/logout"], (req, res) => {
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || "http://localhost:9999/api/v1/auth/google/callback";
+const DEFAULT_API_ORIGIN = "https://nexora-finance-api-server.vercel.app";
+const DEFAULT_CLIENT_ORIGIN = "https://nexora-finance-fintech-dashboard.vercel.app";
+const API_ORIGIN = process.env.API_ORIGIN || DEFAULT_API_ORIGIN;
+const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || DEFAULT_CLIENT_ORIGIN;
+const GOOGLE_REDIRECT_URI =
+  process.env.GOOGLE_REDIRECT_URI || `${API_ORIGIN.replace(/\/+$/, "")}/api/v1/auth/google/callback`;
 
 app.get([/^\/api(\/v1)?\/auth\/google\/?$/], (req, res) => {
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+    return res.status(500).json({ error: "Google OAuth is not configured on server." });
+  }
+
   const rootUrl = "https://accounts.google.com/o/oauth2/v2/auth";
   const options = {
     redirect_uri: GOOGLE_REDIRECT_URI,
@@ -333,7 +342,7 @@ app.get([/^\/api(\/v1)?\/auth\/google\/?$/], (req, res) => {
 
 app.get([/^\/api(\/v1)?\/auth\/google\/callback\/?$/], async (req, res) => {
   const code = req.query.code as string;
-  const clientOrigin = "http://localhost:5173";
+  const clientOrigin = CLIENT_ORIGIN;
 
   if (!code) {
     return res.redirect(`${clientOrigin}/login?error=no_code`);
