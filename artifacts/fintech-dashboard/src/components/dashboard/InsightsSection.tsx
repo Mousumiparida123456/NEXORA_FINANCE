@@ -417,7 +417,7 @@ export function InsightsSection() {
         </motion.div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className="grid gap-4 xl:grid-cols-3 auto-rows-fr">
         {observations.map((item) => {
           const Icon = item.icon;
           return (
@@ -426,8 +426,9 @@ export function InsightsSection() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.45 }}
+              className="h-full"
             >
-              <Card className={cn("border-slate-200 bg-white/90 shadow-sm dark:border-slate-800 dark:bg-slate-950/80")}> 
+              <Card className={cn("h-full border-slate-200 bg-white/90 shadow-sm dark:border-slate-800 dark:bg-slate-950/80")}> 
                 <CardContent className="space-y-4 p-5">
                   <div className="flex items-center gap-3">
                     <div className={cn("grid h-11 w-11 place-items-center rounded-2xl", item.accent)}>
