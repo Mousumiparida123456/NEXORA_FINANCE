@@ -51,7 +51,7 @@ function isSubscription(item: RecurringTransaction): boolean {
 
 export function Recurring() {
   const { theme, formatCurrency } = useDashboard();
-  const { transactions } = useTransactionsContext();
+  const { transactions } = useTransactions();
   const { addNotification } = useNotifications();
   const isDark = theme === "dark";
 
