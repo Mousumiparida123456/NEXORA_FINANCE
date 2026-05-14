@@ -9,6 +9,7 @@ import { isSameMonth, parseISO, subMonths } from "date-fns";
 import { buildTrajectory, predictNetWorth } from "@/lib/financial-engine/goal-engine";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { motion } from "framer-motion";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 type IconKey = "PiggyBank" | "Plane" | "Laptop" | "Home";
 
@@ -149,6 +150,7 @@ export function Goals() {
   const [newGoalOpen, setNewGoalOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [addingToGoal, setAddingToGoal] = useState<Goal | null>(null);
+  const [manageType, setManageType] = useState<"deposit" | "withdraw">("deposit");
   const [form, setForm] = useState<GoalFormState>({
     name: "",
     target: 0,
@@ -166,6 +168,8 @@ export function Goals() {
     const target = goals.reduce((sum, goal) => sum + goal.target, 0);
     return { saved, target };
   }, [goals]);
+
+  const availableSavings = Math.max(0, liveSummary.net - totals.saved);
 
   const activeTheme = theme === "dark";
 
@@ -223,14 +227,22 @@ export function Goals() {
   const handleAddSavings = () => {
     if (!addingToGoal || depositValue <= 0) return;
     setGoals((current) =>
-      current.map((goal) =>
-        goal.id === addingToGoal.id
-          ? { ...goal, saved: Math.min(goal.target, goal.saved + depositValue) }
-          : goal,
-      ),
+      current.map((goal) => {
+        if (goal.id === addingToGoal.id) {
+          if (manageType === "deposit") {
+            const actualDeposit = Math.min(depositValue, availableSavings);
+            return { ...goal, saved: Math.min(goal.target, goal.saved + actualDeposit) };
+          } else {
+            const actualWithdraw = Math.min(depositValue, goal.saved);
+            return { ...goal, saved: goal.saved - actualWithdraw };
+          }
+        }
+        return goal;
+      })
     );
     setDepositValue(0);
     setAddingToGoal(null);
+    setManageType("deposit");
   };
 
   const progressColor = (accent: string) => ({ backgroundColor: accent });
@@ -276,9 +288,9 @@ export function Goals() {
           <CardContent className="p-5">
             <div className="flex items-center gap-2 mb-1">
               <Wallet className="h-4 w-4 text-blue-500" />
-              <p className={cn("text-xs font-semibold uppercase tracking-wider", activeTheme ? "text-slate-400" : "text-slate-500")}>Net Savings</p>
+              <p className={cn("text-xs font-semibold uppercase tracking-wider", activeTheme ? "text-slate-400" : "text-slate-500")}>Unallocated Savings</p>
             </div>
-            <p className={cn("text-xl font-bold", liveSummary.net >= 0 ? "text-blue-500" : "text-rose-500")}>{formatCurrency(liveSummary.net)}</p>
+            <p className={cn("text-xl font-bold", availableSavings >= 0 ? "text-blue-500" : "text-rose-500")}>{formatCurrency(availableSavings)}</p>
             <p className={cn("text-xs mt-1", activeTheme ? "text-slate-500" : "text-slate-400")}>Available to allocate to goals</p>
           </CardContent>
         </Card>
@@ -447,9 +459,9 @@ export function Goals() {
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className={cn("rounded-2xl px-3 py-2 text-sm font-medium", activeTheme ? "bg-slate-900/80 text-slate-200" : "bg-slate-50 text-slate-700")}>Deadline: {new Date(goal.deadline).toLocaleDateString()}</div>
-                  <Button size="sm" onClick={() => setAddingToGoal(goal)} className="w-full sm:w-auto">
+                  <Button size="sm" onClick={() => { setAddingToGoal(goal); setManageType("deposit"); }} className="w-full sm:w-auto">
                     <Plus className="h-4 w-4" />
-                    Add Savings
+                    Manage Savings
                   </Button>
                 </div>
               </CardContent>
@@ -524,33 +536,80 @@ export function Goals() {
           <div className={cn("w-full max-w-xl rounded-3xl border p-6 shadow-2xl", activeTheme ? "border-slate-800 bg-slate-950 text-slate-100" : "border-slate-200 bg-white text-slate-950")}>
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-xl font-semibold">Add Savings</h2>
-                <p className={cn("mt-1 text-sm", activeTheme ? "text-slate-400" : "text-slate-500")}>Apply a new deposit to your goal.</p>
+                <h2 className="text-xl font-semibold">Manage Goal Savings</h2>
+                <p className={cn("mt-1 text-sm", activeTheme ? "text-slate-400" : "text-slate-500")}>Deposit or withdraw from this goal.</p>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => setAddingToGoal(null)}>
+              <Button variant="ghost" size="icon" onClick={() => { setAddingToGoal(null); setDepositValue(0); }}>
                 ×
               </Button>
             </div>
-            <div className="grid gap-4 py-2">
-              <div className="rounded-2xl border p-4" style={{ borderColor: activeTheme ? "rgba(148,163,184,0.12)" : "rgba(226,232,240,1)" }}>
-                <p className={cn("text-sm font-medium", activeTheme ? "text-slate-100" : "text-slate-900")}>{addingToGoal?.name}</p>
-                <p className={cn("mt-1 text-sm", activeTheme ? "text-slate-400" : "text-slate-500")}>Current saved: {addingToGoal ? formatCurrency(addingToGoal.saved) : "--"}</p>
-              </div>
-              <label className="grid gap-2 text-sm font-medium">
-                Amount
-                <input
-                  type="number"
-                  min={0}
-                  value={depositValue}
-                  onChange={(event) => setDepositValue(Number(event.target.value))}
-                  className={cn("w-full rounded-2xl border px-4 py-3 text-sm outline-none transition", activeTheme ? "border-slate-700 bg-slate-900 text-slate-100" : "border-slate-200 bg-slate-50 text-slate-950")}
-                  placeholder="Enter amount"
-                />
-              </label>
+            
+            <div className="mb-6 rounded-2xl border p-4" style={{ borderColor: activeTheme ? "rgba(148,163,184,0.12)" : "rgba(226,232,240,1)" }}>
+              <p className={cn("text-sm font-medium", activeTheme ? "text-slate-100" : "text-slate-900")}>{addingToGoal?.name}</p>
+              <p className={cn("mt-1 text-sm", activeTheme ? "text-slate-400" : "text-slate-500")}>Current saved: {addingToGoal ? formatCurrency(addingToGoal.saved) : "--"}</p>
             </div>
-            <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
-              <Button variant="outline" onClick={() => setAddingToGoal(null)}>Cancel</Button>
-              <Button onClick={handleAddSavings}>Save deposit</Button>
+
+            <Tabs value={manageType} onValueChange={(v) => setManageType(v as "deposit" | "withdraw")} className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="deposit">Deposit</TabsTrigger>
+                <TabsTrigger value="withdraw">Withdraw</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="deposit">
+                <p className={cn("text-xs mb-3 font-medium", activeTheme ? "text-blue-400" : "text-blue-600")}>
+                  Available to deposit: {formatCurrency(availableSavings)}
+                </p>
+                <label className="grid gap-2 text-sm font-medium">
+                  Amount to Deposit
+                  <input
+                    type="number"
+                    min={0}
+                    max={availableSavings}
+                    value={depositValue || ""}
+                    onChange={(event) => setDepositValue(Number(event.target.value))}
+                    className={cn("w-full rounded-2xl border px-4 py-3 text-sm outline-none transition", activeTheme ? "border-slate-700 bg-slate-900 text-slate-100" : "border-slate-200 bg-slate-50 text-slate-950")}
+                    placeholder="Enter amount"
+                  />
+                </label>
+                {depositValue > availableSavings && (
+                  <p className="mt-2 text-xs text-rose-500">Exceeds available unallocated savings.</p>
+                )}
+              </TabsContent>
+
+              <TabsContent value="withdraw">
+                <p className={cn("text-xs mb-3 font-medium", activeTheme ? "text-amber-400" : "text-amber-600")}>
+                  Available to withdraw: {addingToGoal ? formatCurrency(addingToGoal.saved) : "--"}
+                </p>
+                <label className="grid gap-2 text-sm font-medium">
+                  Amount to Withdraw
+                  <input
+                    type="number"
+                    min={0}
+                    max={addingToGoal?.saved || 0}
+                    value={depositValue || ""}
+                    onChange={(event) => setDepositValue(Number(event.target.value))}
+                    className={cn("w-full rounded-2xl border px-4 py-3 text-sm outline-none transition", activeTheme ? "border-slate-700 bg-slate-900 text-slate-100" : "border-slate-200 bg-slate-50 text-slate-950")}
+                    placeholder="Enter amount"
+                  />
+                </label>
+                {(depositValue > (addingToGoal?.saved || 0)) && (
+                  <p className="mt-2 text-xs text-rose-500">Exceeds current saved amount for this goal.</p>
+                )}
+              </TabsContent>
+            </Tabs>
+
+            <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
+              <Button variant="outline" onClick={() => { setAddingToGoal(null); setDepositValue(0); }}>Cancel</Button>
+              <Button 
+                onClick={handleAddSavings} 
+                disabled={
+                  depositValue <= 0 || 
+                  (manageType === "deposit" && depositValue > availableSavings) ||
+                  (manageType === "withdraw" && depositValue > (addingToGoal?.saved || 0))
+                }
+              >
+                {manageType === "deposit" ? "Confirm Deposit" : "Confirm Withdraw"}
+              </Button>
             </div>
           </div>
         </div>

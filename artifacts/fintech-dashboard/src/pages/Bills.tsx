@@ -2,6 +2,16 @@ import { useMemo, useState } from "react";
 import { CreditCard, AlertTriangle, CheckCircle2, Clock, BellRing } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useDashboard } from "@/lib/dashboard-context";
 import { useTransactions } from "@/hooks/useTransactions";
 import { cn } from "@/lib/utils";
@@ -56,6 +66,9 @@ export function Bills() {
   const { transactions } = useTransactions();
   const isDark = theme === "dark";
   const [manuallyPaid, setManuallyPaid] = useState<Record<string, boolean>>({});
+  const [payingBill, setPayingBill] = useState<SmartBill | null>(null);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [cardNumber, setCardNumber] = useState("");
 
   const recurring = useMemo(() => detectRecurringTransactions(transactions), [transactions]);
 
@@ -241,7 +254,15 @@ export function Bills() {
                   <Button
                     size="sm"
                     variant={bill.status === "paid" ? "outline" : "default"}
-                    onClick={() => setManuallyPaid((cur) => ({ ...cur, [bill.id]: !cur[bill.id] }))}
+                    onClick={() => {
+                      if (bill.status === "paid") {
+                        setManuallyPaid((cur) => ({ ...cur, [bill.id]: false }));
+                      } else {
+                        setPayingBill(bill);
+                        setPaymentSuccess(false);
+                        setCardNumber("");
+                      }
+                    }}
                   >
                     {bill.status === "paid" ? "Mark Unpaid" : "Pay Bill"}
                   </Button>
@@ -251,6 +272,67 @@ export function Bills() {
           ))}
         </div>
       )}
+
+      <Dialog open={!!payingBill} onOpenChange={(open) => !open && setPayingBill(null)}>
+        <DialogContent className={isDark ? "border-slate-800 bg-slate-950 text-slate-50" : "bg-white text-slate-900"}>
+          <DialogHeader>
+            <DialogTitle>Pay {payingBill?.title}</DialogTitle>
+            <DialogDescription className={isDark ? "text-slate-400" : "text-slate-500"}>
+              Enter payment details to complete this transaction.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {paymentSuccess ? (
+            <div className="flex flex-col items-center justify-center py-6">
+              <CheckCircle2 className="mb-4 h-12 w-12 text-emerald-500" />
+              <p className="text-lg font-semibold text-emerald-500">Payment Successful!</p>
+              <p className={cn("mt-2 text-sm", isDark ? "text-slate-400" : "text-slate-500")}>
+                Your bill has been marked as paid.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="amount" className="text-right">
+                  Amount
+                </Label>
+                <div className="col-span-3 font-semibold">
+                  {payingBill && formatCurrency(payingBill.amount)}
+                </div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="card" className="text-right">
+                  Card
+                </Label>
+                <Input
+                  id="card"
+                  placeholder="**** **** **** 1234"
+                  className={cn("col-span-3", isDark ? "border-slate-700 bg-slate-900" : "")}
+                  value={cardNumber}
+                  onChange={(e) => setCardNumber(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            {paymentSuccess ? (
+              <Button onClick={() => setPayingBill(null)}>Close</Button>
+            ) : (
+              <Button 
+                onClick={() => {
+                  if (payingBill) {
+                    setManuallyPaid((cur) => ({ ...cur, [payingBill.id]: true }));
+                    setPaymentSuccess(true);
+                  }
+                }}
+              >
+                Confirm Payment
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
