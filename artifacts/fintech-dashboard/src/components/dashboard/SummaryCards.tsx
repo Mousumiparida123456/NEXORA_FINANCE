@@ -1,3 +1,4 @@
+import { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { IndianRupee, CreditCard, PiggyBank, Activity, TrendingUp, TrendingDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
