@@ -694,7 +694,9 @@ app.delete(["/api/v1/transactions/:id", "/api/transactions/:id"], async (req, re
 });
 
 // Vercel rewrite fallback: some rewrites forward catch-all route via ?path=...
-app.get("*", (req, res, next) => {
+app.use((req, res, next) => {
+  if (req.method !== "GET") return next();
+
   const queryPath = req.query.path;
   const rewrittenPathRaw = Array.isArray(queryPath) ? queryPath[0] : (queryPath as string | undefined) || "";
   const rewrittenPath = rewrittenPathRaw.replace(/^\/+/, "").replace(/\/+$/, "").toLowerCase();

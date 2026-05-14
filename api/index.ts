@@ -416,7 +416,9 @@ app.get(
 );
 
 // Vercel rewrite fallback: catch-all rewrites can forward path as ?path=...
-app.get("*", (req, res, next) => {
+app.use((req, res, next) => {
+  if (req.method !== "GET") return next();
+
   const rewrittenPathRaw = firstParam(req.query.path as string | string[] | undefined) || "";
   const rewrittenPath = rewrittenPathRaw.replace(/^\/+/, "").replace(/\/+$/, "");
   const normalizedCurrentPath = req.path.replace(/^\/+/, "").replace(/\/+$/, "");
