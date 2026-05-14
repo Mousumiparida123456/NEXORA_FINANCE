@@ -78,7 +78,7 @@ export function SummaryCards() {
       variants={container}
       initial="hidden"
       animate="show"
-      className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5"
+      className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5"
     >
       <motion.div variants={item}>
         <Card className="border-slate-200/80 bg-white/90 transition-all duration-300 shadow-sm hover:shadow-md dark:border-slate-800/70 dark:bg-[#091227]">

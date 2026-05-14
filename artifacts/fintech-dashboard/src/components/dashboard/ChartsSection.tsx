@@ -97,9 +97,9 @@ export function ChartsSection() {
           <CardHeader className="pb-4">
             <CardTitle className={cn("text-base font-semibold", theme === "dark" ? "text-slate-200" : "text-slate-900")}>Monthly Overview</CardTitle>
           </CardHeader>
-          <CardContent className="px-0 sm:px-6">
-            <div className="h-[300px] w-full overflow-x-auto overflow-y-hidden" style={{ scrollbarWidth: 'thin' }}>
-              <div style={{ minWidth: '700px', height: '100%', paddingRight: '10px' }}>
+          <CardContent className="px-2 sm:px-6">
+            <div className="h-[300px] w-full">
+              <div className="h-full w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                     <defs>

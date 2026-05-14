@@ -17,11 +17,15 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       <div className="md:flex md:min-h-screen supports-[height:100dvh]:md:min-h-dvh">
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col">
-          <Topbar />
-          <MobileNav />
-          <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
-            {children}
+          <div className="hidden md:block">
+            <Topbar />
           </div>
+          <div className="md:hidden">
+            <MobileNav />
+          </div>
+          <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8">
+            {children}
+          </main>
         </div>
       </div>
     </div>

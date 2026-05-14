@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LogOut, Menu, PieChart } from "lucide-react";
+import { LogOut, Menu, PieChart, Moon, Sun, Settings2 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { BRAND, MAIN_NAV, TOOL_NAV, BOTTOM_NAV } from "@/components/layout/nav";
@@ -45,7 +45,7 @@ function MobileNavItem({
 
 export function MobileNav() {
   const [location] = useLocation();
-  const { theme } = useDashboard();
+  const { theme, toggleTheme } = useDashboard();
   const isDark = theme === "dark";
 
   function isActive(href: string) {
@@ -148,6 +148,25 @@ export function MobileNav() {
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-semibold text-slate-500 truncate">{BRAND.name}</p>
           <p className={cn("text-sm font-bold truncate", isDark ? "text-slate-50" : "text-slate-950")}>{currentLabel}</p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={toggleTheme}
+            className={cn("h-10 w-10 rounded-xl border flex items-center justify-center transition-all", isDark ? "border-slate-800/70 bg-slate-900/60 text-slate-200 hover:bg-slate-900" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50")}
+            aria-label="Toggle theme"
+          >
+            {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
+          
+          <Link href="/settings">
+            <button
+              className={cn("h-10 w-10 rounded-xl border flex items-center justify-center transition-all", isDark ? "border-slate-800/70 bg-slate-900/60 text-slate-200 hover:bg-slate-900" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50")}
+              aria-label="Settings"
+            >
+              <Settings2 className="h-4 w-4" />
+            </button>
+          </Link>
         </div>
       </div>
     </div>
