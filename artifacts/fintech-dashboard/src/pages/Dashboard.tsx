@@ -23,7 +23,7 @@ import { subMonths, isSameMonth, parseISO, format } from "date-fns";
 type ApiStatus = "checking" | "connected" | "error" | "missing";
 
 export function Dashboard() {
-  const { theme } = useDashboard();
+  const { theme, formatCurrency, user } = useDashboard();
   const [apiStatus, setApiStatus] = useState<ApiStatus>(
     apiBaseUrl ? "checking" : "missing",
   );
@@ -34,7 +34,6 @@ export function Dashboard() {
   const { toast } = useToast();
   const { checkSpending } = useNotifications();
   const { transactions, summary } = useTransactionsContext();
-  const { formatCurrency } = useDashboard();
 
   const handleExportPDF = async () => {
     setIsExporting(true);
@@ -46,6 +45,46 @@ export function Dashboard() {
       const monthlyComparison = calculateMonthlyComparison(transactions);
       const aiInsights = generateSmartInsights(transactions, monthlyComparison);
       const milestone = calculateNextMilestone(transactions);
+      const monthlyInvestable = Math.max(0, summary.savings);
+      const riskProfile = user?.riskLevel ?? "medium";
+      const investStyle = user?.investStyle ?? "balanced";
+      const planByStyle = {
+        safe: {
+          strategy: "Capital preservation with steady compounding and low volatility.",
+          expectedAnnualReturn: 8,
+          horizonYears: 10,
+          allocation: [
+            { name: "Debt / Bonds", percent: 45 },
+            { name: "Large Cap Index", percent: 30 },
+            { name: "Gold", percent: 10 },
+            { name: "Liquid / Emergency", percent: 15 },
+          ],
+        },
+        balanced: {
+          strategy: "Blend growth and stability with diversified equity and fixed income.",
+          expectedAnnualReturn: 11,
+          horizonYears: 10,
+          allocation: [
+            { name: "Equity Index Funds", percent: 50 },
+            { name: "Debt / Bonds", percent: 25 },
+            { name: "Flexi-cap / Hybrid", percent: 15 },
+            { name: "Gold", percent: 10 },
+          ],
+        },
+        aggressive: {
+          strategy: "Long-term growth focus with higher equity exposure and larger swings.",
+          expectedAnnualReturn: 14,
+          horizonYears: 20,
+          allocation: [
+            { name: "Equity Index + Midcap", percent: 70 },
+            { name: "International Equity", percent: 15 },
+            { name: "Debt / Bonds", percent: 10 },
+            { name: "Gold", percent: 5 },
+          ],
+        },
+      } as const;
+      const selectedPlan = planByStyle[investStyle];
+      const suggestedSip = Math.max(0, Math.round(monthlyInvestable * 0.7));
       const expenseTransactions = transactions.filter((t) => t.type === "expense");
       const totalExpenseAmount = expenseTransactions.reduce((sum, t) => sum + Number(t.amount || 0), 0);
       const expenseByCategory = expenseTransactions.reduce<Record<string, number>>((acc, t) => {
@@ -81,6 +120,21 @@ export function Dashboard() {
             name: cb.name,
             amount: cb.amount
           }))
+        },
+        investmentPlan: {
+          riskProfile: `${riskProfile.toUpperCase()} risk · ${investStyle.toUpperCase()} style`,
+          strategy: selectedPlan.strategy,
+          monthlyInvestable,
+          suggestedSip,
+          horizonYears: selectedPlan.horizonYears,
+          expectedAnnualReturn: selectedPlan.expectedAnnualReturn,
+          targetAllocation: selectedPlan.allocation,
+          nextActions: [
+            `Start/continue a monthly SIP of ${formatCurrency(suggestedSip)} and automate the debit date.`,
+            "Keep 3-6 months of expenses in emergency reserves before increasing equity allocation.",
+            "Increase SIP by 5-10% every 6 months as income grows.",
+            "Review and rebalance allocations every 6-12 months.",
+          ],
         },
         insights: aiInsights,
         milestone: {

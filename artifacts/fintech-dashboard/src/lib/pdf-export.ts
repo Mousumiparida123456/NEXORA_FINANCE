@@ -19,6 +19,16 @@ export interface ReportData {
     roiPercent: number;
     breakdown: { name: string; amount: number }[];
   };
+  investmentPlan: {
+    riskProfile: string;
+    strategy: string;
+    monthlyInvestable: number;
+    suggestedSip: number;
+    horizonYears: number;
+    expectedAnnualReturn: number;
+    targetAllocation: { name: string; percent: number }[];
+    nextActions: string[];
+  };
   insights: string[];
   milestone: {
     title: string;
@@ -42,6 +52,11 @@ export async function generateFinancialReport(data: ReportData, filename: string
     const margin = 20;
     const contentWidth = pageWidth - (margin * 2);
     let y = 20;
+    const ensureSpace = (requiredHeight: number) => {
+      if (y + requiredHeight <= 280) return;
+      pdf.addPage();
+      y = 20;
+    };
 
     // --- Helper Functions ---
     const addSectionTitle = (title: string) => {
@@ -164,7 +179,48 @@ export async function generateFinancialReport(data: ReportData, filename: string
 
     y += 10;
 
+    // --- Investment Plan ---
+    ensureSpace(65);
+    addSectionTitle("PERSONALIZED INVESTMENT PLAN");
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+    pdf.setTextColor(51, 65, 85);
+    pdf.text(`Risk Profile: ${data.investmentPlan.riskProfile}`, margin, y);
+    y += 6;
+    pdf.text(`Strategy: ${data.investmentPlan.strategy}`, margin, y);
+    y += 6;
+    pdf.text(`Monthly Investable Surplus: ${formatCurrency(data.investmentPlan.monthlyInvestable)}`, margin, y);
+    y += 6;
+    pdf.text(`Suggested SIP: ${formatCurrency(data.investmentPlan.suggestedSip)} / month`, margin, y);
+    y += 6;
+    pdf.text(`Horizon & Return Assumption: ${data.investmentPlan.horizonYears} years @ ${data.investmentPlan.expectedAnnualReturn}% p.a.`, margin, y);
+    y += 10;
+
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Target Allocation", margin, y);
+    y += 6;
+    pdf.setFont("helvetica", "normal");
+    data.investmentPlan.targetAllocation.forEach((a) => {
+      pdf.text(`- ${a.name}: ${a.percent}%`, margin + 5, y);
+      y += 6;
+    });
+
+    y += 2;
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Next Actions", margin, y);
+    y += 6;
+    pdf.setFont("helvetica", "normal");
+    data.investmentPlan.nextActions.slice(0, 4).forEach((step) => {
+      const lines = pdf.splitTextToSize(`- ${step}`, contentWidth - 10);
+      pdf.text(lines, margin + 5, y);
+      y += lines.length * 5 + 1;
+    });
+
+    y += 6;
+
     // --- Smart Insights ---
+    ensureSpace(45);
     addSectionTitle("NEXORA AI INSIGHTS");
     
     pdf.setFont("helvetica", "italic");
