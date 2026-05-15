@@ -18,7 +18,6 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useNotifications } from "@/lib/notification-context";
 import { useTransactionsContext } from "@/lib/transactions-context";
-import { useMemo } from "react";
 import { subMonths, isSameMonth, parseISO, format } from "date-fns";
 
 type ApiStatus = "checking" | "connected" | "error" | "missing";
@@ -47,6 +46,20 @@ export function Dashboard() {
       const monthlyComparison = calculateMonthlyComparison(transactions);
       const aiInsights = generateSmartInsights(transactions, monthlyComparison);
       const milestone = calculateNextMilestone(transactions);
+      const expenseTransactions = transactions.filter((t) => t.type === "expense");
+      const totalExpenseAmount = expenseTransactions.reduce((sum, t) => sum + Number(t.amount || 0), 0);
+      const expenseByCategory = expenseTransactions.reduce<Record<string, number>>((acc, t) => {
+        const category = t.category || "Other";
+        acc[category] = (acc[category] || 0) + Number(t.amount || 0);
+        return acc;
+      }, {});
+      const expenseBreakdown = Object.entries(expenseByCategory)
+        .map(([name, amount]) => ({
+          name,
+          amount,
+          value: totalExpenseAmount > 0 ? (amount / totalExpenseAmount) * 100 : 0,
+        }))
+        .sort((a, b) => b.amount - a.amount);
       
       const reportData: ReportData = {
         summary: {

@@ -158,7 +158,7 @@ export async function generateFinancialReport(data: ReportData, filename: string
 
     data.investments.breakdown.forEach((item, i) => {
       pdf.setFontSize(9);
-      pdf.text(`• ${item.name}: ${formatCurrency(item.amount)}`, margin + 5, y);
+      pdf.text(`- ${item.name}: ${formatCurrency(item.amount)}`, margin + 5, y);
       y += 7;
     });
 
