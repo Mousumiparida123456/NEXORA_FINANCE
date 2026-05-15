@@ -117,6 +117,22 @@ export async function generateFinancialReport(data: ReportData, filename: string
 
     y += 20;
 
+    // Quick highlight so investment guidance is visible on page 1.
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    pdf.setTextColor(15, 23, 42);
+    pdf.text("INVESTMENT PLAN SNAPSHOT", margin, y);
+    y += 6;
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(9);
+    pdf.setTextColor(51, 65, 85);
+    pdf.text(
+      `${data.investmentPlan.riskProfile} | SIP ${formatCurrency(data.investmentPlan.suggestedSip)}/mo | ${data.investmentPlan.horizonYears}Y @ ${data.investmentPlan.expectedAnnualReturn}%`,
+      margin,
+      y,
+    );
+    y += 10;
+
     // --- Expense Breakdown ---
     addSectionTitle("EXPENSE ANALYSIS");
     

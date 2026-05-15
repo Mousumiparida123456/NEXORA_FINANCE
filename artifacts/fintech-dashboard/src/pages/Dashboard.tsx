@@ -145,7 +145,10 @@ export function Dashboard() {
       };
 
       // 2. Generate PDF
-      const success = await generateFinancialReport(reportData, `Nexora_Report_${format(new Date(), "MMM_yyyy")}.pdf`);
+      const success = await generateFinancialReport(
+        reportData,
+        `Nexora_Report_${format(new Date(), "yyyyMMdd_HHmmss")}.pdf`,
+      );
       
       setIsExporting(false);
       if (success) {
