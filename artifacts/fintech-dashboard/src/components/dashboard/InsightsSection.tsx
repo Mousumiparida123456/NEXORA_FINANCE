@@ -1,13 +1,11 @@
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import React, { useState, useEffect, useMemo } from "react";
 import { api } from "@/lib/api";
 import {
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
   LineChart,
   Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -20,7 +18,6 @@ import {
   TrendingUp,
   TrendingDown,
   DollarSign,
-  BarChart3,
   CircleDot,
   PiggyBank,
   Sparkles,
@@ -51,19 +48,19 @@ export function InsightsSection() {
   const [loading, setLoading] = useState(false);
 
   // --- Dynamic Insights Engine ---
-  const topCatMemo = useMemo(() => calculateTopCategories(transactions), [transactions]);
-  const categoryTrendData = useMemo(() => calculateCategoryTrends(transactions, topCatMemo), [transactions, topCatMemo]);
-  const breakdownData = useMemo(() => calculateMonthlyComparison(transactions), [transactions]);
+  const topCatMemo = useMemo(() => calculateTopCategories(transactions || []), [transactions]);
+  const categoryTrendData = useMemo(() => calculateCategoryTrends(transactions || [], topCatMemo), [transactions, topCatMemo]);
+  const breakdownData = useMemo(() => calculateMonthlyComparison(transactions || []), [transactions]);
   const comparisonData = useMemo(() => [...breakdownData].reverse(), [breakdownData]);
 
-  const confidenceScore = useMemo(() => calculateAIConfidence(transactions), [transactions]);
-  const sentimentScore = useMemo(() => calculateMarketSentiment(transactions), [transactions]);
-  const nextMilestone = useMemo(() => calculateNextMilestone(transactions), [transactions]);
-  const smartInsights = useMemo(() => generateSmartInsights(transactions, breakdownData), [transactions, breakdownData]);
+  const confidenceScore = useMemo(() => calculateAIConfidence(transactions || []), [transactions]);
+  const sentimentScore = useMemo(() => calculateMarketSentiment(transactions || []), [transactions]);
+  const nextMilestone = useMemo(() => calculateNextMilestone(transactions || []), [transactions]);
+  const smartInsights = useMemo(() => generateSmartInsights(transactions || [], breakdownData), [transactions, breakdownData]);
 
   // Generate dynamic observations
   const observations = useMemo(() => {
-    if (transactions.length === 0) return [];
+    if (!transactions || transactions.length === 0) return [];
     
     const obs = [];
     const expenses = transactions.filter(t => t.type === "expense");
@@ -107,20 +104,22 @@ export function InsightsSection() {
 
     // 4. Largest Transaction
     if (transactions.length > 0) {
-      const sorted = [...transactions].sort((a, b) => Number(b.amount) - Number(a.amount));
+      const sorted = [...transactions].sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0));
       const largest = sorted[0];
-      obs.push({
-        title: "Largest Transaction",
-        value: formatCurrency(Number(largest.amount)),
-        detail: `${largest.description || largest.category} on ${new Date(largest.date!).toLocaleDateString()}`,
-        icon: DollarSign,
-        accent: "text-sky-600 bg-sky-500/10",
-      });
+      if (largest) {
+        obs.push({
+          title: "Largest Transaction",
+          value: formatCurrency(Number(largest.amount || 0)),
+          detail: `${largest.description || largest.category || "Transaction"} on ${largest.date ? new Date(largest.date).toLocaleDateString() : "Unknown Date"}`,
+          icon: DollarSign,
+          accent: "text-sky-600 bg-sky-500/10",
+        });
+      }
     }
 
     // 5. Overall Net Balance
-    const totalExp = expenses.reduce((acc, t) => acc + Number(t.amount), 0);
-    const totalInc = income.reduce((acc, t) => acc + Number(t.amount), 0);
+    const totalExp = expenses.reduce((acc, t) => acc + Number(t.amount || 0), 0);
+    const totalInc = income.reduce((acc, t) => acc + Number(t.amount || 0), 0);
     const net = totalInc - totalExp;
     obs.push({
       title: "Overall Net Balance",
@@ -138,7 +137,7 @@ export function InsightsSection() {
     if (!advice) {
       setAdvice(smartInsights.map(s => `* ${s}`).join('\n'));
     }
-  }, [smartInsights]);
+  }, [smartInsights, advice]);
 
   const fetchAdvice = async () => {
     setLoading(true);
@@ -154,7 +153,7 @@ export function InsightsSection() {
     }
   };
 
-  if (transactions.length === 0) {
+  if (!transactions || transactions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <div className="h-16 w-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">

@@ -8,20 +8,22 @@ export function GamificationBadges() {
 
   const badges = useMemo(() => {
     const list = [];
-    const health = snapshot.healthScore || 0;
-    const savingsRate = snapshot.totals.savingsRate || 0;
-    const transactions = snapshot.totals.expenseCount + snapshot.totals.incomeCount;
+    const income = snapshot.totals?.income || 0;
+    const expenses = snapshot.totals?.expenses || 0;
+    const savingsRate = income > 0 ? ((income - expenses) / income) * 100 : 0;
+    const totalTransactions = snapshot.transactions?.length || 0;
+    const healthStatus = snapshot.goal?.health;
 
-    if (health >= 80) {
+    if (healthStatus === "On Track" || healthStatus === "Achievable") {
       list.push({ id: "elite", name: "Financial Elite", icon: ShieldCheck, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" });
     }
     if (savingsRate >= 30) {
       list.push({ id: "saver", name: "Super Saver", icon: Star, color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20" });
     }
-    if (transactions > 10) {
+    if (totalTransactions > 10) {
       list.push({ id: "active", name: "Active Tracker", icon: Zap, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" });
     }
-    if (health >= 60 && health < 80) {
+    if (healthStatus === "Steady Builder") {
       list.push({ id: "steady", name: "Steady Builder", icon: Flame, color: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/20" });
     }
 
