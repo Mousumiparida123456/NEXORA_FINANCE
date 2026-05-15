@@ -139,8 +139,13 @@ const API_ORIGIN = process.env.API_ORIGIN || DEFAULT_API_ORIGIN;
 const startGoogleAuth = (req: express.Request, res: express.Response) => {
   const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
   const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+  const host = req.get("host") || "localhost:9999";
+  const protocol = req.protocol || "http";
   const GOOGLE_REDIRECT_URI =
-    process.env.GOOGLE_REDIRECT_URI || `${API_ORIGIN.replace(/\/+$/, "")}/api/auth/google/callback`;
+    process.env.GOOGLE_REDIRECT_URI || 
+    (process.env.NODE_ENV === "production"
+      ? `${API_ORIGIN.replace(/\/+$/, "")}/api/auth/google/callback`
+      : `${protocol}://${host}/api/auth/google/callback`);
 
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
     return res.status(500).json({ error: "Google OAuth is not configured on server." });
@@ -172,8 +177,13 @@ const handleGoogleCallback = async (req: express.Request, res: express.Response)
   try {
     const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
     const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+    const host = req.get("host") || "localhost:9999";
+    const protocol = req.protocol || "http";
     const GOOGLE_REDIRECT_URI =
-      process.env.GOOGLE_REDIRECT_URI || `${API_ORIGIN.replace(/\/+$/, "")}/api/auth/google/callback`;
+      process.env.GOOGLE_REDIRECT_URI || 
+      (process.env.NODE_ENV === "production"
+        ? `${API_ORIGIN.replace(/\/+$/, "")}/api/auth/google/callback`
+        : `${protocol}://${host}/api/auth/google/callback`);
 
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",

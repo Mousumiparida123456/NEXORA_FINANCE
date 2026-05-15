@@ -117,9 +117,15 @@ app.get("/api/v1/auth/user", handleAuthUser);
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || "https://nexora-finance-api-server.vercel.app/api/auth/google/callback";
 
-app.get("/api/auth/google", (req, res) => {
+const handleGoogleAuth = (req: express.Request, res: express.Response) => {
+  const host = req.get("host") || "localhost:9999";
+  const protocol = req.protocol || "http";
+  const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 
+    (process.env.NODE_ENV === "production"
+      ? "https://nexora-finance-api-server.vercel.app/api/auth/google/callback"
+      : `${protocol}://${host}/api/auth/google/callback`);
+
   const rootUrl = "https://accounts.google.com/o/oauth2/v2/auth";
   const options = {
     redirect_uri: GOOGLE_REDIRECT_URI,
@@ -135,9 +141,9 @@ app.get("/api/auth/google", (req, res) => {
 
   const qs = new URLSearchParams(options);
   res.redirect(`${rootUrl}?${qs.toString()}`);
-});
+};
 
-app.get("/api/auth/google/callback", async (req, res) => {
+const handleGoogleCallback = async (req: express.Request, res: express.Response) => {
   const code = req.query.code as string;
   const clientOrigin = "https://nexora-finance-fintech-dashboard.vercel.app";
 
@@ -146,6 +152,13 @@ app.get("/api/auth/google/callback", async (req, res) => {
   }
 
   try {
+    const host = req.get("host") || "localhost:9999";
+    const protocol = req.protocol || "http";
+    const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 
+      (process.env.NODE_ENV === "production"
+        ? "https://nexora-finance-api-server.vercel.app/api/auth/google/callback"
+        : `${protocol}://${host}/api/auth/google/callback`);
+
     const tokenUrl = "https://oauth2.googleapis.com/token";
     const values = {
       code,
@@ -190,7 +203,15 @@ app.get("/api/auth/google/callback", async (req, res) => {
     console.error("Google Auth Error:", error);
     res.redirect(`${clientOrigin}/login?error=auth_failed`);
   }
-});
+};
+
+app.get("/auth/google", handleGoogleAuth);
+app.get("/api/auth/google", handleGoogleAuth);
+app.get("/api/v1/auth/google", handleGoogleAuth);
+
+app.get("/auth/google/callback", handleGoogleCallback);
+app.get("/api/auth/google/callback", handleGoogleCallback);
+app.get("/api/v1/auth/google/callback", handleGoogleCallback);
 
 export default app;
 module.exports = app;

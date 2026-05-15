@@ -63,8 +63,13 @@ export function Login() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const oauthError = params.get("error");
+    const oauthToken = params.get("token");
+
     if (oauthError) {
       setError("Google sign-in failed. Please try again.");
+    } else if (oauthToken) {
+      api.setAccessToken(oauthToken);
+      window.location.replace("/dashboard");
     }
   }, []);
 
