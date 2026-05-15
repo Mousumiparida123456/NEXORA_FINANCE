@@ -8,12 +8,18 @@ import { AIInsights } from "@/components/dashboard/AIInsights";
 import { ForecastChart } from "@/components/dashboard/ForecastChart";
 import { SecurityAudit } from "@/components/dashboard/SecurityAudit";
 import { Download, FileText } from "lucide-react";
-import { exportDashboardToPDF } from "@/lib/pdf-export";
+import { generateFinancialReport, ReportData } from "@/lib/pdf-export";
+import { 
+  calculateInvestmentAnalytics, 
+  generateSmartInsights, 
+  calculateMonthlyComparison,
+  calculateNextMilestone 
+} from "@/lib/insights-engine";
 import { useToast } from "@/hooks/use-toast";
 import { useNotifications } from "@/lib/notification-context";
 import { useTransactionsContext } from "@/lib/transactions-context";
 import { useMemo } from "react";
-import { subMonths, isSameMonth, parseISO } from "date-fns";
+import { subMonths, isSameMonth, parseISO, format } from "date-fns";
 
 type ApiStatus = "checking" | "connected" | "error" | "missing";
 
@@ -33,13 +39,57 @@ export function Dashboard() {
 
   const handleExportPDF = async () => {
     setIsExporting(true);
-    toast({ title: "Generating PDF...", description: "Please wait while we prepare your report." });
-    const success = await exportDashboardToPDF("dashboard-content", "Nexora_Monthly_Report.pdf");
-    setIsExporting(false);
-    if (success) {
-      toast({ title: "Success", description: "Report downloaded successfully!" });
-    } else {
-      toast({ title: "Error", description: "Failed to generate report.", variant: "destructive" });
+    toast({ title: "Generating Report...", description: "Nexora AI is analyzing your data for the PDF." });
+    
+    try {
+      // 1. Prepare data for the report
+      const investAnalytics = calculateInvestmentAnalytics(transactions);
+      const monthlyComparison = calculateMonthlyComparison(transactions);
+      const aiInsights = generateSmartInsights(transactions, monthlyComparison);
+      const milestone = calculateNextMilestone(transactions);
+      
+      const reportData: ReportData = {
+        summary: {
+          totalIncome: summary.totalIncome,
+          totalExpenses: summary.totalExpenses,
+          savings: summary.savings,
+          healthScore: summary.healthScore
+        },
+        expenses: expenseBreakdown.map(eb => ({
+          name: eb.name,
+          amount: eb.amount,
+          percentage: eb.value
+        })),
+        investments: {
+          totalInvested: investAnalytics.totalInvested,
+          netGain: investAnalytics.netGain,
+          roiPercent: investAnalytics.roiPercent,
+          breakdown: investAnalytics.categoryBreakdown.map(cb => ({
+            name: cb.name,
+            amount: cb.amount
+          }))
+        },
+        insights: aiInsights,
+        milestone: {
+          title: milestone.title,
+          remaining: milestone.remaining,
+          progressPct: milestone.progressPct
+        }
+      };
+
+      // 2. Generate PDF
+      const success = await generateFinancialReport(reportData, `Nexora_Report_${format(new Date(), "MMM_yyyy")}.pdf`);
+      
+      setIsExporting(false);
+      if (success) {
+        toast({ title: "Report Ready", description: "Your professional financial summary has been downloaded." });
+      } else {
+        toast({ title: "Export Failed", description: "Could not generate PDF. Check console for details.", variant: "destructive" });
+      }
+    } catch (err) {
+      console.error("PDF Export Error:", err);
+      setIsExporting(false);
+      toast({ title: "Error", description: "An unexpected error occurred during report generation.", variant: "destructive" });
     }
   };
 
