@@ -274,7 +274,10 @@ app.use((req, res, next) => {
 app.get("/api/v1/ping", (req, res) => res.json({ status: "ok" }));
 app.get(["/api/healthz", "/api/v1/healthz"], (_req, res) => res.json({ status: "ok" }));
 
+import { plaidRouter } from "./plaid";
+
 // --- AUTH ROUTES ---
+app.use(["/api/v1/plaid", "/api/plaid", "/plaid"], plaidRouter);
 
 app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], async (req, res) => {
   const start = Date.now();
@@ -287,7 +290,7 @@ app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], asyn
     const hashedPassword = await AuthService.hashPassword(password);
     
     console.log(`⏱️ [REG] Checking existing user... (+${Date.now() - start}ms)`);
-    const existing = await db.query.users.findFirst({ where: sql`${users.email} = ${email}` });
+    const existing = await db.query.users.findFirst({ where: eq(users.email, email.trim()) });
     if (existing) return res.status(400).json({ error: "User already exists" });
     
     console.log(`⏱️ [REG] Inserting user & account... (+${Date.now() - start}ms)`);
@@ -298,12 +301,57 @@ app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], asyn
       lastName 
     }).returning();
     
-    await db.insert(accounts).values({ 
+    const [newAccount] = await db.insert(accounts).values({ 
       userId: user.id, 
       type: "savings", 
-      balance: "1000.00", 
+      balance: email === "demo@nexora.finance" ? "42500.00" : "1000.00", 
       accountNumber: `NEX-${Math.floor(Math.random() * 1000000)}` 
-    });
+    }).returning();
+    
+    // Seed data if demo account
+    if (email === "demo@nexora.finance") {
+      console.log(`⏱️ [REG] Seeding demo transactions... (+${Date.now() - start}ms)`);
+      const categories = [
+        { name: "Salary", type: "income", avg: 8500, variance: 500, freq: "monthly" },
+        { name: "Rent", type: "expense", avg: 2500, variance: 0, freq: "monthly" },
+        { name: "Groceries", type: "expense", avg: 400, variance: 100, freq: "weekly" },
+        { name: "Dining Out", type: "expense", avg: 200, variance: 150, freq: "weekly" },
+        { name: "Utilities", type: "expense", avg: 350, variance: 50, freq: "monthly" },
+        { name: "Streaming", type: "expense", avg: 49, variance: 0, freq: "monthly" },
+      ];
+      const txData = [];
+      const now = new Date();
+      for (let m = 0; m < 12; m++) {
+        const monthDate = new Date(now);
+        monthDate.setMonth(now.getMonth() - m);
+        for (const cat of categories) {
+          if (cat.freq === "monthly") {
+            txData.push({
+              accountId: newAccount.id,
+              amount: (cat.avg + (Math.random() * cat.variance)).toFixed(2),
+              type: cat.type,
+              category: cat.name,
+              description: `${cat.name} - ${monthDate.toLocaleString('default', { month: 'short' })}`,
+              timestamp: new Date(monthDate),
+            });
+          } else if (cat.freq === "weekly") {
+            for (let w = 0; w < 4; w++) {
+              const weekDate = new Date(monthDate);
+              weekDate.setDate(weekDate.getDate() - (w * 7));
+              txData.push({
+                accountId: newAccount.id,
+                amount: (cat.avg + (Math.random() * cat.variance)).toFixed(2),
+                type: cat.type,
+                category: cat.name,
+                description: `${cat.name} Week ${w + 1}`,
+                timestamp: new Date(weekDate),
+              });
+            }
+          }
+        }
+      }
+      await db.insert(transactions).values(txData);
+    }
     
     console.log(`⏱️ [REG] Generating tokens... (+${Date.now() - start}ms)`);
     const tokens = AuthService.generateTokens({ userId: user.id, email: user.email });
@@ -330,12 +378,13 @@ app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], asyn
 app.post(["/api/v1/auth/login", "/api/auth/login", "/auth/login"], async (req, res) => {
   const start = Date.now();
   const { email, password } = req.body;
+  console.log(`[LOGIN ATTEMPT] email: "${email}", length: ${email?.length}`);
   if (!email || !password) return res.status(400).json({ error: "Email and password required" });
   if (!EMAIL_REGEX.test(email)) return res.status(400).json({ error: "Invalid email format" });
   
   try {
     console.log(`⏱️ [LOGIN] Finding user... (+${Date.now() - start}ms)`);
-    const user = await db.query.users.findFirst({ where: sql`${users.email} = ${email}` });
+    const user = await db.query.users.findFirst({ where: eq(users.email, email.trim()) });
     
     if (!user || !user.password) {
       console.log(`❌ [LOGIN] User not found (+${Date.now() - start}ms)`);
@@ -554,15 +603,20 @@ app.post("/api/v1/auth/forgot-password", async (req, res) => {
       .where(eq(users.id, user.id));
 
     const resetLink = `${CLIENT_ORIGIN}/reset-password?token=${encodeURIComponent(resetToken)}`;
-    await sendPasswordResetEmail(email, resetLink);
-    logger.info({ email }, "Password reset email sent");
-    if (process.env.NODE_ENV !== "production") {
-      return res.json({
-        message: "If the email exists, reset instructions have been sent.",
-        devResetLink: resetLink,
-      });
+    if (smtpConfigured) {
+      await sendPasswordResetEmail(email, resetLink);
+      logger.info({ email }, "Password reset email sent");
+    } else {
+      logger.info({ email, resetLink }, "SMTP not configured; returning dev reset link");
     }
-    return res.json({ message: "If the email exists, reset instructions have been sent." });
+
+    const response: Record<string, string> = {
+      message: "If the email exists, reset instructions have been sent.",
+    };
+    if (process.env.NODE_ENV !== "production" || !smtpConfigured) {
+      response.devResetLink = resetLink;
+    }
+    return res.json(response);
   } catch (error) {
     logger.error({ error, email }, "Failed to send password reset email");
     return res.status(500).json({ error: "Failed to process password reset request" });
@@ -708,7 +762,8 @@ app.use((req, res, next) => {
   if (req.method !== "GET") return next();
 
   const queryPath = req.query.path;
-  const rewrittenPathRaw = Array.isArray(queryPath) ? queryPath[0] : (queryPath as string | undefined) || "";
+  const rewrittenPathCandidate = Array.isArray(queryPath) ? queryPath[0] : queryPath;
+  const rewrittenPathRaw = typeof rewrittenPathCandidate === "string" ? rewrittenPathCandidate : "";
   const rewrittenPath = rewrittenPathRaw.replace(/^\/+/, "").replace(/\/+$/, "").toLowerCase();
   const normalizedCurrentPath = req.path.replace(/^\/+/, "").replace(/\/+$/, "").toLowerCase();
   const routeHint = `${normalizedCurrentPath} ${rewrittenPath}`;

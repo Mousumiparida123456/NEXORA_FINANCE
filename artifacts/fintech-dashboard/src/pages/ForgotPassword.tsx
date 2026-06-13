@@ -9,6 +9,7 @@ export function ForgotPassword() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
+  const [devResetLink, setDevResetLink] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -16,7 +17,8 @@ export function ForgotPassword() {
     setError("");
 
     try {
-      await api.forgotPassword(email);
+      const response = await api.forgotPassword(email);
+      setDevResetLink(response.devResetLink || "");
       setSuccess(true);
     } catch (err: any) {
       setError(err.message || "Failed to initiate password reset.");
@@ -58,6 +60,14 @@ export function ForgotPassword() {
                   <p className="text-xs text-slate-500 leading-relaxed">
                     If that email exists in our vault, you will receive a secure reset link shortly.
                   </p>
+                  {devResetLink && (
+                    <a
+                      href={devResetLink}
+                      className="inline-block text-xs font-semibold text-cyan-300 hover:underline break-all"
+                    >
+                      Open local reset link
+                    </a>
+                  )}
                 </div>
                 <Link 
                   to="/login"

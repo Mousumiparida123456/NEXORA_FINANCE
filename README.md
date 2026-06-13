@@ -3,8 +3,15 @@
 ## LIVE DEMO LINK
 https://nexora-finance-fintech-dashboard.vercel.app/
 
-## BACKENED
+## Backend
 https://nexora-finance-api-server.vercel.app/
+
+## Local Architecture
+
+- Backend source: `artifacts/api-server`
+- Shared database layer: `lib/db`
+- Database migrations: `lib/db/drizzle`
+- Local backend base URL: `http://localhost:9999/api/v1`
 
 # PROBLEM STATEMENT
 

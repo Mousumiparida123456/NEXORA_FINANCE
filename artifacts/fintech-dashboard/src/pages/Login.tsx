@@ -50,6 +50,7 @@ export function Login() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
 
   useEffect(() => {
     // Convenience: Load remembered email
@@ -116,6 +117,51 @@ export function Login() {
     }
   }
 
+  async function handleDemoLogin() {
+    setDemoLoading(true);
+    setError("");
+    const demoEmail = "demo@nexora.finance";
+    const demoPassword = "DemoAccount123!";
+    
+    setEmail(demoEmail);
+    setPassword(demoPassword);
+    
+    try {
+      // First try to login
+      const loginResult = await api.login({ email: demoEmail, password: demoPassword });
+      if (loginResult.accessToken) {
+        api.setAccessToken(loginResult.accessToken);
+        window.location.replace("/dashboard");
+        return;
+      }
+    } catch (err: any) {
+      // If login fails (user doesn't exist), register them
+      try {
+        const registerResult = await api.register({ 
+          email: demoEmail, 
+          password: demoPassword, 
+          firstName: "Demo",
+          lastName: "User" 
+        });
+        
+        if (registerResult.accessToken) {
+          api.setAccessToken(registerResult.accessToken);
+          // Insert some fake data into user-data via upsert immediately so they have a profile
+          await api.upsertUserData({
+             profile: { name: "Demo User", email: demoEmail, income: "8500", goals: "Buy a house in 2 years" },
+             preferences: { riskLevel: "medium", savingsGoal: 20000, investStyle: "balanced" }
+          });
+          window.location.replace("/dashboard");
+          return;
+        }
+      } catch (registerErr: any) {
+        setError(registerErr.message || "Demo account creation failed.");
+      }
+    } finally {
+      setDemoLoading(false);
+    }
+  }
+
   function handleGoogleContinue() {
     setGoogleLoading(true);
     window.location.assign(`${api.baseUrl}/auth/google`);
@@ -143,13 +189,23 @@ export function Login() {
                   <p className="mt-1 text-sm text-slate-400">Production Identity Gateway</p>
                 </div>
               </div>
-              <button 
-                onClick={() => setIsLogin(!isLogin)}
-                className="flex items-center gap-2 rounded-xl border border-white/5 bg-white/5 px-4 py-2 text-xs font-bold transition hover:bg-white/10"
-              >
-                {isLogin ? <UserPlus className="h-3.5 w-3.5" /> : <LogIn className="h-3.5 w-3.5" />}
-                {isLogin ? "Register" : "Login"}
-              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={handleDemoLogin}
+                  disabled={demoLoading}
+                  className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-xs font-bold text-emerald-400 transition hover:bg-emerald-500/20"
+                >
+                  {demoLoading ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-emerald-400 border-t-transparent" /> : <Sparkles className="h-3.5 w-3.5" />}
+                  Demo
+                </button>
+                <button 
+                  onClick={() => setIsLogin(!isLogin)}
+                  className="flex items-center gap-2 rounded-xl border border-white/5 bg-white/5 px-4 py-2 text-xs font-bold transition hover:bg-white/10"
+                >
+                  {isLogin ? <UserPlus className="h-3.5 w-3.5" /> : <LogIn className="h-3.5 w-3.5" />}
+                  {isLogin ? "Register" : "Login"}
+                </button>
+              </div>
             </header>
 
             <div className="rounded-[32px] border border-white/10 bg-white/[0.045] p-7 shadow-[0_32px_120px_rgba(2,8,23,0.72)] backdrop-blur-2xl sm:p-8">

@@ -254,14 +254,16 @@ export function Dashboard() {
             <h1 className={theme === "dark" ? "text-3xl font-bold text-slate-50 tracking-tight" : "text-3xl font-bold text-slate-950 tracking-tight"}>Dashboard</h1>
             <p className={theme === "dark" ? "mt-1.5 font-medium text-slate-400" : "mt-1.5 font-medium text-slate-500"}>Here's your financial overview for October 2024.</p>
           </div>
-          <button
-            onClick={handleExportPDF}
-            disabled={isExporting}
-            className="hidden sm:flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-violet-500/20 hover:bg-violet-500 disabled:opacity-50 transition-all"
-          >
-            {isExporting ? <FileText className="h-4 w-4 animate-pulse" /> : <Download className="h-4 w-4" />}
-            {isExporting ? "Exporting..." : "Download Report"}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleExportPDF}
+              disabled={isExporting}
+              className="hidden sm:flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-violet-500/20 hover:bg-violet-500 disabled:opacity-50 transition-all"
+            >
+              {isExporting ? <FileText className="h-4 w-4 animate-pulse" /> : <Download className="h-4 w-4" />}
+              {isExporting ? "Exporting..." : "Download Report"}
+            </button>
+          </div>
         </div>
         <div className={`rounded-2xl border px-4 py-3 text-sm shadow-sm ${apiBadgeClassName}`}>
           <p className="font-semibold">

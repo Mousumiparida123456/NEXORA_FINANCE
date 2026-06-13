@@ -1,1 +1,0 @@
-[log] 🚀 NEXORA_ENGINE_ACTIVE: https://nexora-finance-api-server.vercel.app/api/v1

@@ -1,12 +1,14 @@
 const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 const isProd = import.meta.env.PROD;
 const prodFallbackApiBaseUrl = "https://nexora-finance-api-server.vercel.app";
+const devFallbackApiBaseUrl =
+  typeof window !== "undefined" ? window.location.origin : "http://localhost:5173";
 
 export const apiBaseUrl = rawApiBaseUrl
   ? rawApiBaseUrl.replace(/\/+$/, "")
   : isProd
     ? prodFallbackApiBaseUrl
-    : "http://localhost:9999";
+    : devFallbackApiBaseUrl;
 
 const hasVersionedPrefix = /\/api\/v1$/i.test(apiBaseUrl);
 const hasApiPrefix = /\/api$/i.test(apiBaseUrl);
@@ -140,7 +142,7 @@ class ApiClient {
     return window.localStorage.getItem(this.tokenKey);
   }
 
-  async forgotPassword(email: string): Promise<{ message: string }> {
+  async forgotPassword(email: string): Promise<{ message: string; devResetLink?: string }> {
     return this.post("/auth/forgot-password", { email });
   }
 
