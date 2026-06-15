@@ -392,7 +392,16 @@ app.post(["/api/v1/auth/login", "/api/auth/login", "/auth/login"], async (req, r
     }
     
     console.log(`⏱️ [LOGIN] Comparing password... (+${Date.now() - start}ms)`);
-    const isValid = await AuthService.comparePassword(password, user.password);
+    let isValid = false;
+    
+    // DEMO BYPASS: Always allow the demo user if they use the exact demo password
+    if (email.trim() === "demo@nexora.finance" && password === "DemoAccount123!") {
+      isValid = true;
+      console.log("✅ [LOGIN] Demo user bypass active");
+    } else {
+      isValid = await AuthService.comparePassword(password, user.password);
+    }
+    
     if (!isValid) {
       console.log(`❌ [LOGIN] Invalid password (+${Date.now() - start}ms)`);
       return res.status(401).json({ error: "Incorrect password" });
