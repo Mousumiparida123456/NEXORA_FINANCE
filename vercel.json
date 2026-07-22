@@ -1,10 +1,4 @@
 {
   "version": 2,
-  "framework": null,
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "/api/index.ts"
-    }
-  ]
+  "framework": null
 }
