@@ -20,13 +20,6 @@ URL: http://localhost:${PORT}
 Environment: ${process.env.NODE_ENV || "development"}
 Active Routes: /api/v1/dashboard, /api/v1/analytics/predict, /api/v1/ai/insights
 SMTP: ${smtpReady ? "configured" : "NOT CONFIGURED"}`);
-
-  // DB Connection Heartbeat
-  pool.query('SELECT 1').then(async () => {
-    console.log("Database Connected Successfully");
-  }).catch((err: any) => {
-    console.error("DATABASE CONNECTION FAILED:", err.message);
-  });
 });
 
 export default app;
