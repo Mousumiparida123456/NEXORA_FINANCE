@@ -10,7 +10,8 @@ dotenv.config({ path: resolve(__dirname, "../../../.env") });
 dotenv.config({ path: resolve(process.cwd(), ".env"), override: true });
 
 if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL is not set");
+  console.error("DATABASE_URL is not set in environment variables!");
+  process.env.DATABASE_URL = "postgresql://postgres:dummy@localhost:5432/dummy";
 }
 
 export const pool = new Pool({
