@@ -4,7 +4,7 @@
 const { Client } = require("pg");
 
 const DATABASE_URL =
-  "postgresql://postgres:mousumiparida05052005@db.phbaurgsgxftxkzmuvev.supabase.co:5432/postgres?sslmode=no-verify";
+  "postgresql://postgres:mousumiparida05052005@[2406:da1a:b00:1302:6da8:949d:c706:70eb]:5432/postgres?sslmode=no-verify";
 
 const SQL = `
 -- Drop in safe order (children first)
