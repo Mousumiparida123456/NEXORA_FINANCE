@@ -27,3 +27,5 @@ SMTP: ${smtpReady ? "configured" : "NOT CONFIGURED"}`);
     console.error("DATABASE CONNECTION FAILED:", err.message);
   });
 });
+
+export default app;
