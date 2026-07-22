@@ -16,7 +16,10 @@ const authenticatePlaid = (req: express.Request, res: express.Response, next: ex
   if (!token) return res.status(401).json({ error: "Unauthorized" });
   
   try {
-    const decoded = AuthService.verifyToken(token, "access");
+    const decoded = AuthService.verifyAccessToken(token);
+    if (!decoded) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
     (req as any).user = decoded;
     next();
   } catch(e) {
