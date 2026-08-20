@@ -105,9 +105,10 @@ export function Login() {
         if (registerResult.accessToken) {
           api.setAccessToken(registerResult.accessToken);
         }
-        setSuccess("Account created! You can now sign in.");
-        setIsLogin(true);
-        setConfirmPassword("");
+        setSuccess("Account created successfully! Entering dashboard...");
+        setTimeout(() => {
+          window.location.replace("/dashboard");
+        }, 500);
       }
     } catch (err: any) {
       console.error("❌ AUTH_ERROR_DETAILS:", err);
