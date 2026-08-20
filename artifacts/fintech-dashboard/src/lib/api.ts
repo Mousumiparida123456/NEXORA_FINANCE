@@ -137,7 +137,20 @@ class ApiClient {
     } catch (e) {
       console.warn("Backend getCurrentUser unavailable, checking local active user session...");
     }
-    return this.getActiveLocalUser();
+    const local = this.getActiveLocalUser();
+    if (local) return local;
+    
+    const token = this.getAccessToken();
+    if (token) {
+      const fallback: AuthUser = {
+        id: "usr_active_session",
+        email: "user@nexora.finance",
+        firstName: "Nexora User"
+      };
+      window.localStorage.setItem("nexora_current_user", JSON.stringify(fallback));
+      return fallback;
+    }
+    return null;
   }
 
   async isAuthenticated(): Promise<boolean> {
