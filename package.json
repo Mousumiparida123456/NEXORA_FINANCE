@@ -4,7 +4,6 @@
   "license": "MIT",
   "packageManager": "pnpm@9.15.4",
   "scripts": {
-    "preinstall": "node -e \"const fs=require('node:fs'); for (const file of ['package-lock.json','yarn.lock']) { try { fs.rmSync(file, { force: true }); } catch {} } const ua=process.env.npm_config_user_agent||''; if (!ua.startsWith('pnpm/')) { console.error('Use pnpm instead'); process.exit(1); }\"",
     "build": "echo skipping workspace build",
     "typecheck:libs": "tsc --build",
     "typecheck": "echo skipping typecheck",
