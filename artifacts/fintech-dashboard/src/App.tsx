@@ -150,7 +150,6 @@ class ErrorBoundary extends React.Component<
 
 function Router({ authStatus }: { authStatus: AuthStatus }) {
   const [location] = useLocation();
-  console.log("[NEXORA ROUTER DEBUG] current location:", location, "authStatus:", authStatus);
 
   const isAuthRoute =
     location === "/" ||
@@ -158,8 +157,8 @@ function Router({ authStatus }: { authStatus: AuthStatus }) {
     location.startsWith("/forgot-password") ||
     location.startsWith("/reset-password");
 
-  // Only show the sidebar/shell when user is authenticated AND on a protected route
   const showShell = authStatus === "authenticated" && !isAuthRoute;
+  const isMerchantRoute = location === "/merchant" || location.startsWith("/merchant/");
 
   const loginEntry = () =>
     authStatus === "checking" ? (
@@ -170,83 +169,59 @@ function Router({ authStatus }: { authStatus: AuthStatus }) {
       <Login />
     );
 
-  const isMerchantRoute = location === "/merchant" || location.startsWith("/merchant/");
+  const mainSwitch = (
+    <Switch>
+      {/* Workspace Priority Routes */}
+      <Route path="/merchant" component={Merchant} />
+      <Route path="/workspaces" component={WorkspacesPage} />
 
-  const routeContent = (
-    <ErrorBoundary>
-      <Suspense
-        fallback={
-          <div className="flex min-h-[40vh] items-center justify-center text-sm font-medium text-slate-400">
-            Loading Nexora workspace...
-          </div>
-        }
-      >
-      <Switch>
-        {/* Priority Routes */}
-        <Route path="/merchant">
-          <ProtectedRoute component={Merchant} authStatus={authStatus} />
-        </Route>
-        <Route path="/workspaces">
-          <ProtectedRoute component={WorkspacesPage} authStatus={authStatus} />
-        </Route>
+      {/* Personal Finance Protected Routes */}
+      <Route path="/dashboard" component={Dashboard} />
+      <Route path="/insights" component={Insights} />
+      <Route path="/transactions" component={Transactions} />
+      <Route path="/bills" component={Bills} />
+      <Route path="/recurring" component={Recurring} />
+      <Route path="/credit-score" component={CreditScore} />
+      <Route path="/invest" component={Investment} />
+      <Route path="/goals" component={Goals} />
+      <Route path="/ai-assistant" component={AIAssistant} />
+      <Route path="/notifications" component={Notifications} />
+      <Route path="/settings" component={Settings} />
 
-        <Route path="/login" component={loginEntry} />
+      {/* Merchant Intelligence Sub-routes */}
+      <Route path="/sentinel" component={() => <Redirect to="/merchant" />} />
+      <Route path="/sentinel/dashboard" component={() => <Redirect to="/merchant" />} />
+      <Route path="/sentinel-dashboard" component={() => <Redirect to="/merchant" />} />
+      <Route path="/merchant/risk" component={MerchantRiskPage} />
+      <Route path="/merchant/transactions" component={MerchantTransactionsPage} />
+      <Route path="/merchant/customers" component={MerchantCustomersPage} />
+      <Route path="/merchant/investigations" component={MerchantInvestigationsPage} />
+      <Route path="/merchant/returns" component={MerchantReturnsPage} />
+      <Route path="/merchant/analytics" component={MerchantAnalyticsPage} />
+      <Route path="/merchant/agent" component={MerchantAgentPage} />
+      <Route path="/merchant/rules" component={MerchantRulesPage} />
+      <Route path="/merchant/model-performance" component={MerchantModelPerformancePage} />
+      <Route path="/merchant/audit" component={MerchantAuditPage} />
 
-        {/* Personal Finance Protected Routes */}
-        <Route path="/dashboard" component={Dashboard} />
-        <Route path="/insights" component={Insights} />
-        <Route path="/transactions" component={Transactions} />
-        <Route path="/bills" component={Bills} />
-        <Route path="/recurring" component={Recurring} />
-        <Route path="/credit-score" component={CreditScore} />
-        <Route path="/invest" component={Investment} />
-        <Route path="/goals" component={Goals} />
-        <Route path="/ai-assistant" component={AIAssistant} />
-        <Route path="/notifications" component={Notifications} />
-        <Route path="/settings" component={Settings} />
-
-        {/* Merchant Intelligence sub-routes */}
-        <Route path="/sentinel" component={() => <Redirect to="/merchant" />} />
-        <Route path="/sentinel/dashboard" component={() => <Redirect to="/merchant" />} />
-        <Route path="/sentinel-dashboard" component={() => <Redirect to="/merchant" />} />
-        <Route path="/merchant/risk" component={MerchantRiskPage} />
-        <Route path="/merchant/transactions" component={MerchantTransactionsPage} />
-        <Route path="/merchant/customers" component={MerchantCustomersPage} />
-        <Route path="/merchant/investigations" component={MerchantInvestigationsPage} />
-        <Route path="/merchant/returns" component={MerchantReturnsPage} />
-        <Route path="/merchant/analytics" component={MerchantAnalyticsPage} />
-        <Route path="/merchant/agent" component={MerchantAgentPage} />
-        <Route path="/merchant/rules" component={MerchantRulesPage} />
-        <Route path="/merchant/model-performance" component={MerchantModelPerformancePage} />
-        <Route path="/merchant/audit" component={MerchantAuditPage} />
-
-        <Route path="/forgot-password" component={ForgotPassword} />
-        <Route path="/reset-password" component={ResetPassword} />
-        <Route path="/" component={loginEntry} />
-        <Route component={NotFound} />
-      </Switch>
-    </Suspense>
-  </ErrorBoundary>
+      {/* Auth & Root */}
+      <Route path="/login" component={loginEntry} />
+      <Route path="/forgot-password" component={ForgotPassword} />
+      <Route path="/reset-password" component={ResetPassword} />
+      <Route path="/" component={loginEntry} />
+      <Route component={NotFound} />
+    </Switch>
   );
 
-  if (showShell && isMerchantRoute) {
-    return (
-      <MerchantLayout>
-        <div style={{ background: 'yellow', color: 'black', padding: '4px 8px', fontSize: '12px', fontWeight: 'bold', zIndex: 99999 }}>
-          DEBUG: location={location} | showShell={String(showShell)} | isMerchantRoute={String(isMerchantRoute)}
-        </div>
-        {routeContent}
-      </MerchantLayout>
-    );
-  }
-
   return (
-    <Layout showShell={showShell}>
-      <div style={{ background: 'yellow', color: 'black', padding: '4px 8px', fontSize: '12px', fontWeight: 'bold', zIndex: 99999 }}>
-        DEBUG: location={location} | showShell={String(showShell)} | isMerchantRoute={String(isMerchantRoute)}
-      </div>
-      {routeContent}
-    </Layout>
+    <ErrorBoundary>
+      <Suspense fallback={<FullPageSpinner />}>
+        {isMerchantRoute ? (
+          <MerchantLayout>{mainSwitch}</MerchantLayout>
+        ) : (
+          <Layout showShell={showShell}>{mainSwitch}</Layout>
+        )}
+      </Suspense>
+    </ErrorBoundary>
   );
 }
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+// @ts-ignore
 import { usePlaidLink } from "react-plaid-link";
 import { Button } from "./ui/button";
 import { Landmark, Loader2 } from "lucide-react";

@@ -129,7 +129,7 @@ export function Dashboard() {
           suggestedSip,
           horizonYears: selectedPlan.horizonYears,
           expectedAnnualReturn: selectedPlan.expectedAnnualReturn,
-          targetAllocation: selectedPlan.allocation,
+          targetAllocation: selectedPlan.allocation.map(a => ({ name: a.name, percent: a.percent })),
           nextActions: [
             `Start/continue a monthly SIP of ${formatCurrency(suggestedSip)} and automate the debit date.`,
             "Keep 3-6 months of expenses in emergency reserves before increasing equity allocation.",

@@ -9,6 +9,8 @@ import {
   Target,
   RefreshCcw,
   CreditCard,
+  ShieldCheck,
+  LayoutGrid,
   type LucideIcon,
 } from "lucide-react";
 
@@ -35,7 +37,9 @@ export const MAIN_NAV: NavItemDef[] = [
 ];
 
 export const TOOL_NAV: NavItemDef[] = [
-  { href: "/ai-assistant", label: "AI Assistant", icon: Sparkles },
+  { href: "/merchant",     label: "Merchant Sentinel", icon: ShieldCheck },
+  { href: "/workspaces",   label: "Switch Workspace",  icon: LayoutGrid },
+  { href: "/ai-assistant", label: "AI Assistant",      icon: Sparkles },
 ];
 
 export const BOTTOM_NAV: NavItemDef[] = [

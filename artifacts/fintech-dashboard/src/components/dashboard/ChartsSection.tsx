@@ -44,15 +44,28 @@ function DonutChart() {
   const circumference = 2 * Math.PI * r;
 
   let cumulative = 0;
-  const total = expenseBreakdown.reduce((s, d) => s + d.amount, 0);
+
+  // ExpenseBreakdown contains `value`, not `amount`
+  const total = expenseBreakdown.reduce(
+    (sum, item) => sum + item.value,
+    0
+  );
 
   return (
-    <svg className="h-auto w-full max-w-[200px] aspect-square" viewBox={`0 0 ${size} ${size}`}>
+    <svg
+      className="h-auto w-full max-w-[200px] aspect-square"
+      viewBox={`0 0 ${size} ${size}`}
+    >
       {expenseBreakdown.map((item) => {
-        const pct = total > 0 ? item.amount / total : 0;
+
+        // `value` represents the percentage of total expenses
+        const pct = total > 0 ? item.value / total : 0;
+
         const dash = pct * circumference - (pct < 1 ? 2 : 0);
         const offset = -cumulative * circumference;
+
         cumulative += pct;
+
         return (
           <circle
             key={item.name}
@@ -69,8 +82,27 @@ function DonutChart() {
           />
         );
       })}
-      <text x={cx} y={cy - 8} textAnchor="middle" fill={theme === "dark" ? "#e2e8f0" : "#1e293b"} fontSize="22" fontWeight="700">{summary.healthScore}%</text>
-      <text x={cx} y={cy + 14} textAnchor="middle" fill={theme === "dark" ? "#64748b" : "#64748b"} fontSize="11">health score</text>
+
+      <text
+        x={cx}
+        y={cy - 8}
+        textAnchor="middle"
+        fill={theme === "dark" ? "#e2e8f0" : "#1e293b"}
+        fontSize="22"
+        fontWeight="700"
+      >
+        {summary.healthScore}%
+      </text>
+
+      <text
+        x={cx}
+        y={cy + 14}
+        textAnchor="middle"
+        fill="#64748b"
+        fontSize="11"
+      >
+        health score
+      </text>
     </svg>
   );
 }

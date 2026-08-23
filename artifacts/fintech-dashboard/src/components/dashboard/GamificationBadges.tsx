@@ -23,8 +23,15 @@ export function GamificationBadges() {
     if (totalTransactions > 10) {
       list.push({ id: "active", name: "Active Tracker", icon: Zap, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" });
     }
-    if (healthStatus === "Steady Builder") {
-      list.push({ id: "steady", name: "Steady Builder", icon: Flame, color: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/20" });
+    if (savingsRate >= 10 && savingsRate < 30) {
+      list.push({
+        id: "steady",
+        name: "Steady Builder",
+        icon: Flame,
+        color: "text-orange-400",
+        bg: "bg-orange-500/10",
+        border: "border-orange-500/20",
+      });
     }
 
     if (list.length === 0) {
