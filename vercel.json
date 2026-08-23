@@ -1,6 +1,9 @@
 {
   "version": 2,
   "framework": null,
+  "installCommand": "pnpm install --no-frozen-lockfile",
+  "buildCommand": "pnpm --filter @workspace/fintech-dashboard run build",
+  "outputDirectory": "artifacts/fintech-dashboard/dist/public",
   "rewrites": [
     {
       "source": "/api/:path*",
