@@ -1,9 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "outDir": "dist",
     "rootDir": ".",
     "strict": false,
@@ -11,8 +13,22 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "skipDefaultLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": "./artifacts/fintech-dashboard",
+    "typeRoots": [
+      "./artifacts/fintech-dashboard/node_modules/@types"
+    ],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
-  "include": ["src/**/*.ts", "api/**/*.ts", "types/**/*.d.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "src/**/*.ts",
+    "api/**/*.ts",
+    "types/**/*.d.ts",
+    "artifacts/fintech-dashboard/src/**/*.ts",
+    "artifacts/fintech-dashboard/src/**/*.tsx",
+    "artifacts/fintech-dashboard/src/**/*.d.ts"
+  ],
+  "exclude": ["node_modules", "**/node_modules"]
 }

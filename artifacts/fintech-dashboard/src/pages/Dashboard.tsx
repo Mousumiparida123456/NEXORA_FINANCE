@@ -8,6 +8,7 @@ import { AIInsights } from "@/components/dashboard/AIInsights";
 import { ForecastChart } from "@/components/dashboard/ForecastChart";
 import { SecurityAudit } from "@/components/dashboard/SecurityAudit";
 import { Download, FileText } from "lucide-react";
+import { WorkspacePillSwitcher } from "@/components/layout/WorkspacePillSwitcher";
 import { generateFinancialReport, ReportData } from "@/lib/pdf-export";
 import { 
   calculateInvestmentAnalytics, 
@@ -276,6 +277,11 @@ export function Dashboard() {
           <p className="mt-1 text-xs opacity-80">{apiMessage}</p>
         </div>
       </div>
+      <div className="mb-6 rounded-2xl border border-slate-800/80 bg-slate-900/60 p-4 backdrop-blur shadow-xl">
+        <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">Workspace Mode Switcher</p>
+        <WorkspacePillSwitcher />
+      </div>
+
       <SummaryCards />
 
       <ChartsSection />

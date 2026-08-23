@@ -1,4 +1,5 @@
 import { useMemo } from "react"
+import { useLocation } from "wouter"
 import {
   Bell,
   ChevronDown,
@@ -56,6 +57,7 @@ function downloadFile(filename: string, content: string, type: string) {
 }
 
 export function Topbar() {
+  const [location] = useLocation()
   const {
     selectedCurrency,
     currencyList,
@@ -133,8 +135,12 @@ export function Topbar() {
             </div>
           </div>
           <div className="min-w-0">
-            <p className={cn("text-[11px] font-semibold uppercase tracking-[0.3em]", isDark ? "text-blue-300/80" : "text-blue-600")}>NEXORA</p>
-            <h1 className={cn("truncate text-base font-semibold", isDark ? "text-slate-50" : "text-slate-950")}>Finance command center</h1>
+            <p className={cn("text-[11px] font-semibold uppercase tracking-[0.3em]", isDark ? "text-blue-300/80" : "text-blue-600")}>
+              NEXORA
+            </p>
+            <h1 className={cn("truncate text-base font-semibold", isDark ? "text-slate-50" : "text-slate-950")}>
+              Finance command center
+            </h1>
           </div>
         </div>
 

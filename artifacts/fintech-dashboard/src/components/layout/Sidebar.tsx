@@ -14,6 +14,7 @@ import { BRAND, MAIN_NAV, TOOL_NAV } from "@/components/layout/nav";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useDashboard } from "@/lib/dashboard-context";
+import { WorkspacePillSwitcher } from "./WorkspacePillSwitcher";
 
 function NavItem({
   href,
@@ -113,23 +114,26 @@ export function Sidebar() {
 
   return (
     <motion.aside
-      animate={{ width: collapsed ? 68 : 240 }}
+      animate={{ width: collapsed ? 68 : 280 }}
       transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
       className={cn(
         "relative sticky top-0 z-40 hidden h-screen flex-shrink-0 flex-col overflow-hidden md:flex",
         isDark ? "border-r border-slate-800/60 bg-[#081126]" : "border-r border-slate-200 bg-white/95 backdrop-blur",
       )}
     >
-      <div className={cn("flex items-center gap-3 border-b px-4 py-5", isDark ? "border-slate-800/60" : "border-slate-200", collapsed ? "justify-center px-0" : "")}>
-        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-blue-600 shadow-[0_0_16px_rgba(37,99,235,0.28)]">
-          <PieChart className="h-5 w-5 text-white" />
-        </div>
-        {!collapsed ? (
-          <div>
-            <p className={cn("leading-none tracking-tight text-base font-bold", isDark ? "text-slate-50" : "text-slate-950")}>{BRAND.name}</p>
-            <p className="mt-0.5 text-[10px] font-medium text-slate-500">{BRAND.tagline}</p>
+      <div className={cn("flex flex-col gap-3 border-b px-4 py-4", isDark ? "border-slate-800/60" : "border-slate-200", collapsed ? "items-center px-2" : "")}>
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-blue-600 shadow-[0_0_16px_rgba(37,99,235,0.28)]">
+            <PieChart className="h-5 w-5 text-white" />
           </div>
-        ) : null}
+          {!collapsed && (
+            <div>
+              <span className="block text-xs font-bold text-slate-200 uppercase tracking-wider">NEXORA</span>
+              <span className="block text-[10px] text-slate-400">Personal Finance Command</span>
+            </div>
+          )}
+        </div>
+        {!collapsed ? <WorkspacePillSwitcher className="mt-1" /> : null}
       </div>
 
       <nav className="flex-1 space-y-6 overflow-y-auto overflow-x-hidden px-3 py-4">
