@@ -1,17 +1,19 @@
 import { TransactionPayload, RiskSignal, FeatureVector } from "../types/sentinel.types";
+import { VelocityMetrics } from "./velocityService";
 
 export class FeatureEngineeringService {
   /**
-   * STEP 1D — Build 13 Measurable Risk Signals
-   * Computes normalized feature values (0.0 = low risk, 1.0 = high risk) for all 13 risk signals.
+   * STEP 1D & 1J — Build 13 Measurable Risk Signals
+   * Computes normalized feature values (0.0 = low risk, 1.0 = high risk) incorporating Redis velocity counters.
    */
-  public static extractFeatures(payload: TransactionPayload): {
+  public static extractFeatures(
+    payload: TransactionPayload,
+    velocityMetrics?: VelocityMetrics
+  ): {
     signals: RiskSignal[];
     vector: FeatureVector;
   } {
     const signals: RiskSignal[] = [];
-
-    // Helper to clamp values between 0.0 and 1.0
     const clamp = (val: number) => Math.min(1.0, Math.max(0.0, val));
 
     // 1. transactionAmount (Normalized 0.0 to 1.0)
@@ -28,9 +30,10 @@ export class FeatureEngineeringService {
       weight: 0.10,
     });
 
-    // 2. transactionVelocity (Normalized 0.0 to 1.0)
-    const velocity = payload.velocityLast24h ?? 1;
-    const velocityNorm = clamp(velocity / 10);
+    // 2. transactionVelocity (STEP 1J — Enriched via Redis Counter)
+    const velocityCount = velocityMetrics ? velocityMetrics.velocity1m : payload.velocityLast24h ?? 1;
+    const velocityNorm = clamp(velocityCount / 10);
+    const engineLabel = velocityMetrics ? `[Redis Counter: ${velocityMetrics.storageEngine}]` : "[Baseline]";
     signals.push({
       id: "SIG-02",
       name: "transactionVelocity",
@@ -38,11 +41,11 @@ export class FeatureEngineeringService {
       normalizedScore: Number(velocityNorm.toFixed(3)),
       score: Math.round(velocityNorm * 100),
       severity: velocityNorm >= 0.8 ? "critical" : velocityNorm >= 0.5 ? "high" : "low",
-      details: `${velocity} transaction attempts registered in past 24h window`,
+      details: `${velocityCount} transactions in 60s window ${engineLabel}`,
       weight: 0.18,
     });
 
-    // 3. accountAge (Normalized 0.0 to 1.0: New account < 30 days = High Risk)
+    // 3. accountAge (Normalized 0.0 to 1.0)
     const ageDays = payload.accountAgeDays ?? 180;
     const accountAgeNorm = clamp(1.0 - ageDays / 180);
     signals.push({
@@ -140,7 +143,7 @@ export class FeatureEngineeringService {
       weight: 0.031,
     });
 
-    // 10. customerHistory (Normalized 0.0 to 1.0: Lower history score = High Risk)
+    // 10. customerHistory (Normalized 0.0 to 1.0)
     const custHist = payload.customerHistoryScore ?? 90;
     const custHistNorm = clamp(1.0 - custHist / 100);
     signals.push({

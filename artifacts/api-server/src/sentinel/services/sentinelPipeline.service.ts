@@ -1,5 +1,6 @@
 import { TransactionEvaluationSchema, TransactionEvaluationInput } from "../schemas/sentinel.schema";
 import { FeatureEngineeringService } from "./featureEngineering.service";
+import { VelocityService } from "./velocityService";
 import { RiskModelService } from "../models/riskModel.service";
 import { RiskFusionService } from "./riskFusion.service";
 import { PolicyEngineService } from "./policyEngine.service";
@@ -18,22 +19,29 @@ export class SentinelPipelineService {
     // 1. Zod Contract Validation (Step 1C)
     const validatedInput: TransactionEvaluationInput = TransactionEvaluationSchema.parse(rawPayload);
 
-    // 2. Feature Engineering — 13 Risk Signals (Step 1D)
-    const { signals, vector } = FeatureEngineeringService.extractFeatures(validatedInput as any);
+    // 2. STEP 1J — Atomic Redis Velocity Counter Increment
+    const velocityMetrics = await VelocityService.recordAndGetVelocity(
+      validatedInput.customerId,
+      validatedInput.ipAddress,
+      validatedInput.deviceId
+    );
 
-    // 3. ML Risk Model Scoring (Step 1E)
+    // 3. Feature Engineering — 13 Risk Signals (Step 1D & 1J)
+    const { signals, vector } = FeatureEngineeringService.extractFeatures(validatedInput as any, velocityMetrics);
+
+    // 4. ML Risk Model Scoring (Step 1E)
     const modelResult = RiskModelService.predict(vector);
 
-    // 4. Risk Fusion Engine (Step 1F)
+    // 5. Risk Fusion Engine (Step 1F)
     const fusionScore = RiskFusionService.fuse(signals, modelResult);
 
-    // 5. Policy Engine Decision (Step 1G)
+    // 6. Policy Engine Decision (Step 1G)
     const decision = PolicyEngineService.evaluate(fusionScore, signals);
 
-    // 6. AI Explanation & Mitigation Recommendation
+    // 7. AI Explanation & Mitigation Recommendation
     const recommendation = RecommendationService.generate(decision, fusionScore, signals);
 
-    // 7. STEP 1H — Construct Standardized Decision Record
+    // 8. STEP 1H — Construct Standardized Decision Record
     const decisionRecord: DecisionRecord = {
       transactionId: validatedInput.transactionId,
       merchantId: validatedInput.merchantId,
@@ -48,11 +56,13 @@ export class SentinelPipelineService {
       timestamp,
     };
 
-    // 8. STEP 1I — Persist Real Audit Log Record
+    // 9. STEP 1I — Persist Real Audit Log Record
     const auditTrailRecord = await AuditStorageService.logEvent(decisionRecord, {
       signalsCount: signals.length,
       fraudProbability: modelResult.fraudProbability,
       recommendationSummary: recommendation.actionSummary,
+      velocityEngine: velocityMetrics.storageEngine,
+      velocitySummary: velocityMetrics.summaryText,
     });
 
     const executionTimeMs = Date.now() - startTime;

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { SentinelPipelineService } from "../services/sentinelPipeline.service";
 import { AuditStorageService } from "../services/auditStorage.service";
+import { VelocityService } from "../services/velocityService";
 import { z } from "zod";
 
 export const sentinelRouter = Router();
@@ -28,6 +29,28 @@ sentinelRouter.post("/evaluate", async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       error: error?.message || "Internal Sentinel evaluation error",
+    });
+  }
+});
+
+/**
+ * GET /api/v1/sentinel/velocity-stats/:customerId
+ * STEP 1J — Returns real-time Redis velocity counters for a customer.
+ */
+sentinelRouter.get("/velocity-stats/:customerId", async (req: Request, res: Response) => {
+  try {
+    const customerId = String(req.params.customerId || "CUST-DEFAULT");
+    const ipAddress = (req.query.ipAddress as string) || "127.0.0.1";
+    const stats = await VelocityService.getVelocityOnly(customerId, ipAddress);
+    return res.status(200).json({
+      success: true,
+      customerId,
+      data: stats,
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: error?.message || "Failed to fetch velocity stats",
     });
   }
 });
@@ -65,11 +88,11 @@ sentinelRouter.get("/health", (_req: Request, res: Response) => {
     pipelineVersion: "v2.0.0-backend",
     stages: [
       "1. Zod Contract Validation",
-      "2. 13 Risk Signals Feature Extraction",
-      "3. Offline-Trained ML Fraud Scoring",
-      "4. Risk Fusion Engine",
-      "5. Business Policy Engine",
-      "6. AI Explanation & Mitigation",
+      "2. Redis Atomic Velocity Counters",
+      "3. 13 Risk Signals Feature Extraction",
+      "4. Offline-Trained ML Fraud Scoring",
+      "5. Risk Fusion Engine",
+      "6. Business Policy Engine",
       "7. PostgreSQL Audit Trail Persistence",
     ],
   });
