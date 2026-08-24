@@ -2,7 +2,6 @@
   "name": "workspace",
   "version": "0.0.0",
   "license": "MIT",
-  "packageManager": "npm@10.8.2",
   "scripts": {
     "build": "echo skipping workspace build",
     "typecheck:libs": "tsc --build",
