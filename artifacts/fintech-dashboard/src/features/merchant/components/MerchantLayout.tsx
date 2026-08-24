@@ -26,12 +26,18 @@ export function MerchantLayout({ children }: { children: ReactNode }) {
                   <p className="truncate text-sm font-semibold text-slate-100">{activeItem?.label ?? "Merchant Intelligence"}</p>
                 </div>
               </div>
-              <Link href="/dashboard">
-                <a className="hidden items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs font-medium text-slate-300 transition-colors hover:border-slate-600 hover:text-white sm:flex">
-                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-                  Personal Finance
-                </a>
-              </Link>
+              <div className="flex items-center gap-3">
+                <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-mono">
+                  <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse"></span>
+                  <span>DEMO MODE ACTIVE · Synthetic Datasets</span>
+                </div>
+                <Link href="/dashboard">
+                  <a className="hidden items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs font-medium text-slate-300 transition-colors hover:border-slate-600 hover:text-white sm:flex">
+                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+                    Personal Finance
+                  </a>
+                </Link>
+              </div>
             </div>
           </header>
           <main className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8">{children}</main>
