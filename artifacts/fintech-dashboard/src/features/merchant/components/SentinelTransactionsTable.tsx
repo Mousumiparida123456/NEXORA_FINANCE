@@ -1,21 +1,15 @@
 import React, { useState } from "react";
 import {
   Search,
-  Filter,
   ShieldAlert,
   AlertTriangle,
   CheckCircle,
   XCircle,
   Eye,
-  ChevronRight,
-  User,
-  Clock,
-  DollarSign,
   Globe,
-  Smartphone,
   CreditCard,
-  X,
   Bot,
+  Loader2,
 } from "lucide-react";
 import {
   Dialog,
@@ -24,148 +18,24 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-
-export interface HighRiskTransaction {
-  id: string;
-  amount: number;
-  riskScore: number;
-  riskType: "Fraud" | "Return" | "Chargeback" | "Abuse";
-  customerName: string;
-  customerEmail: string;
-  detectedAt: string;
-  status: "Action Required" | "Under Review" | "Escalated" | "Blocked" | "Approved";
-  location: string;
-  ipAddress: string;
-  deviceId: string;
-  cardBin: string;
-  signals: string[];
-}
-
-const INITIAL_TRANSACTIONS: HighRiskTransaction[] = [
-  {
-    id: "TXN-904812",
-    amount: 2450.0,
-    riskScore: 94,
-    riskType: "Fraud",
-    customerName: "Alexander Wright",
-    customerEmail: "alex.w@example.com",
-    detectedAt: "10 mins ago",
-    status: "Action Required",
-    location: "Lagos, NG (IP) vs NY, US (Billing)",
-    ipAddress: "194.28.112.44",
-    deviceId: "DEV-MAC-8819",
-    cardBin: "411111 (Visa Infinite)",
-    signals: [
-      "IP location mismatch (Distance > 5,000 miles)",
-      "Velocity spike: 6 transactions in 3 minutes",
-      "Card BIN associated with stolen batch leak #409",
-    ],
-  },
-  {
-    id: "TXN-883910",
-    amount: 1890.5,
-    riskScore: 88,
-    riskType: "Return",
-    customerName: "Sophia Chen",
-    customerEmail: "sophia.c@example.com",
-    detectedAt: "28 mins ago",
-    status: "Under Review",
-    location: "San Francisco, CA, US",
-    ipAddress: "73.162.90.12",
-    deviceId: "DEV-[#IOS-9021]",
-    cardBin: "542418 (Mastercard Platinum)",
-    signals: [
-      "Customer returned 5 high-value electronics items in 7 days",
-      "Serial wardrobing indicator triggered",
-      "Cross-store receipt reuse pattern detected",
-    ],
-  },
-  {
-    id: "TXN-774019",
-    amount: 3200.0,
-    riskScore: 91,
-    riskType: "Chargeback",
-    customerName: "Marcus Vance",
-    customerEmail: "m.vance@example.com",
-    detectedAt: "1 hour ago",
-    status: "Escalated",
-    location: "London, UK",
-    ipAddress: "82.165.19.201",
-    deviceId: "DEV-WIN-3301",
-    cardBin: "378282 (Amex Gold)",
-    signals: [
-      "Cardholder initiated 3 friendly fraud claims past 60 days",
-      "Digital goods instant claim threat score: 91/100",
-      "Shipping address changed 4 minutes post-purchase",
-    ],
-  },
-  {
-    id: "TXN-661048",
-    amount: 780.0,
-    riskScore: 78,
-    riskType: "Abuse",
-    customerName: "Jordan Miller",
-    customerEmail: "j.miller99@example.com",
-    detectedAt: "2 hours ago",
-    status: "Action Required",
-    location: "Chicago, IL, US",
-    ipAddress: "107.180.44.11",
-    deviceId: "DEV-ANDROID-110",
-    cardBin: "401200 (Visa Debit)",
-    signals: [
-      "12 accounts created from same IP in 1 hour using promo 'WELCOME50'",
-      "Synthetic identity match score: High",
-      "Referral payout farming suspected",
-    ],
-  },
-  {
-    id: "TXN-559021",
-    amount: 4150.0,
-    riskScore: 96,
-    riskType: "Fraud",
-    customerName: "Elena Rostova",
-    customerEmail: "elena.r@example.com",
-    detectedAt: "3 hours ago",
-    status: "Blocked",
-    location: "Bucharest, RO",
-    ipAddress: "185.220.101.5",
-    deviceId: "DEV-LINUX-901",
-    cardBin: "438857 (Visa Signature)",
-    signals: [
-      "Known Tor exit node proxy detected",
-      "Auto-blocked by Sentinel velocity rule #14",
-      "Mismatched device fingerprint & browser timezone",
-    ],
-  },
-  {
-    id: "TXN-442109",
-    amount: 1250.0,
-    riskScore: 65,
-    riskType: "Return",
-    customerName: "David K.",
-    customerEmail: "david.k@example.com",
-    detectedAt: "4 hours ago",
-    status: "Approved",
-    location: "Austin, TX, US",
-    ipAddress: "98.209.14.88",
-    deviceId: "DEV-MAC-1120",
-    cardBin: "510510 (Mastercard)",
-    signals: [
-      "Slight return velocity flag, merchant override approved",
-      "Verified customer history: 4 years, $18,000 lifetime value",
-    ],
-  },
-];
+import { useSentinelState, SentinelTransaction } from "../context/SentinelContext";
 
 export function SentinelTransactionsTable() {
-  const [transactions, setTransactions] = useState<HighRiskTransaction[]>(INITIAL_TRANSACTIONS);
+  const { transactions, approveOrder, blockAndRefund } = useSentinelState();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRiskType, setSelectedRiskType] = useState<string>("ALL");
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
-  const [activeModalTxn, setActiveModalTxn] = useState<HighRiskTransaction | null>(null);
+  const [activeModalId, setActiveModalId] = useState<string | null>(null);
+
+  // Confirmation & Processing State
+  const [confirmModalType, setConfirmModalType] = useState<"APPROVE" | "BLOCK" | null>(null);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [processingType, setProcessingType] = useState<"APPROVE" | "BLOCK" | null>(null);
+
+  const activeModalTxn = transactions.find((t) => t.id === activeModalId) || null;
 
   // Filtered transactions
-  const filtered = transactions.filter((t: HighRiskTransaction) => {
+  const filtered = transactions.filter((t: SentinelTransaction) => {
     const matchesSearch =
       t.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -174,15 +44,6 @@ export function SentinelTransactionsTable() {
     const matchesStatus = selectedStatus === "ALL" || t.status === selectedStatus;
     return matchesSearch && matchesType && matchesStatus;
   });
-
-  const handleStatusChange = (id: string, newStatus: HighRiskTransaction["status"]) => {
-    setTransactions((prev: HighRiskTransaction[]) =>
-      prev.map((t: HighRiskTransaction) => (t.id === id ? { ...t, status: newStatus } : t))
-    );
-    if (activeModalTxn && activeModalTxn.id === id) {
-      setActiveModalTxn((prev: HighRiskTransaction | null) => (prev ? { ...prev, status: newStatus } : null));
-    }
-  };
 
   const getScoreBadge = (score: number) => {
     if (score >= 90) {
@@ -194,7 +55,7 @@ export function SentinelTransactionsTable() {
     return "bg-blue-500/20 text-blue-300 border-blue-500/40";
   };
 
-  const getStatusBadge = (status: HighRiskTransaction["status"]) => {
+  const getStatusBadge = (status: SentinelTransaction["status"]) => {
     switch (status) {
       case "Action Required":
         return "bg-red-500/15 text-red-300 border-red-500/30";
@@ -209,7 +70,7 @@ export function SentinelTransactionsTable() {
     }
   };
 
-  const getTypeBadge = (type: HighRiskTransaction["riskType"]) => {
+  const getTypeBadge = (type: SentinelTransaction["riskType"]) => {
     switch (type) {
       case "Fraud":
         return "bg-red-500/10 text-red-400 border-red-500/20";
@@ -219,6 +80,32 @@ export function SentinelTransactionsTable() {
         return "bg-blue-500/10 text-blue-400 border-blue-500/20";
       case "Abuse":
         return "bg-purple-500/10 text-purple-400 border-purple-500/20";
+    }
+  };
+
+  const handleConfirmApprove = async () => {
+    if (!activeModalTxn || isProcessing) return;
+    setConfirmModalType(null);
+    setIsProcessing(true);
+    setProcessingType("APPROVE");
+    try {
+      await approveOrder(activeModalTxn.id);
+    } finally {
+      setIsProcessing(false);
+      setProcessingType(null);
+    }
+  };
+
+  const handleConfirmBlock = async () => {
+    if (!activeModalTxn || isProcessing) return;
+    setConfirmModalType(null);
+    setIsProcessing(true);
+    setProcessingType("BLOCK");
+    try {
+      await blockAndRefund(activeModalTxn.id);
+    } finally {
+      setIsProcessing(false);
+      setProcessingType(null);
     }
   };
 
@@ -305,11 +192,11 @@ export function SentinelTransactionsTable() {
                 </td>
               </tr>
             ) : (
-              filtered.map((t: HighRiskTransaction) => (
+              filtered.map((t: SentinelTransaction) => (
                 <tr
                   key={t.id}
                   className="hover:bg-slate-900/60 transition-colors group cursor-pointer"
-                  onClick={() => setActiveModalTxn(t)}
+                  onClick={() => setActiveModalId(t.id)}
                 >
                   {/* Transaction ID */}
                   <td className="py-3.5 px-3 font-mono font-bold text-white group-hover:text-emerald-400 transition-colors">
@@ -357,20 +244,27 @@ export function SentinelTransactionsTable() {
 
                   {/* Status */}
                   <td className="py-3.5 px-3">
-                    <span
-                      className={`inline-block rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${getStatusBadge(
-                        t.status
-                      )}`}
-                    >
-                      {t.status}
-                    </span>
+                    <div className="flex flex-col gap-1">
+                      <span
+                        className={`inline-block rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${getStatusBadge(
+                          t.status
+                        )}`}
+                      >
+                        {t.status}
+                      </span>
+                      {t.refundStatus === "REFUND_INITIATED" && (
+                        <span className="inline-block rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-300 border-amber-500/30">
+                          REFUND INITIATED
+                        </span>
+                      )}
+                    </div>
                   </td>
 
                   {/* Action Buttons */}
                   <td className="py-3.5 px-3 text-right" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1.5">
                       <button
-                        onClick={() => setActiveModalTxn(t)}
+                        onClick={() => setActiveModalId(t.id)}
                         className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800/80 px-2.5 py-1 text-[11px] font-medium text-slate-200 hover:border-emerald-500/50 hover:bg-emerald-500/20 hover:text-emerald-300 transition-all"
                       >
                         <Eye className="h-3 w-3" /> Investigate
@@ -378,7 +272,10 @@ export function SentinelTransactionsTable() {
 
                       {t.status !== "Approved" && (
                         <button
-                          onClick={() => handleStatusChange(t.id, "Approved")}
+                          onClick={() => {
+                            setActiveModalId(t.id);
+                            setConfirmModalType("APPROVE");
+                          }}
                           title="Approve Transaction"
                           className="p-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
                         >
@@ -388,7 +285,10 @@ export function SentinelTransactionsTable() {
 
                       {t.status !== "Blocked" && (
                         <button
-                          onClick={() => handleStatusChange(t.id, "Blocked")}
+                          onClick={() => {
+                            setActiveModalId(t.id);
+                            setConfirmModalType("BLOCK");
+                          }}
                           title="Block Transaction"
                           className="p-1 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20"
                         >
@@ -404,10 +304,10 @@ export function SentinelTransactionsTable() {
         </table>
       </div>
 
-      {/* Investigation Details Modal */}
-      <Dialog open={!!activeModalTxn} onOpenChange={(open: boolean) => !open && setActiveModalTxn(null)}>
+      {/* Main Investigation Details Modal */}
+      <Dialog open={!!activeModalTxn} onOpenChange={(open: boolean) => !open && setActiveModalId(null)}>
         {activeModalTxn && (
-          <DialogContent className="max-w-2xl border-slate-800 bg-[#07131e] text-slate-100 p-6 shadow-2xl">
+          <DialogContent className="max-w-2xl border-slate-800 bg-[#07131e] text-slate-100 p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader className="border-b border-slate-800 pb-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -447,9 +347,16 @@ export function SentinelTransactionsTable() {
                 </div>
                 <div>
                   <span className="text-[10px] text-slate-400 uppercase block">Status</span>
-                  <span className={`font-bold uppercase ${getStatusBadge(activeModalTxn.status)} px-1.5 py-0.5 rounded text-[9px]`}>
-                    {activeModalTxn.status}
-                  </span>
+                  <div className="flex flex-col gap-1 items-start mt-0.5">
+                    <span className={`font-bold uppercase ${getStatusBadge(activeModalTxn.status)} px-1.5 py-0.5 rounded text-[9px]`}>
+                      {activeModalTxn.status}
+                    </span>
+                    {activeModalTxn.refundStatus === "REFUND_INITIATED" && (
+                      <span className="font-bold uppercase bg-amber-500/15 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded text-[9px]">
+                        REFUND INITIATED
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -501,33 +408,167 @@ export function SentinelTransactionsTable() {
               </div>
             </div>
 
-            {/* Modal Actions Footer */}
-            <div className="flex items-center justify-between border-t border-slate-800 pt-4 mt-2">
+            {/* Modal Actions Footer - Fully Responsive for Mobile, Tablet, Desktop */}
+            <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-3 border-t border-slate-800 pt-4 mt-2 w-full">
               <button
-                onClick={() => setActiveModalTxn(null)}
-                className="px-4 py-2 rounded-xl border border-slate-700 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+                onClick={() => setActiveModalId(null)}
+                disabled={isProcessing}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-700 text-xs font-semibold text-slate-300 hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Close
               </button>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full sm:w-auto">
+                {/* Approve Order Button */}
                 <button
-                  onClick={() => handleStatusChange(activeModalTxn.id, "Approved")}
-                  className="px-4 py-2 rounded-xl border border-emerald-500/40 bg-emerald-500/20 text-xs font-bold text-emerald-300 hover:bg-emerald-500/30"
+                  onClick={() => setConfirmModalType("APPROVE")}
+                  disabled={isProcessing || activeModalTxn.status === "Approved"}
+                  className={`w-full sm:w-auto px-5 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                    isProcessing && processingType === "APPROVE"
+                      ? "border-emerald-500/50 bg-emerald-500/30 text-emerald-200 opacity-80 cursor-wait"
+                      : activeModalTxn.status === "Approved"
+                      ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400 opacity-60 cursor-not-allowed"
+                      : "border-emerald-500/40 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 hover:border-emerald-500/60 shadow-lg shadow-emerald-500/10"
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
-                  Approve Order
+                  {isProcessing && processingType === "APPROVE" ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin text-emerald-300" />
+                      Approving...
+                    </>
+                  ) : activeModalTxn.status === "Approved" ? (
+                    "✓ Approved"
+                  ) : (
+                    "Approve Order"
+                  )}
                 </button>
+
+                {/* Block & Refund Button */}
                 <button
-                  onClick={() => handleStatusChange(activeModalTxn.id, "Blocked")}
-                  className="px-4 py-2 rounded-xl border border-red-500/40 bg-red-500/20 text-xs font-bold text-red-300 hover:bg-red-500/30"
+                  onClick={() => setConfirmModalType("BLOCK")}
+                  disabled={isProcessing || activeModalTxn.status === "Blocked"}
+                  className={`w-full sm:w-auto px-5 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                    isProcessing && processingType === "BLOCK"
+                      ? "border-red-500/50 bg-red-500/30 text-red-200 opacity-80 cursor-wait"
+                      : activeModalTxn.status === "Blocked"
+                      ? "border-slate-700 bg-slate-800 text-slate-400 opacity-60 cursor-not-allowed"
+                      : "border-red-500/40 bg-red-500/20 text-red-300 hover:bg-red-500/30 hover:border-red-500/60 shadow-lg shadow-red-500/10"
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
-                  Block & Refund
+                  {isProcessing && processingType === "BLOCK" ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin text-red-300" />
+                      Blocking & Refunding...
+                    </>
+                  ) : activeModalTxn.status === "Blocked" ? (
+                    "✓ Blocked & Refunded"
+                  ) : (
+                    "Block & Refund"
+                  )}
                 </button>
               </div>
             </div>
           </DialogContent>
         )}
       </Dialog>
+
+      {/* Confirmation Dialogs */}
+      {activeModalTxn && (
+        <Dialog open={!!confirmModalType} onOpenChange={(open: boolean) => !open && setConfirmModalType(null)}>
+          <DialogContent className="max-w-md border-slate-800 bg-[#07131e] text-slate-100 p-6 shadow-2xl">
+            {confirmModalType === "APPROVE" && (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="text-lg font-bold text-white flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-emerald-400" />
+                    APPROVE THIS ORDER?
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3 py-3 text-xs text-slate-300">
+                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block uppercase">Transaction ID</span>
+                      <span className="font-mono font-bold text-white text-sm">{activeModalTxn.id}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-400 block uppercase">Risk Score</span>
+                      <span className="font-mono font-bold text-rose-400 text-sm">{activeModalTxn.riskScore} / 100</span>
+                    </div>
+                  </div>
+                  <p className="leading-relaxed bg-amber-500/10 p-3 rounded-lg border border-amber-500/20 text-amber-200">
+                    You are overriding the automated risk recommendation.
+                  </p>
+                </div>
+                <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800">
+                  <button
+                    onClick={() => setConfirmModalType(null)}
+                    className="px-4 py-2 rounded-xl border border-slate-700 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleConfirmApprove}
+                    className="px-4 py-2 rounded-xl border border-emerald-500/40 bg-emerald-500/20 text-xs font-bold text-emerald-300 hover:bg-emerald-500/30"
+                  >
+                    Confirm Approval
+                  </button>
+                </div>
+              </>
+            )}
+
+            {confirmModalType === "BLOCK" && (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="text-lg font-bold text-white flex items-center gap-2">
+                    <ShieldAlert className="h-5 w-5 text-red-400" />
+                    BLOCK & REFUND ORDER?
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3 py-3 text-xs text-slate-300">
+                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Transaction:</span>
+                      <span className="font-mono font-bold text-white">{activeModalTxn.id}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Amount:</span>
+                      <span className="font-mono font-extrabold text-emerald-400">${activeModalTxn.amount.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Risk Score:</span>
+                      <span className="font-mono font-bold text-rose-400">{activeModalTxn.riskScore} / 100</span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 space-y-1.5 text-red-200">
+                    <span className="font-bold block text-red-300">This will:</span>
+                    <ul className="space-y-1 pl-1">
+                      <li>• Block the order</li>
+                      <li>• Initiate refund</li>
+                      <li>• Resolve the investigation</li>
+                    </ul>
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800">
+                  <button
+                    onClick={() => setConfirmModalType(null)}
+                    className="px-4 py-2 rounded-xl border border-slate-700 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleConfirmBlock}
+                    className="px-4 py-2 rounded-xl border border-red-500/40 bg-red-500/20 text-xs font-bold text-red-300 hover:bg-red-500/30"
+                  >
+                    Confirm Block & Refund
+                  </button>
+                </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
+

@@ -35,6 +35,56 @@ import { AbuseNetworkGraph } from "../sentinel/components/AbuseNetworkGraph";
 // Comprehensive Investigation Cases Dataset
 const DEMO_CASES: InvestigationEvidencePayload[] = [
   {
+    caseId: "INV-00291",
+    transaction: {
+      id: "TXN-10982",
+      amount: 25000.00,
+      currency: "INR",
+      timestamp: "13:42:18",
+      date: "2026-08-24",
+      paymentMethod: "UPI (demo-risk-recipient@upi)",
+      cardNumber: "UPI VPA Direct",
+      ipAddress: "185.220.101.4 (Synthetic Proxy)",
+      country: "India (High-Risk Recipient Wallet)",
+      deviceType: "Mobile / UPI Gateway App",
+    },
+    riskEvaluation: {
+      riskScore: 94,
+      riskLevel: "CRITICAL",
+      factors: [
+        { name: "Recipient Risk", contribution: 35, description: "Recipient account is 4 days old with synthetic pattern" },
+        { name: "Previous Suspicious Activity", contribution: 25, description: "12 previous suspicious transactions detected across network" },
+        { name: "Chargeback History", contribution: 15, description: "3 chargeback associations linked to recipient wallet" },
+        { name: "Unusual Transaction Amount", contribution: 12, description: "₹25,000 amount is significantly above normal" },
+        { name: "High Transaction Velocity", contribution: 7, description: "Multiple transactions detected in short period" },
+      ],
+      recommendedAction: "HOLD PAYMENT & BLOCK RECIPIENT",
+    },
+    customerHistory: {
+      customerName: "Customer CUS-182 (Alex Rivera)",
+      customerEmail: "cus182.alex@techglobal.io",
+      accountAgeDays: 45,
+      totalOrders: 42,
+      totalSpent: 184500.00,
+      priorDisputes: 3,
+      priorReturns: 6,
+    },
+    relatedTransactions: [
+      { id: "TXN-10981", date: "2026-08-24 13:40", amount: 2900.00, status: "Completed", riskScore: 18 },
+      { id: "TXN-10978", date: "2026-08-24 13:10", amount: 1850.00, status: "Completed", riskScore: 12 },
+      { id: "TXN-10950", date: "2026-08-23 18:22", amount: 3400.00, status: "Completed", riskScore: 15 },
+      { id: "TXN-10901", date: "2026-08-22 11:05", amount: 2100.00, status: "Completed", riskScore: 10 },
+    ],
+    timeline: [
+      { timestamp: "13:42:21", event: "Investigation INV-00291 created automatically", type: "info" },
+      { timestamp: "13:42:20", event: "Payment placed on HOLD by SafePay Pre-Auth Engine", type: "danger" },
+      { timestamp: "13:42:20", event: "Critical risk score calculated (94 / 100)", type: "danger" },
+      { timestamp: "13:42:19", event: "Risk analysis started across 7 policy rules", type: "info" },
+      { timestamp: "13:42:18", event: "Payment received ₹25,000 to demo-risk-recipient@upi", type: "warning" },
+    ],
+  },
+
+  {
     caseId: "CASE-948201",
     transaction: {
       id: "TX-948201",

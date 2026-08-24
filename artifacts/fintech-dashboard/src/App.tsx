@@ -24,6 +24,7 @@ import {
   MerchantRulesPage,
   MerchantTransactionsPage,
 } from "@/features/merchant/pages";
+import { SafePayPage } from "@/features/merchant/pages/SafePayPage";
 
 const queryClient = new QueryClient();
 
@@ -192,6 +193,7 @@ function Router({ authStatus }: { authStatus: AuthStatus }) {
       <Route path="/sentinel" component={() => <Redirect to="/merchant" />} />
       <Route path="/sentinel/dashboard" component={() => <Redirect to="/merchant" />} />
       <Route path="/sentinel-dashboard" component={() => <Redirect to="/merchant" />} />
+      <Route path="/merchant/safepay" component={SafePayPage} />
       <Route path="/merchant/risk" component={MerchantRiskPage} />
       <Route path="/merchant/transactions" component={MerchantTransactionsPage} />
       <Route path="/merchant/customers" component={MerchantCustomersPage} />
@@ -202,6 +204,7 @@ function Router({ authStatus }: { authStatus: AuthStatus }) {
       <Route path="/merchant/rules" component={MerchantRulesPage} />
       <Route path="/merchant/model-performance" component={MerchantModelPerformancePage} />
       <Route path="/merchant/audit" component={MerchantAuditPage} />
+
 
       {/* Auth & Root */}
       <Route path="/login" component={loginEntry} />

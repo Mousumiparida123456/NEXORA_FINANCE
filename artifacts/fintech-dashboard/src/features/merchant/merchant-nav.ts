@@ -10,6 +10,7 @@ import {
   ShieldAlert,
   SlidersHorizontal,
   Users,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 
@@ -28,6 +29,7 @@ export type MerchantNavSection = {
 export const MERCHANT_NAV_SECTIONS: MerchantNavSection[] = [
   { title: "Overview", items: [
     { href: "/merchant", label: "Dashboard", description: "Merchant workspace home", icon: LayoutDashboard },
+    { href: "/merchant/safepay", label: "SafePay Protection", description: "Real-time payment simulator", icon: Zap },
     { href: "/merchant/risk", label: "Risk Center", description: "Risk operations queue", icon: ShieldAlert },
   ] },
   { title: "Operations", items: [
@@ -46,5 +48,6 @@ export const MERCHANT_NAV_SECTIONS: MerchantNavSection[] = [
     { href: "/merchant/audit", label: "Audit Logs", description: "Operational history", icon: ClipboardList },
   ] },
 ];
+
 
 export const MERCHANT_NAV_ITEMS = MERCHANT_NAV_SECTIONS.flatMap((section) => section.items);

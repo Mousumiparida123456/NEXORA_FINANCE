@@ -1,12 +1,19 @@
 import React from "react";
-import { DollarSign, ShieldAlert, FileText, ShieldCheck, TrendingUp, TrendingDown, AlertCircle } from "lucide-react";
+import { DollarSign, ShieldAlert, FileText, ShieldCheck, TrendingUp, TrendingDown } from "lucide-react";
+import { useSentinelState } from "../context/SentinelContext";
 
 export function SentinelMetrics() {
+  const { transactions, metrics: sharedMetrics } = useSentinelState();
+
+  const openTxns = transactions.filter((t) => t.status !== "Approved" && t.status !== "Blocked");
+  const moneyAtRisk = openTxns.reduce((sum, t) => sum + t.amount, 0);
+  const openInvestigations = transactions.filter((t) => t.investigationStatus !== "RESOLVED").length;
+
   const metrics = [
     {
       title: "Money at Risk",
-      value: "$142,850",
-      subtext: "Across 24 flagged transactions",
+      value: `$${moneyAtRisk.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
+      subtext: `Across ${openTxns.length} flagged transactions`,
       change: "+12.4% vs last week",
       isNegative: true,
       icon: DollarSign,
@@ -17,8 +24,8 @@ export function SentinelMetrics() {
     },
     {
       title: "High-Risk Transactions",
-      value: "24",
-      subtext: "14 Critical (90+), 10 High (75-89)",
+      value: `${openTxns.length}`,
+      subtext: `${openTxns.filter((t) => t.riskScore >= 90).length} Critical (90+), ${openTxns.filter((t) => t.riskScore < 90).length} High`,
       change: "+4 today",
       isNegative: true,
       icon: ShieldAlert,
@@ -29,8 +36,8 @@ export function SentinelMetrics() {
     },
     {
       title: "Open Investigations",
-      value: "7",
-      subtext: "3 High Priority • 4 Under Analysis",
+      value: `${openInvestigations}`,
+      subtext: `${openInvestigations} Active Cases Pending Triage`,
       change: "-2 resolved today",
       isNegative: false,
       icon: FileText,
@@ -41,9 +48,9 @@ export function SentinelMetrics() {
     },
     {
       title: "Potentially Preventable Loss",
-      value: "$98,400",
-      subtext: "68.9% estimated mitigation rate",
-      change: "+$18,200 saved this month",
+      value: `$${sharedMetrics.preventedLoss.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
+      subtext: `${sharedMetrics.paymentsBlocked} Payments Blocked • ${sharedMetrics.refundsInitiated} Refunds`,
+      change: `+$${sharedMetrics.preventedLoss.toLocaleString()} saved`,
       isNegative: false,
       icon: ShieldCheck,
       iconBg: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
@@ -98,3 +105,4 @@ export function SentinelMetrics() {
     </div>
   );
 }
+
