@@ -137,16 +137,25 @@ export class AuditStorageService {
   /**
    * Retrieves recent audit logs from database, falling back to memory ring buffer.
    */
-  public static async getRecentLogs(limit: number = 20): Promise<AuditTrailRecord[]> {
+  public static async getRecentLogs(
+    limit: number = 20
+  ): Promise<AuditTrailRecord[]> {
     try {
       if (db) {
-        const dbLogs = await db.query.sentinelAuditLogs.findMany({
-          limit,
-          orderBy: [desc(sentinelAuditLogs.timestamp)],
-        });
+        console.log("🔎 [AUDIT FETCH] Querying PostgreSQL...");
 
-        if (dbLogs && dbLogs.length > 0) {
-          return dbLogs.map((log: any) => ({
+        const dbLogs = await db
+          .select()
+          .from(sentinelAuditLogs)
+          .orderBy(desc(sentinelAuditLogs.timestamp))
+          .limit(limit);
+
+        console.log(
+          `🔎 [AUDIT FETCH] PostgreSQL returned ${dbLogs.length} records`
+        );
+
+        if (dbLogs.length > 0) {
+          return dbLogs.map((log) => ({
             auditId: log.auditId,
             transactionId: log.transactionId,
             merchantId: log.merchantId,
@@ -158,14 +167,30 @@ export class AuditStorageService {
             reasons: (log.reasons as string[]) || [],
             modelVersion: log.modelVersion,
             policyVersion: log.policyVersion,
-            timestamp: log.timestamp ? new Date(log.timestamp).toISOString() : new Date().toISOString(),
+            timestamp: log.timestamp
+              ? new Date(log.timestamp).toISOString()
+              : new Date().toISOString(),
             metadata: (log.metadata as Record<string, any>) || {},
           }));
         }
       }
-    } catch (err) {
-      logger.warn("⚠️ [AUDIT DB FETCH]: Database query failed, returning local in-memory audit logs.");
+    } catch (err: any) {
+      console.error(
+        "❌ [AUDIT DB FETCH ERROR]",
+        err?.message || err
+      );
+
+      logger.warn(
+        {
+          error: err?.message || String(err),
+        },
+        "⚠️ [AUDIT DB FETCH]: Database query failed, returning local in-memory audit logs."
+      );
     }
+
+    console.log(
+      `🧠 [AUDIT FETCH] Falling back to memory: ${this.inMemoryAuditBuffer.length} records`
+    );
 
     return this.inMemoryAuditBuffer.slice(0, limit);
   }
