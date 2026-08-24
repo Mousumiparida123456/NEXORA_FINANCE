@@ -1,30 +1,24 @@
-import { MERCHANT_NAV_ITEMS } from "./merchant-nav";
-import { MerchantPlaceholderPage } from "./MerchantPlaceholderPage";
 import { SentinelDashboard } from "./components/SentinelDashboard";
-
-function createMerchantPage(href: string) {
-  const item = MERCHANT_NAV_ITEMS.find((navItem) => navItem.href === href);
-  if (!item) throw new Error(`Missing merchant navigation item for ${href}`);
-
-  return function MerchantPage() {
-    return <MerchantPlaceholderPage title={item.label} description={item.description} icon={item.icon} />;
-  };
-}
-
 import { RiskCenterPage } from "./pages/RiskCenterPage";
+import { MerchantTransactionsPage as TransactionsPageComponent } from "./pages/MerchantTransactionsPage";
+import { MerchantCustomersPage as CustomersPageComponent } from "./pages/MerchantCustomersPage";
 import { InvestigationsPage } from "./pages/InvestigationsPage";
+import { MerchantReturnsPage as ReturnsPageComponent } from "./pages/MerchantReturnsPage";
+import { MerchantAnalyticsPage as AnalyticsPageComponent } from "./pages/MerchantAnalyticsPage";
+import { MerchantAgentPage as AgentPageComponent } from "./pages/MerchantAgentPage";
+import { MerchantRulesPage as RulesPageComponent } from "./pages/MerchantRulesPage";
 import { ModelPerformancePage } from "./pages/ModelPerformancePage";
 import { AuditLogsPage } from "./pages/AuditLogsPage";
 
 export const MerchantOverviewPage = SentinelDashboard;
 export const MerchantRiskPage = RiskCenterPage;
-export const MerchantTransactionsPage = createMerchantPage("/merchant/transactions");
-export const MerchantCustomersPage = createMerchantPage("/merchant/customers");
+export const MerchantTransactionsPage = TransactionsPageComponent;
+export const MerchantCustomersPage = CustomersPageComponent;
 export const MerchantInvestigationsPage = InvestigationsPage;
-export const MerchantReturnsPage = createMerchantPage("/merchant/returns");
-export const MerchantAnalyticsPage = createMerchantPage("/merchant/analytics");
-export const MerchantAgentPage = createMerchantPage("/merchant/agent");
-export const MerchantRulesPage = createMerchantPage("/merchant/rules");
+export const MerchantReturnsPage = ReturnsPageComponent;
+export const MerchantAnalyticsPage = AnalyticsPageComponent;
+export const MerchantAgentPage = AgentPageComponent;
+export const MerchantRulesPage = RulesPageComponent;
 export const MerchantModelPerformancePage = ModelPerformancePage;
 export const MerchantAuditPage = AuditLogsPage;
 

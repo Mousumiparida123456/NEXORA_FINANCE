@@ -11,7 +11,10 @@ export interface SentinelTransaction {
   customerName: string;
   customerEmail: string;
   detectedAt: string;
-  status: "Action Required" | "Under Review" | "Escalated" | "Blocked" | "Approved";
+  timestamp?: string;
+  paymentMethod?: string;
+  riskFactors?: string[];
+  status: "Action Required" | "Under Review" | "Escalated" | "Blocked" | "Approved" | "Hold";
   decision: "NONE" | "APPROVED_BY_MERCHANT" | "BLOCK_AND_REFUND" | "HOLD_FOR_REVIEW" | "REQUEST_3DS";
   refundStatus: "NONE" | "REFUND_INITIATED" | "COMPLETED";
   investigationStatus: "OPEN" | "UNDER_REVIEW" | "RESOLVED";
@@ -35,6 +38,8 @@ interface SentinelContextType {
   approveOrder: (id: string) => Promise<void>;
   blockAndRefund: (id: string) => Promise<void>;
   getTransactionById: (id: string) => SentinelTransaction | undefined;
+  resetDemoData: () => void;
+  addTransaction: (txn: SentinelTransaction) => void;
 }
 
 const STORAGE_KEY = "nexora_sentinel_shared_state_v2";
@@ -354,6 +359,20 @@ export const SentinelProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
   };
 
+  const resetDemoData = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    setTransactions(INITIAL_TRANSACTIONS);
+    setMetrics(INITIAL_METRICS);
+    toast({
+      title: "⚡ Demo Data Reset",
+      description: "Original synthetic dataset and dashboard metrics restored.",
+    });
+  };
+
+  const addTransaction = (txn: SentinelTransaction) => {
+    setTransactions((prev) => [txn, ...prev]);
+  };
+
   return (
     <SentinelContext.Provider
       value={{
@@ -362,6 +381,8 @@ export const SentinelProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         approveOrder,
         blockAndRefund,
         getTransactionById,
+        resetDemoData,
+        addTransaction,
       }}
     >
       {children}
