@@ -1,6 +1,5 @@
 import React from "react";
 import { SentinelHeader } from "./SentinelHeader";
-import { SentinelArchitectureFlow } from "./SentinelArchitectureFlow";
 import { SentinelMetrics } from "./SentinelMetrics";
 import { SentinelRiskBreakdown } from "./SentinelRiskBreakdown";
 import { SentinelRiskTrendChart } from "./SentinelRiskTrendChart";
@@ -91,8 +90,6 @@ export function SentinelDashboard() {
         </div>
       </div>
 
-      {/* Architecture Diagram Pipeline Flow */}
-      <SentinelArchitectureFlow />
 
       {/* LIVE SENTINEL PIPELINE Compact Card */}
       <div className="rounded-2xl border border-emerald-500/30 bg-[#07131e]/90 p-5 shadow-xl backdrop-blur-md space-y-4">
