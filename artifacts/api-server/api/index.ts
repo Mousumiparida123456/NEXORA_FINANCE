@@ -275,9 +275,11 @@ app.get("/api/v1/ping", (req, res) => res.json({ status: "ok" }));
 app.get(["/api/healthz", "/api/v1/healthz"], (_req, res) => res.json({ status: "ok" }));
 
 import { plaidRouter } from "./plaid";
+import { sentinelRouter } from "../src/sentinel/routes/sentinel.routes";
 
-// --- AUTH ROUTES ---
+// --- AUTH & DOMAIN ROUTES ---
 app.use(["/api/v1/plaid", "/api/plaid", "/plaid"], plaidRouter);
+app.use(["/api/v1/sentinel", "/api/sentinel"], sentinelRouter);
 
 app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], async (req, res) => {
   const start = Date.now();
