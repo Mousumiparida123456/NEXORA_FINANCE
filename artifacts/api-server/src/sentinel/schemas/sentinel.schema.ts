@@ -1,22 +1,38 @@
 import { z } from "zod";
 
+/**
+ * STEP 1C — Transaction Contract Schema
+ * Validates request payload against required merchant transaction contract with fallback defaults.
+ */
 export const TransactionEvaluationSchema = z.object({
   transactionId: z.string().optional().default(() => `TXN-${Math.floor(Math.random() * 899999) + 100000}`),
   merchantId: z.string().optional().default("MER-89420"),
   customerId: z.string().optional().default("CUST-1049"),
-  amount: z.number().positive("Amount must be a positive number"),
+
+  amount: z.number({ required_error: "Transaction amount is required" }).positive("Amount must be a positive number"),
   currency: z.string().optional().default("INR"),
-  cardCountry: z.string().optional().default("IN"),
+
   ipAddress: z.string().optional().default("103.21.244.0"),
-  ipCountry: z.string().optional().default("IN"),
-  deviceFingerprint: z.string().optional().default("DEV-FINGERPRINT-DEFAULT"),
-  deviceTrustScore: z.number().min(0).max(100).optional().default(85),
-  customerEmail: z.string().email().optional().default("customer@example.com"),
+  country: z.string().optional().default("IN"),
+  deviceId: z.string().optional().default("DEV-FINGERPRINT-DEFAULT"),
+
+  paymentMethod: z.string().optional().default("CREDIT_CARD"),
+
+  timestamp: z.string().optional().default(() => new Date().toISOString()),
+
+  // Optional behavioral & velocity context for 13 risk signals computation
   accountAgeDays: z.number().min(0).optional().default(180),
   velocityLast24h: z.number().min(0).optional().default(1),
+  deviceTrustScore: z.number().min(0).max(100).optional().default(85),
+  ipReputationScore: z.number().min(0).max(100).optional().default(15),
+  geoDistanceKm: z.number().min(0).optional().default(5),
+  merchantRiskScore: z.number().min(0).max(100).optional().default(20),
+  paymentMethodVelocity: z.number().min(0).optional().default(1),
   pastChargebackCount: z.number().min(0).optional().default(0),
-  category: z.string().optional().default("electronics"),
-  timestamp: z.string().optional().default(() => new Date().toISOString()),
+  customerHistoryScore: z.number().min(0).max(100).optional().default(90),
+  unusualAmountRatio: z.number().min(0).optional().default(1.0),
+  failedPaymentAttempts: z.number().min(0).optional().default(0),
+  behavioralDeviationScore: z.number().min(0).max(100).optional().default(10),
 });
 
 export type TransactionEvaluationInput = z.infer<typeof TransactionEvaluationSchema>;
