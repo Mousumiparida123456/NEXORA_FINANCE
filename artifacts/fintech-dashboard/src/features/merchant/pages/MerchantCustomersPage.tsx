@@ -142,23 +142,23 @@ export function MerchantCustomersPage() {
                 {activeCustomer.txns.map((t) => (
                   <div
                     key={t.id}
-                    className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
+                    className={`p-3 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 transition-all ${
                       t.unusual
                         ? "border-red-500/50 bg-red-500/15 shadow-lg shadow-red-500/5"
                         : "border-slate-800 bg-slate-950/60"
                     }`}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 text-xs">
                       <span className="text-slate-400 font-bold">{t.id}</span>
-                      <span className="text-slate-300">{t.date}</span>
+                      <span className="text-slate-300 font-mono text-[11px]">{t.date}</span>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      <span className={`text-sm font-black ${t.unusual ? "text-red-400 text-base" : "text-white"}`}>
-                        {t.amount} {t.unusual && "← UNUSUAL (5x average)"}
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                      <span className={`text-sm font-black ${t.unusual ? "text-red-400 text-sm sm:text-base" : "text-white"}`}>
+                        {t.amount} {t.unusual && <span className="text-[10px] block sm:inline text-red-300 font-normal">← UNUSUAL (5x avg)</span>}
                       </span>
                       <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
                           t.unusual ? "bg-red-500/30 text-red-200 border border-red-500/40" : "bg-emerald-500/20 text-emerald-300"
                         }`}
                       >

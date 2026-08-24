@@ -121,8 +121,8 @@ export function MerchantTransactionsPage() {
         </div>
       </div>
 
-      {/* Transactions Table */}
-      <div className="rounded-2xl border border-slate-800 bg-[#07131e]/95 overflow-hidden shadow-xl">
+      {/* Desktop & Tablet Table (md+) */}
+      <div className="hidden md:block rounded-2xl border border-slate-800 bg-[#07131e]/95 overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -188,78 +188,138 @@ export function MerchantTransactionsPage() {
         </div>
       </div>
 
-      {/* Transaction Detail Modal */}
+      {/* Mobile Card List (< md) */}
+      <div className="block md:hidden space-y-3">
+        {filteredTransactions.map((t) => (
+          <div
+            key={t.id}
+            className="rounded-2xl border border-slate-800 bg-[#07131e]/95 p-4 shadow-lg space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <span className="font-mono font-bold text-emerald-400 text-sm">{t.id}</span>
+              <span
+                className={`px-2.5 py-0.5 rounded-full font-extrabold text-[10px] font-mono ${
+                  t.riskLevel.toLowerCase() === "critical"
+                    ? "bg-red-500/20 text-red-300 border border-red-500/40"
+                    : t.riskLevel.toLowerCase() === "high"
+                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                    : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                }`}
+              >
+                {t.riskScore}/100 • {t.riskLevel}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-bold text-white text-sm">{t.customerName}</span>
+              <span className="font-mono font-black text-white text-base">₹{t.amount.toLocaleString()}</span>
+            </div>
+
+            <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 pt-1 border-t border-slate-800/80">
+              <span>{t.paymentMethod || "Card"}</span>
+              <span
+                className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                  t.status === "Approved"
+                    ? "bg-emerald-500/20 text-emerald-400"
+                    : t.status === "Blocked"
+                    ? "bg-red-500/20 text-red-400"
+                    : "bg-amber-500/20 text-amber-300"
+                }`}
+              >
+                {t.status}
+              </span>
+            </div>
+
+            <button
+              onClick={() => setSelectedTxn(t)}
+              className="w-full py-2.5 rounded-xl border border-slate-700 bg-slate-900 text-xs font-bold text-slate-200 hover:border-emerald-500 hover:text-emerald-300 transition-all flex items-center justify-center gap-1.5"
+            >
+              <Eye className="h-4 w-4" /> View Investigation Details
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Transaction Detail Modal (Mobile Responsive) */}
       {selectedTxn && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="w-full max-w-2xl rounded-2xl border border-slate-800 bg-[#07131e] p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl border border-slate-800 bg-[#07131e] p-4 sm:p-6 shadow-2xl space-y-4 my-auto animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800 shrink-0">
               <div>
                 <span className="text-xs font-bold text-emerald-400 font-mono">{selectedTxn.id}</span>
-                <h3 className="text-lg font-black text-white">Transaction Risk Details</h3>
+                <h3 className="text-base sm:text-lg font-black text-white">Transaction Risk Details</h3>
               </div>
               <button
                 onClick={() => setSelectedTxn(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-              <div className="p-3 rounded-xl border border-slate-800 bg-slate-950">
-                <span className="text-[10px] text-slate-400 uppercase font-bold block">Amount</span>
-                <span className="text-sm font-black text-white font-mono">₹{selectedTxn.amount.toLocaleString()}</span>
+            <div className="overflow-y-auto space-y-4 pr-1">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center">
+                <div className="p-2.5 rounded-xl border border-slate-800 bg-slate-950">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Amount</span>
+                  <span className="text-xs sm:text-sm font-black text-white font-mono">₹{selectedTxn.amount.toLocaleString()}</span>
+                </div>
+                <div className="p-2.5 rounded-xl border border-slate-800 bg-slate-950">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Risk Score</span>
+                  <span className="text-xs sm:text-sm font-black text-red-400 font-mono">{selectedTxn.riskScore} / 100</span>
+                </div>
+                <div className="p-2.5 rounded-xl border border-slate-800 bg-slate-950">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Customer</span>
+                  <span className="text-xs font-bold text-slate-200 truncate block">{selectedTxn.customerName}</span>
+                </div>
+                <div className="p-2.5 rounded-xl border border-slate-800 bg-slate-950">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Status</span>
+                  <span className="text-xs font-extrabold text-amber-400 font-mono">{selectedTxn.status}</span>
+                </div>
               </div>
-              <div className="p-3 rounded-xl border border-slate-800 bg-slate-950">
-                <span className="text-[10px] text-slate-400 uppercase font-bold block">Risk Score</span>
-                <span className="text-sm font-black text-red-400 font-mono">{selectedTxn.riskScore} / 100</span>
+
+              <div className="space-y-2 font-mono text-xs">
+                <h4 className="font-bold text-slate-300 font-sans uppercase text-xs">Detected Risk Signals</h4>
+                <div className="p-3 rounded-xl border border-slate-800 bg-slate-950 space-y-1.5 text-slate-300">
+                  {(selectedTxn.riskFactors || selectedTxn.signals).map((rf, idx) => (
+                    <div key={idx} className="flex items-start gap-2 leading-relaxed">
+                      <span className="text-red-400 mt-0.5">●</span>
+                      <span>{rf}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="p-3 rounded-xl border border-slate-800 bg-slate-950">
-                <span className="text-[10px] text-slate-400 uppercase font-bold block">Customer</span>
-                <span className="text-xs font-bold text-slate-200">{selectedTxn.customerName}</span>
-              </div>
-              <div className="p-3 rounded-xl border border-slate-800 bg-slate-950">
-                <span className="text-[10px] text-slate-400 uppercase font-bold block">Status</span>
-                <span className="text-xs font-extrabold text-amber-400 font-mono">{selectedTxn.status}</span>
+
+              <div className="p-3 rounded-xl border border-slate-800 bg-slate-900/60 text-xs text-slate-300 space-y-1">
+                <span className="font-bold text-emerald-400 font-mono block">AI Recommendation:</span>
+                <p className="leading-relaxed">
+                  {selectedTxn.riskScore >= 70
+                    ? "Hold transaction pending verification. Multiple independent threat signals detected."
+                    : "Transaction exhibits normal purchasing pattern."}
+                </p>
               </div>
             </div>
 
-            <div className="space-y-2 font-mono text-xs">
-              <h4 className="font-bold text-slate-300 font-sans uppercase text-xs">Detected Risk Signals</h4>
-              <div className="p-3 rounded-xl border border-slate-800 bg-slate-950 space-y-1.5 text-slate-300">
-                {(selectedTxn.riskFactors || selectedTxn.signals).map((rf, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <span className="text-red-400">●</span>
-                    <span>{rf}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/60 text-xs text-slate-300 space-y-1">
-              <span className="font-bold text-emerald-400 font-mono">AI Recommendation:</span>
-              <p className="leading-relaxed">
-                {selectedTxn.riskScore >= 70
-                  ? "Hold transaction pending verification. Multiple independent threat signals detected."
-                  : "Transaction exhibits normal purchasing pattern."}
-              </p>
-            </div>
-
-            {/* Modal Actions */}
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+            {/* Modal Actions (Responsive Full Width on Mobile) */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-3 border-t border-slate-800 shrink-0">
               <button
                 disabled={isProcessing || selectedTxn.status === "Approved"}
                 onClick={() => handleApprove(selectedTxn.id)}
-                className="px-4 py-2 rounded-xl border border-emerald-500/40 bg-emerald-500/20 text-xs font-black uppercase text-emerald-300 hover:bg-emerald-500/30 disabled:opacity-50"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-emerald-500/40 bg-emerald-500/20 text-xs font-black uppercase text-emerald-300 hover:bg-emerald-500/30 disabled:opacity-50 min-h-[44px]"
               >
                 {isProcessing ? "Processing..." : "Approve Order"}
               </button>
               <button
                 disabled={isProcessing || selectedTxn.status === "Blocked"}
                 onClick={() => handleBlockRefund(selectedTxn.id)}
-                className="px-4 py-2 rounded-xl border border-red-500/40 bg-red-500/20 text-xs font-black uppercase text-red-300 hover:bg-red-500/30 disabled:opacity-50"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-red-500/40 bg-red-500/20 text-xs font-black uppercase text-red-300 hover:bg-red-500/30 disabled:opacity-50 min-h-[44px]"
               >
                 {isProcessing ? "Processing..." : "Block & Refund"}
+              </button>
+              <button
+                onClick={() => setSelectedTxn(null)}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-700 bg-slate-900 text-xs font-bold text-slate-400 hover:text-white min-h-[44px]"
+              >
+                Close
               </button>
             </div>
           </div>
