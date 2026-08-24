@@ -1,9 +1,10 @@
 const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 export const VERCEL_API_SERVER_URL = "https://nexora-finance-api-server.vercel.app";
+export const LOCAL_API_SERVER_URL = "http://localhost:9999";
 
 export const apiBaseUrl = rawApiBaseUrl
   ? rawApiBaseUrl.replace(/\/+$/, "")
-  : VERCEL_API_SERVER_URL;
+  : (import.meta.env.DEV ? LOCAL_API_SERVER_URL : VERCEL_API_SERVER_URL);
 
 const hasVersionedPrefix = /\/api\/v1$/i.test(apiBaseUrl);
 const hasApiPrefix = /\/api$/i.test(apiBaseUrl);
@@ -13,6 +14,29 @@ export const API_URL = hasVersionedPrefix
     ? `${apiBaseUrl}/v1`
     : `${apiBaseUrl}/api/v1`;
 console.log("NEXORA_ENGINE_ACTIVE:", API_URL);
+
+export interface BackendAuditRecord {
+  auditId: string;
+  transactionId: string;
+  merchantId: string;
+  actor?: string;
+  action?: string;
+  riskScore: number;
+  riskLevel: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "SAFE" | string;
+  decision: "APPROVE" | "BLOCK" | "MANUAL_REVIEW" | "REQUIRE_3DS" | string;
+  reasons?: string[];
+  modelVersion?: string;
+  policyVersion?: string;
+  timestamp: string;
+  metadata?: Record<string, any>;
+}
+
+export interface SentinelAuditLogsResponse {
+  success: boolean;
+  count: number;
+  data: BackendAuditRecord[];
+  requestId?: string;
+}
 
 export interface AuthUser {
   id: string;
@@ -287,6 +311,25 @@ class ApiClient {
 
   async askAIAssistant(data: { message: string; context: any }): Promise<{ advice: string }> {
     return this.post<{ advice: string }>("/ai/insights", data);
+  }
+
+  async getSentinelAuditLogs(): Promise<SentinelAuditLogsResponse> {
+    try {
+      return await this.get<SentinelAuditLogsResponse>("/sentinel/audit-logs");
+    } catch (err: any) {
+      // Fallback attempt to http://localhost:9999 directly if primary baseUrl is different
+      if (!this.baseUrl.includes("localhost:9999")) {
+        try {
+          const directRes = await fetch("http://localhost:9999/api/v1/sentinel/audit-logs");
+          if (directRes.ok) {
+            return await directRes.json();
+          }
+        } catch {
+          // ignore direct fallback error
+        }
+      }
+      throw err;
+    }
   }
 }
 

@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "framework": null,
+  "installCommand": "npm install --legacy-peer-deps",
+  "buildCommand": "pnpm --filter @workspace/fintech-dashboard run build",
+  "outputDirectory": "artifacts/fintech-dashboard/dist/public",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api/index.ts"
+    }
+  ]
+}

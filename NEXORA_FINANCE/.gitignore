@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+dist/
+.env
+
+# Build outputs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Git
+.git/
+
+# Workspace specific
+artifacts/api-server/dist/
+artifacts/fintech-dashboard/dist/
+cookies.txt

@@ -46,8 +46,19 @@ export class AuditStorageService {
         }
       }
     } catch (err) {
-      logger.warn({ transactionId, error: err }, "⚠️ [AUDIT DB IDEMPOTENCY LOOKUP]: Database query failed, checking in-memory ring buffer");
-    }
+  console.error("=================================");
+  console.error("POSTGRES INSERT FAILED");
+  console.error("Transaction:", decisionRecord.transactionId);
+  console.error("ERROR:", err);
+  console.error("=================================");
+
+  logger.warn(
+    { transactionId: decisionRecord.transactionId, error: err },
+    "AUDIT DB STORAGE FAILED"
+  );
+
+  auditPersistence = "memory-fallback";
+}
 
     // 2. Check local in-memory ring buffer fallback
     const memoryMatch = this.inMemoryAuditBuffer.find((rec) => rec.transactionId === transactionId);
