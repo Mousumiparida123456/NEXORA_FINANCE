@@ -118,6 +118,35 @@ export const transactionsRelations = relations(transactions, ({ one }) => ({
   account: one(accounts, { fields: [transactions.accountId], references: [accounts.id] }),
 }));
 
+export const sentinelAuditLogs = pgTable(
+  "sentinel_audit_logs",
+  {
+    id: serial("id").primaryKey(),
+    auditId: text("audit_id").notNull().unique(),
+    transactionId: text("transaction_id").notNull(),
+    merchantId: text("merchant_id").notNull().default("MER-89420"),
+    actor: text("actor").notNull().default("SENTINEL_AI_ENGINE"),
+    action: text("action").notNull(),
+    riskScore: integer("risk_score").notNull(),
+    riskLevel: text("risk_level").notNull(),
+    decision: text("decision").notNull(),
+    reasons: jsonb("reasons").notNull().default([]),
+    modelVersion: text("model_version").notNull().default("sentinel-fraud-v1"),
+    policyVersion: text("policy_version").notNull().default("v2.0-policy"),
+    metadata: jsonb("metadata").notNull().default({}),
+    timestamp: timestamp("timestamp").notNull().defaultNow(),
+  },
+  (table) => ({
+    auditIdIdx: index("sentinel_audit_id_idx").on(table.auditId),
+    txnIdIdx: index("sentinel_txn_id_idx").on(table.transactionId),
+  }),
+);
+
+export const insertSentinelAuditLogSchema = createInsertSchema(sentinelAuditLogs as any);
+export const selectSentinelAuditLogSchema = createSelectSchema(sentinelAuditLogs as any);
+export type SentinelAuditLog = z.infer<typeof selectSentinelAuditLogSchema>;
+export type NewSentinelAuditLog = z.infer<typeof insertSentinelAuditLogSchema>;
+
 export const insertUserSchema = createInsertSchema(users as any);
 export const selectUserSchema = createSelectSchema(users as any);
 export const insertAccountSchema = createInsertSchema(accounts as any);

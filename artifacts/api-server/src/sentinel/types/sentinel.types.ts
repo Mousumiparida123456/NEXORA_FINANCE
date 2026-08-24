@@ -75,10 +75,11 @@ export interface RiskModelResult {
 
 export interface RiskFusionScore {
   fusedScore: number; // 0 - 100
-  modelScore: number;
-  ruleScore: number;
-  behavioralScore: number;
-  riskCategory: RiskCategory;
+  mlScoreComponent: number;
+  ruleViolationsComponent: number;
+  behavioralAnomalyComponent: number;
+  deviceRiskComponent: number;
+  riskLevel: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "SAFE";
   primaryRiskVectors: string[];
 }
 
@@ -99,6 +100,43 @@ export interface RecommendationResult {
   suggestedAction: PolicyAction;
 }
 
+/**
+ * STEP 1H — Decision Record Interface
+ * The standardized decision object consumed by frontend and audit trail.
+ */
+export interface DecisionRecord {
+  transactionId: string;
+  merchantId: string;
+  riskScore: number; // Fused score (0 - 100)
+  riskLevel: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "SAFE";
+  modelVersion: string;
+  policyVersion: string;
+  decision: PolicyAction;
+  reasons: string[];
+  requiresHumanReview: boolean;
+  requiresMFA: boolean;
+  timestamp: string;
+}
+
+/**
+ * STEP 1I — Audit Trail Record Interface
+ */
+export interface AuditTrailRecord {
+  auditId: string;
+  transactionId: string;
+  merchantId: string;
+  actor: string;
+  action: PolicyAction;
+  riskScore: number;
+  riskLevel: string;
+  decision: string;
+  reasons: string[];
+  modelVersion: string;
+  policyVersion: string;
+  timestamp: string;
+  metadata: Record<string, any>;
+}
+
 export interface SentinelEvaluationResult {
   evaluationId: string;
   timestamp: string;
@@ -110,6 +148,8 @@ export interface SentinelEvaluationResult {
   modelResult: RiskModelResult;
   fusionScore: RiskFusionScore;
   decision: PolicyDecision;
+  decisionRecord: DecisionRecord;
   recommendation: RecommendationResult;
+  auditTrailRecord?: AuditTrailRecord;
   executionTimeMs: number;
 }

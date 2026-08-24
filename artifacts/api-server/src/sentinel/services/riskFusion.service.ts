@@ -1,45 +1,53 @@
-import { RiskSignal, RiskModelResult, RiskFusionScore, RiskCategory } from "../types/sentinel.types";
+import { RiskSignal, RiskModelResult, RiskFusionScore } from "../types/sentinel.types";
 
 export class RiskFusionService {
   /**
-   * Fuses ML model fraud probability, deterministic rule scores, and behavioral signals.
+   * STEP 1F — Risk Fusion Engine
+   * Fuses ML probability score with rule violation add-ons, behavioral anomaly add-ons, and device risk add-ons.
    */
   public static fuse(signals: RiskSignal[], modelResult: RiskModelResult): RiskFusionScore {
-    const modelScore = Math.round(modelResult.fraudProbability * 100);
+    // 1. Base ML Score (0 - 100)
+    const mlScoreComponent = Math.round(modelResult.fraudProbability * 100);
 
-    // Rule Score: average of top 3 severe signals
-    const sortedSignals = [...signals].sort((a, b) => b.score - a.score);
-    const topSignals = sortedSignals.slice(0, 3);
-    const ruleScore = Math.round(
-      topSignals.reduce((acc, sig) => acc + sig.score * sig.weight, 0) /
-        topSignals.reduce((acc, sig) => acc + sig.weight, 0)
+    // 2. Rule Violations Add-on
+    const severeRules = signals.filter((s) => s.normalizedScore >= 0.60);
+    const ruleViolationsComponent = Math.min(15, severeRules.length * 5);
+
+    // 3. Behavioral Anomaly Add-on
+    const behSignal = signals.find((s) => s.name === "behavioralDeviation" || s.name === "paymentVelocity");
+    const behavioralAnomalyComponent = behSignal ? Math.round(behSignal.normalizedScore * 10) : 0;
+
+    // 4. Device Risk Add-on
+    const devSignal = signals.find((s) => s.name === "deviceRisk");
+    const deviceRiskComponent = devSignal ? Math.round(devSignal.normalizedScore * 8) : 0;
+
+    // 5. Final Fused Score (Clamped to 100 max)
+    const fusedScore = Math.min(
+      100,
+      mlScoreComponent + ruleViolationsComponent + behavioralAnomalyComponent + deviceRiskComponent
     );
 
-    // Behavioral Score from velocity and device signals
-    const behavioralSignals = signals.filter((s) => s.category === "behavior" || s.category === "velocity");
-    const behavioralScore =
-      behavioralSignals.length > 0
-        ? Math.round(behavioralSignals.reduce((a, b) => a + b.score, 0) / behavioralSignals.length)
-        : 10;
+    // STEP 1F Risk Level Tiering
+    let riskLevel: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "SAFE" = "SAFE";
+    if (fusedScore >= 91) riskLevel = "CRITICAL";
+    else if (fusedScore >= 81) riskLevel = "HIGH";
+    else if (fusedScore >= 61) riskLevel = "MEDIUM";
+    else if (fusedScore >= 31) riskLevel = "LOW";
+    else riskLevel = "SAFE";
 
-    // Fused Composite Score (60% Rules, 30% ML Model, 10% Behavioral)
-    const fusedScore = Math.min(100, Math.round(ruleScore * 0.6 + modelScore * 0.3 + behavioralScore * 0.1));
-
-    let riskCategory: RiskCategory = "safe";
-    if (fusedScore >= 80) riskCategory = "critical";
-    else if (fusedScore >= 60) riskCategory = "high";
-    else if (fusedScore >= 35) riskCategory = "medium";
-    else if (fusedScore >= 15) riskCategory = "low";
-
-    const primaryRiskVectors = topSignals.filter((s) => s.score >= 40).map((s) => s.name);
+    const topRiskSignals = [...signals]
+      .filter((s) => s.normalizedScore >= 0.40)
+      .sort((a, b) => b.normalizedScore - a.normalizedScore)
+      .map((s) => s.details);
 
     return {
       fusedScore,
-      modelScore,
-      ruleScore,
-      behavioralScore,
-      riskCategory,
-      primaryRiskVectors: primaryRiskVectors.length > 0 ? primaryRiskVectors : ["Clean Behavioral Baseline"],
+      mlScoreComponent,
+      ruleViolationsComponent,
+      behavioralAnomalyComponent,
+      deviceRiskComponent,
+      riskLevel,
+      primaryRiskVectors: topRiskSignals.length > 0 ? topRiskSignals : ["Clean transaction baseline"],
     };
   }
 }
