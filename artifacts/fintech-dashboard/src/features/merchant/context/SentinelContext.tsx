@@ -40,6 +40,7 @@ interface SentinelContextType {
   getTransactionById: (id: string) => SentinelTransaction | undefined;
   resetDemoData: () => void;
   addTransaction: (txn: SentinelTransaction) => void;
+  recordAuditLog: (event: Partial<SentinelAuditEvent>) => void;
 }
 
 const STORAGE_KEY = "nexora_sentinel_shared_state_v2";
@@ -373,6 +374,22 @@ export const SentinelProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setTransactions((prev) => [txn, ...prev]);
   };
 
+  const recordAuditLog = (evt: Partial<SentinelAuditEvent>) => {
+    auditLoggerService.logEvent({
+      transactionId: evt.transactionId || `TXN-${Math.floor(100000 + Math.random() * 900000)}`,
+      investigationId: evt.investigationId || `CASE-${Math.floor(100000 + Math.random() * 900000)}`,
+      riskScore: evt.riskScore || 85,
+      riskFactors: evt.riskFactors || ["Risk Vector Detected"],
+      aiRecommendation: evt.aiRecommendation || "BLOCK",
+      humanDecision: evt.humanDecision || "BLOCK",
+      approvedBy: evt.approvedBy || "Merchant Operator",
+      previousStatus: evt.previousStatus || "SUSPICIOUS",
+      newStatus: evt.newStatus || "ACTION_TAKEN",
+      reason: evt.reason || "Manual Risk Action Recorded",
+      actionSource: evt.actionSource || "HUMAN",
+    });
+  };
+
   return (
     <SentinelContext.Provider
       value={{
@@ -383,6 +400,7 @@ export const SentinelProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         getTransactionById,
         resetDemoData,
         addTransaction,
+        recordAuditLog,
       }}
     >
       {children}
