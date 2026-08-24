@@ -34,14 +34,14 @@ export function MerchantLayout({ children }: { children: ReactNode }) {
 
   return (
     <SentinelProvider>
-      <div className="h-screen w-screen bg-[#040a17] font-sans text-slate-50 overflow-hidden flex flex-col md:flex-row">
-        {/* Desktop Left Sidebar (Fixed 100vh height, flex-none) */}
+      <div className="min-h-screen bg-[#040a17] font-sans text-slate-50 relative flex flex-col md:flex-row">
+        {/* Desktop Left Sidebar (Fixed 100vh height, position fixed) */}
         <MerchantSidebar />
 
-        {/* Main Layout Area */}
-        <div className="min-w-0 flex-1 flex flex-col h-screen overflow-hidden">
+        {/* Main Layout Area (Takes remaining width via margin-left md:ml-72) */}
+        <div className="flex-1 md:ml-72 flex flex-col min-h-screen min-w-0">
           {/* Top Responsive Header */}
-          <header className="flex-none h-16 border-b border-slate-800 bg-[#07131e]/95 backdrop-blur z-20">
+          <header className="sticky top-0 z-20 h-14 border-b border-slate-800 bg-[#07131e]/95 backdrop-blur">
             <div className="flex h-full items-center justify-between px-3 sm:px-6">
               <div className="flex items-center gap-2.5 min-w-0">
                 {/* Mobile Hamburger Toggle */}
@@ -161,8 +161,8 @@ export function MerchantLayout({ children }: { children: ReactNode }) {
             </div>
           )}
 
-          {/* Page Content (Has its own independent vertical scroll container) */}
-          <main className="flex-1 w-full overflow-y-auto overflow-x-hidden p-3 sm:p-5 lg:p-8">
+          {/* Page Content */}
+          <main className="flex-1 w-full p-3 sm:p-5 lg:p-8">
             <div className="max-w-7xl mx-auto">
               {children}
             </div>
