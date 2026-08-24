@@ -62,7 +62,7 @@ export default defineConfig({
     allowedHosts: true,
     proxy: {
       "/api": {
-        target: "http://localhost:9999",
+        target: "https://nexora-finance-api-server.vercel.app",
         changeOrigin: true,
         secure: false,
       },

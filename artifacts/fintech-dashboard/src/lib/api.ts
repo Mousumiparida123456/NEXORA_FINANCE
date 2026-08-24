@@ -1,10 +1,9 @@
 const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
-const devFallbackApiBaseUrl =
-  typeof window !== "undefined" ? window.location.origin : "http://localhost:5173";
+export const VERCEL_API_SERVER_URL = "https://nexora-finance-api-server.vercel.app";
 
 export const apiBaseUrl = rawApiBaseUrl
   ? rawApiBaseUrl.replace(/\/+$/, "")
-  : devFallbackApiBaseUrl;
+  : VERCEL_API_SERVER_URL;
 
 const hasVersionedPrefix = /\/api\/v1$/i.test(apiBaseUrl);
 const hasApiPrefix = /\/api$/i.test(apiBaseUrl);
