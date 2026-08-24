@@ -60,17 +60,19 @@ export interface RiskModelResult {
   modelName: string;
   modelVersion: string;
   fraudProbability: number; // 0.00 to 1.00
-  riskTier: "Low" | "Medium" | "High" | "Critical";
-  confidenceScore: number; // 0.00 to 1.00
-  evaluationMetrics: {
-    datasetSize: number;
-    accuracy: number;
-    precision: number;
-    recall: number;
-    f1Score: number;
-    rocAuc: number;
-  };
-  keyFactors: Array<{ factor: string; contribution: number; normalizedValue: number }>;
+  riskTier: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "SAFE";
+  topFeatures?: string[];
+  evaluationMetrics?: {
+    datasetSize?: number;
+    fraudRate?: number;
+    accuracy?: number;
+    precision?: number;
+    recall?: number;
+    f1Score?: number;
+    rocAuc?: number;
+    evaluationStatus?: string;
+    lastTrainedTimestamp?: string;
+  } | null;
 }
 
 export interface RiskFusionScore {
@@ -95,14 +97,16 @@ export interface PolicyDecision {
 
 export interface RecommendationResult {
   actionSummary: string;
-  explanation: string;
-  operatorMitigationSteps: string[];
-  suggestedAction: PolicyAction;
+  explanation?: string;
+  mitigationSteps?: string[];
+  operatorMitigationSteps?: string[];
+  suggestedAction?: PolicyAction;
+  suggestedWorkflow?: string;
 }
 
 /**
  * STEP 1H — Decision Record Interface
- * The standardized decision object consumed by frontend and audit trail.
+ * Standardized decision object consumed by frontend and audit trail.
  */
 export interface DecisionRecord {
   transactionId: string;
@@ -151,5 +155,6 @@ export interface SentinelEvaluationResult {
   decisionRecord: DecisionRecord;
   recommendation: RecommendationResult;
   auditTrailRecord?: AuditTrailRecord;
+  auditPersistence?: "postgresql" | "memory-fallback";
   executionTimeMs: number;
 }

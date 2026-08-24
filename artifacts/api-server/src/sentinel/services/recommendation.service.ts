@@ -59,6 +59,7 @@ export class RecommendationService {
     return {
       actionSummary,
       explanation,
+      mitigationSteps: operatorMitigationSteps,
       operatorMitigationSteps,
       suggestedAction: action,
     };
