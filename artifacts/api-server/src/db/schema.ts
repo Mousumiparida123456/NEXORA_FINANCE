@@ -118,16 +118,16 @@ export const transactionsRelations = relations(transactions, ({ one }) => ({
   account: one(accounts, { fields: [transactions.accountId], references: [accounts.id] }),
 }));
 
-export const insertUserSchema = createInsertSchema(users);
-export const selectUserSchema = createSelectSchema(users);
-export const insertAccountSchema = createInsertSchema(accounts);
-export const selectAccountSchema = createSelectSchema(accounts);
-export const insertTransactionSchema = createInsertSchema(transactions);
-export const selectTransactionSchema = createSelectSchema(transactions);
-export const insertUserPreferencesSchema = createInsertSchema(userPreferences);
-export const selectUserPreferencesSchema = createSelectSchema(userPreferences);
-export const insertPlaidItemSchema = createInsertSchema(plaidItems);
-export const selectPlaidItemSchema = createSelectSchema(plaidItems);
+export const insertUserSchema = createInsertSchema(users as any);
+export const selectUserSchema = createSelectSchema(users as any);
+export const insertAccountSchema = createInsertSchema(accounts as any);
+export const selectAccountSchema = createSelectSchema(accounts as any);
+export const insertTransactionSchema = createInsertSchema(transactions as any);
+export const selectTransactionSchema = createSelectSchema(transactions as any);
+export const insertUserPreferencesSchema = createInsertSchema(userPreferences as any);
+export const selectUserPreferencesSchema = createSelectSchema(userPreferences as any);
+export const insertPlaidItemSchema = createInsertSchema(plaidItems as any);
+export const selectPlaidItemSchema = createSelectSchema(plaidItems as any);
 
 export type User = z.infer<typeof selectUserSchema>;
 export type NewUser = z.infer<typeof insertUserSchema>;
