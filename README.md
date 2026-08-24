@@ -1,11 +1,5 @@
 # NEXORA
 
-## LIVE DEMO LINK
-https://nexora-finance-fintech-dashboard.vercel.app/
-
-## Backend
-https://nexora-finance-api-server.vercel.app/
-
 ## Local Architecture
 
 - Backend source: `artifacts/api-server`
