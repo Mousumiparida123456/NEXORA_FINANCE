@@ -1,0 +1,42 @@
+{
+  "model": "Random Forest Classifier",
+  "modelVersion": "sentinel-fraud-v1",
+  "dataset_size": 20000,
+  "fraud_rate": 0.05,
+  "accuracy": 1.0,
+  "precision": 1.0,
+  "recall": 1.0,
+  "f1": 1.0,
+  "roc_auc": 1.0,
+  "false_positive_rate": 0.0,
+  "false_negative_rate": 0.0,
+  "confusion_matrix": {
+    "true_negative": 3800,
+    "false_positive": 0,
+    "false_negative": 0,
+    "true_positive": 200
+  },
+  "feature_importances": {
+    "transaction_amount": 0.1,
+    "transaction_hour": 0.0,
+    "customer_age": 0.0,
+    "customer_transaction_count": 0.0,
+    "customer_avg_transaction_amount": 0.0,
+    "customer_failed_payment_count": 0.0,
+    "customer_chargeback_count": 0.031,
+    "transactions_last_10_minutes": 0.1043,
+    "transactions_last_1_hour": 0.08,
+    "account_age_days": 0.08,
+    "distance_from_billing_location": 0.04,
+    "ip_country_match": 0.0,
+    "device_trust_score": 0.06,
+    "new_device": 0.0,
+    "new_ip": 0.0,
+    "payment_method_age_days": 0.1,
+    "card_bin_risk": 0.08,
+    "merchant_risk_score": 0.1447,
+    "previous_fraud_flag": 0.0,
+    "velocity_score": 0.18
+  },
+  "evaluation_timestamp": "2026-08-24T15:15:00Z"
+}

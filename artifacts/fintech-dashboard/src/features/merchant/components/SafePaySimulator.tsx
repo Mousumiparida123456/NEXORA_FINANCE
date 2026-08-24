@@ -17,6 +17,7 @@ import {
   User,
 } from "lucide-react";
 import { useSentinelState } from "../context/SentinelContext";
+import { sentinelMLRiskEngine } from "../sentinel/engine/mlRiskEngine";
 
 export function SafePaySimulator() {
   const [, setLocation] = useLocation();
@@ -31,10 +32,10 @@ export function SafePaySimulator() {
 
   const steps = [
     "Checking recipient threat database",
-    "Checking transaction history",
-    "Checking payment velocity",
-    "Checking active risk rules",
-    "Calculating risk score",
+    "Loading offline-trained Random Forest model (sentinel-fraud-v1)",
+    "Executing local feature vector inference",
+    "Evaluating Rule Engine signal adjustments",
+    "Combining ML probability & rule risk score",
   ];
 
   const handleCheckAndPay = () => {

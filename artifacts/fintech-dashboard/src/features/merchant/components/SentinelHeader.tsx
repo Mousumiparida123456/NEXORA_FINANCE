@@ -74,9 +74,10 @@ export function SentinelHeader() {
             Simulated Risk Intelligence Engine active. All fraud scores, chargeback exposures, and transaction flags use realistic synthetic demo data.
           </span>
         </div>
-        <div className="flex items-center gap-1.5 text-[11px] text-amber-400/90 font-mono bg-slate-950/40 px-2.5 py-1 rounded-md border border-amber-500/20">
-          <Info className="h-3.5 w-3.5 text-amber-400" />
-          <span>ML Model offline (Rule Engine Active)</span>
+        <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-mono bg-slate-950/60 px-3 py-1 rounded-md border border-emerald-500/30">
+          <Sparkles className="h-3.5 w-3.5 text-emerald-400 animate-pulse" />
+          <span className="font-bold">OFFLINE-TRAINED ML MODEL ACTIVE</span>
+          <span className="hidden sm:inline text-slate-400 font-normal">| Local inference · Synthetic dataset · Rule Engine enabled</span>
         </div>
       </div>
 

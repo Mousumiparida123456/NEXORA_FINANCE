@@ -10,7 +10,8 @@
     "dev": "vite --config vite.config.ts --configLoader native --host 0.0.0.0",
     "build": "vite build --config vite.config.ts --configLoader native",
     "serve": "vite preview --config vite.config.ts --configLoader native --host 0.0.0.0",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "ml:train": "python ml/generate_dataset.py && python ml/train_model.py"
   },
   "devDependencies": {
     "@hookform/resolvers": "^3.10.0",

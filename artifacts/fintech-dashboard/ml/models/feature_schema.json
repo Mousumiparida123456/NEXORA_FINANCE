@@ -1,0 +1,106 @@
+{
+  "modelVersion": "sentinel-fraud-v1",
+  "featureCount": 20,
+  "features": [
+    {
+      "name": "transaction_amount",
+      "type": "number",
+      "importance": 0.1
+    },
+    {
+      "name": "transaction_hour",
+      "type": "number",
+      "importance": 0.0
+    },
+    {
+      "name": "customer_age",
+      "type": "number",
+      "importance": 0.0
+    },
+    {
+      "name": "customer_transaction_count",
+      "type": "number",
+      "importance": 0.0
+    },
+    {
+      "name": "customer_avg_transaction_amount",
+      "type": "number",
+      "importance": 0.0
+    },
+    {
+      "name": "customer_failed_payment_count",
+      "type": "number",
+      "importance": 0.0
+    },
+    {
+      "name": "customer_chargeback_count",
+      "type": "number",
+      "importance": 0.031
+    },
+    {
+      "name": "transactions_last_10_minutes",
+      "type": "number",
+      "importance": 0.1043
+    },
+    {
+      "name": "transactions_last_1_hour",
+      "type": "number",
+      "importance": 0.08
+    },
+    {
+      "name": "account_age_days",
+      "type": "number",
+      "importance": 0.08
+    },
+    {
+      "name": "distance_from_billing_location",
+      "type": "number",
+      "importance": 0.04
+    },
+    {
+      "name": "ip_country_match",
+      "type": "number",
+      "importance": 0.0
+    },
+    {
+      "name": "device_trust_score",
+      "type": "number",
+      "importance": 0.06
+    },
+    {
+      "name": "new_device",
+      "type": "number",
+      "importance": 0.0
+    },
+    {
+      "name": "new_ip",
+      "type": "number",
+      "importance": 0.0
+    },
+    {
+      "name": "payment_method_age_days",
+      "type": "number",
+      "importance": 0.1
+    },
+    {
+      "name": "card_bin_risk",
+      "type": "number",
+      "importance": 0.08
+    },
+    {
+      "name": "merchant_risk_score",
+      "type": "number",
+      "importance": 0.1447
+    },
+    {
+      "name": "previous_fraud_flag",
+      "type": "number",
+      "importance": 0.0
+    },
+    {
+      "name": "velocity_score",
+      "type": "number",
+      "importance": 0.18
+    }
+  ]
+}
