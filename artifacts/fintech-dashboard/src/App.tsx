@@ -22,6 +22,7 @@ import {
   MerchantReturnsPage,
   MerchantRiskPage,
   MerchantRulesPage,
+  MerchantSentinelIntelligencePage,
   MerchantTransactionsPage,
 } from "@/features/merchant/pages";
 import { SafePayPage } from "@/features/merchant/pages/SafePayPage";
@@ -202,6 +203,7 @@ function Router({ authStatus }: { authStatus: AuthStatus }) {
       <Route path="/merchant/analytics" component={MerchantAnalyticsPage} />
       <Route path="/merchant/agent" component={MerchantAgentPage} />
       <Route path="/merchant/rules" component={MerchantRulesPage} />
+      <Route path="/merchant/sentinel-intelligence" component={MerchantSentinelIntelligencePage} />
       <Route path="/merchant/model-performance" component={MerchantModelPerformancePage} />
       <Route path="/merchant/audit" component={MerchantAuditPage} />
 

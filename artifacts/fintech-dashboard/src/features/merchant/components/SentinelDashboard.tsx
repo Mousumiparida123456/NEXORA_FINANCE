@@ -94,6 +94,65 @@ export function SentinelDashboard() {
       {/* Architecture Diagram Pipeline Flow */}
       <SentinelArchitectureFlow />
 
+      {/* LIVE SENTINEL PIPELINE Compact Card */}
+      <div className="rounded-2xl border border-emerald-500/30 bg-[#07131e]/90 p-5 shadow-xl backdrop-blur-md space-y-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2.5">
+            <span className="h-3 w-3 rounded-full bg-emerald-400 animate-ping" />
+            <h3 className="text-sm font-extrabold uppercase tracking-wider text-white">
+              LIVE SENTINEL PIPELINE ENGINE
+            </h3>
+            <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-mono px-2 py-0.5 rounded font-bold">
+              9-STAGE ACTIVE
+            </span>
+          </div>
+
+          <a
+            href="/merchant/sentinel-intelligence"
+            className="text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-1 font-mono"
+          >
+            View Sentinel Intelligence →
+          </a>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 font-mono text-[11px]">
+          <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-center">
+            <span className="text-emerald-400 font-bold block">1. Ingestion</span>
+            <span className="text-[10px] text-slate-400">Payload ✓</span>
+          </div>
+
+          <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-center">
+            <span className="text-emerald-400 font-bold block">2. Features</span>
+            <span className="text-[10px] text-slate-400">13 Signals ✓</span>
+          </div>
+
+          <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-center">
+            <span className="text-purple-400 font-bold block">3. ML Model</span>
+            <span className="text-[10px] text-slate-400">v1 Inference ✓</span>
+          </div>
+
+          <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-center">
+            <span className="text-emerald-400 font-bold block">4. Risk Fusion</span>
+            <span className="text-[10px] text-slate-400">Score 0-100 ✓</span>
+          </div>
+
+          <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-center">
+            <span className="text-emerald-400 font-bold block">5. AI Agent</span>
+            <span className="text-[10px] text-slate-400">Explained ✓</span>
+          </div>
+
+          <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-center">
+            <span className="text-emerald-400 font-bold block">6. Decision</span>
+            <span className="text-[10px] text-slate-400">Policy Rules ✓</span>
+          </div>
+
+          <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-center">
+            <span className="text-emerald-400 font-bold block">7. Audit Log</span>
+            <span className="text-[10px] text-slate-400">Signed ✓</span>
+          </div>
+        </div>
+      </div>
+
       {/* 2. Top Metrics (Money at Risk, High-Risk Txns, Open Investigations, Preventable Loss) */}
       <SentinelMetrics />
 

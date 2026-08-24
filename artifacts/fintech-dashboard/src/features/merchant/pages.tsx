@@ -9,6 +9,7 @@ import { MerchantAgentPage as AgentPageComponent } from "./pages/MerchantAgentPa
 import { MerchantRulesPage as RulesPageComponent } from "./pages/MerchantRulesPage";
 import { ModelPerformancePage } from "./pages/ModelPerformancePage";
 import { AuditLogsPage } from "./pages/AuditLogsPage";
+import { SentinelIntelligencePage } from "./pages/SentinelIntelligencePage";
 
 export const MerchantOverviewPage = SentinelDashboard;
 export const MerchantRiskPage = RiskCenterPage;
@@ -21,4 +22,6 @@ export const MerchantAgentPage = AgentPageComponent;
 export const MerchantRulesPage = RulesPageComponent;
 export const MerchantModelPerformancePage = ModelPerformancePage;
 export const MerchantAuditPage = AuditLogsPage;
+export const MerchantSentinelIntelligencePage = SentinelIntelligencePage;
+
 

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   BarChart3,
   CheckCircle2,
@@ -10,6 +10,9 @@ import {
   Cpu,
   Info,
   Sparkles,
+  Play,
+  Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import modelMetrics from "../sentinel/data/model_metrics.json";
@@ -28,8 +31,35 @@ export function ModelPerformancePage() {
     false_positive_rate,
     false_negative_rate,
     confusion_matrix,
-    evaluation_timestamp,
   } = modelMetrics;
+
+  const [isTraining, setIsTraining] = useState<boolean>(false);
+  const [trainingStep, setTrainingStep] = useState<number>(-1);
+
+  const trainingSteps = [
+    "Preparing dataset (Loading 20,000 synthetic transaction records)",
+    "Feature engineering (Normalizing 20 risk threat vectors)",
+    "Training supervised Random Forest Classifier (50 estimators, max_depth=8)",
+    "Validation (Evaluating 80/20 train/test split with stratify=y)",
+    "Evaluation (Computing Confusion Matrix, Precision, Recall & ROC-AUC)",
+    "Model Ready (Exported sentinel-fraud-v1 to local inference engine)",
+  ];
+
+  const handleStartTraining = () => {
+    setIsTraining(true);
+    setTrainingStep(0);
+
+    let step = 0;
+    const interval = setInterval(() => {
+      step += 1;
+      if (step < trainingSteps.length) {
+        setTrainingStep(step);
+      } else {
+        clearInterval(interval);
+        setIsTraining(false);
+      }
+    }, 700);
+  };
 
   return (
     <div className="space-y-8 pb-16">
@@ -64,6 +94,70 @@ export function ModelPerformancePage() {
             LOCAL INFERENCE ENGINE
           </Badge>
         </div>
+      </div>
+
+      {/* Model Training Center Card */}
+      <div className="rounded-2xl border border-emerald-500/30 bg-[#07131e]/90 p-6 space-y-4 shadow-xl backdrop-blur-md">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+          <div className="flex items-center gap-2.5">
+            <RefreshCw className={`h-5 w-5 text-emerald-400 ${isTraining ? "animate-spin" : ""}`} />
+            <div>
+              <h2 className="text-base font-bold text-slate-100">Model Training Center</h2>
+              <p className="text-xs text-slate-400">Re-fit Random Forest model on 20,000 synthetic transaction dataset</p>
+            </div>
+          </div>
+
+          <button
+            onClick={handleStartTraining}
+            disabled={isTraining}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50"
+          >
+            <Play className={`h-4 w-4 ${isTraining ? "animate-spin" : ""}`} />
+            <span>{isTraining ? "Retraining Model..." : "Train Model"}</span>
+          </button>
+        </div>
+
+        {/* Training Animation Progress Steps */}
+        {trainingStep >= 0 && (
+          <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider font-mono">
+                {isTraining ? "TRAINING IN PROGRESS..." : "TRAINING COMPLETE ✓"}
+              </span>
+              <span className="text-xs font-mono text-slate-400">
+                Step {trainingStep + 1} of {trainingSteps.length}
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              {trainingSteps.map((stepText, idx) => {
+                const isCompleted = trainingStep > idx;
+                const isCurrent = trainingStep === idx && isTraining;
+
+                return (
+                  <div key={idx} className="flex items-center gap-3 text-xs">
+                    <span
+                      className={`h-5 w-5 rounded-full flex items-center justify-center font-bold text-[10px] transition-all ${
+                        isCompleted
+                          ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                          : isCurrent
+                          ? "bg-amber-500/20 text-amber-400 border border-amber-500/40 animate-pulse"
+                          : "bg-slate-900 text-slate-600 border border-slate-800"
+                      }`}
+                    >
+                      {isCompleted ? "✓" : isCurrent ? <Loader2 className="h-3 w-3 animate-spin" /> : idx + 1}
+                    </span>
+                    <span className={`font-mono transition-colors ${
+                      isCompleted ? "text-slate-200 font-semibold" : isCurrent ? "text-amber-300 font-bold" : "text-slate-500"
+                    }`}>
+                      {stepText}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Dataset Architecture Breakdown Card */}
@@ -101,7 +195,6 @@ export function ModelPerformancePage() {
 
       {/* Top Metric Cards Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {/* Precision */}
         <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
           <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Precision</span>
           <p className="text-2xl font-extrabold font-mono text-emerald-400">
@@ -110,7 +203,6 @@ export function ModelPerformancePage() {
           <p className="text-[10px] text-slate-500">TP / (TP + FP)</p>
         </div>
 
-        {/* Recall */}
         <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
           <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Recall</span>
           <p className="text-2xl font-extrabold font-mono text-blue-400">
@@ -119,7 +211,6 @@ export function ModelPerformancePage() {
           <p className="text-[10px] text-slate-500">TP / (TP + FN)</p>
         </div>
 
-        {/* F1 Score */}
         <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
           <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">F1 Score</span>
           <p className="text-2xl font-extrabold font-mono text-purple-400">
@@ -128,7 +219,6 @@ export function ModelPerformancePage() {
           <p className="text-[10px] text-slate-500">Harmonic Mean</p>
         </div>
 
-        {/* Accuracy */}
         <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
           <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Accuracy</span>
           <p className="text-2xl font-extrabold font-mono text-slate-200">
@@ -137,7 +227,6 @@ export function ModelPerformancePage() {
           <p className="text-[10px] text-slate-500">Overall Correct</p>
         </div>
 
-        {/* ROC-AUC */}
         <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
           <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">ROC-AUC</span>
           <p className="text-2xl font-extrabold font-mono text-amber-400">
@@ -146,7 +235,6 @@ export function ModelPerformancePage() {
           <p className="text-[10px] text-slate-500">Area Under Curve</p>
         </div>
 
-        {/* FPR */}
         <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
           <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">False Pos. Rate</span>
           <p className="text-2xl font-extrabold font-mono text-rose-400">
@@ -158,7 +246,6 @@ export function ModelPerformancePage() {
 
       {/* Confusion Matrix & Model Card Section */}
       <div className="grid gap-6 md:grid-cols-12">
-        {/* Confusion Matrix (2x2 Grid) */}
         <div className="md:col-span-6 rounded-xl bg-slate-900/80 border border-slate-800 p-5 space-y-4">
           <div className="flex items-center justify-between border-b border-slate-800 pb-3">
             <div className="flex items-center gap-2">
@@ -169,7 +256,6 @@ export function ModelPerformancePage() {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            {/* True Positives */}
             <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-1">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-emerald-400">True Positives (TP)</span>
@@ -181,7 +267,6 @@ export function ModelPerformancePage() {
               <p className="text-[10px] text-emerald-300/80">Correctly Blocked Fraud</p>
             </div>
 
-            {/* False Positives */}
             <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-1">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-amber-400">False Positives (FP)</span>
@@ -193,7 +278,6 @@ export function ModelPerformancePage() {
               <p className="text-[10px] text-amber-300/80">Incorrectly Flagged Legit</p>
             </div>
 
-            {/* False Negatives */}
             <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 space-y-1">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-rose-400">False Negatives (FN)</span>
@@ -205,7 +289,6 @@ export function ModelPerformancePage() {
               <p className="text-[10px] text-rose-300/80">Missed Fraud Attempts</p>
             </div>
 
-            {/* True Negatives */}
             <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-1">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-300">True Negatives (TN)</span>
@@ -219,7 +302,6 @@ export function ModelPerformancePage() {
           </div>
         </div>
 
-        {/* Model Card Specifications */}
         <div className="md:col-span-6 rounded-xl bg-slate-900/80 border border-slate-800 p-5 space-y-4 flex flex-col justify-between">
           <div className="flex items-center justify-between border-b border-slate-800 pb-3">
             <div className="flex items-center gap-2">

@@ -10,6 +10,7 @@ import {
   ShieldAlert,
   SlidersHorizontal,
   Users,
+  Workflow,
   Zap,
   type LucideIcon,
 } from "lucide-react";
@@ -41,6 +42,7 @@ export const MERCHANT_NAV_SECTIONS: MerchantNavSection[] = [
     { href: "/merchant/investigations", label: "Investigations", description: "Case management", icon: Search },
     { href: "/merchant/agent", label: "AI Risk Agent", description: "Agent workspace", icon: Bot },
     { href: "/merchant/rules", label: "Risk Rules", description: "Policy controls", icon: SlidersHorizontal },
+    { href: "/merchant/sentinel-intelligence", label: "Sentinel Intelligence", description: "9-Stage ML pipeline", icon: Workflow },
   ] },
   { title: "Analytics", items: [
     { href: "/merchant/analytics", label: "Risk Analytics", description: "Reporting workspace", icon: Activity },
