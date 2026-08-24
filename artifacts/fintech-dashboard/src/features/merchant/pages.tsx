@@ -13,6 +13,7 @@ function createMerchantPage(href: string) {
 
 import { RiskCenterPage } from "./pages/RiskCenterPage";
 import { InvestigationsPage } from "./pages/InvestigationsPage";
+import { ModelPerformancePage } from "./pages/ModelPerformancePage";
 
 export const MerchantOverviewPage = SentinelDashboard;
 export const MerchantRiskPage = RiskCenterPage;
@@ -23,6 +24,6 @@ export const MerchantReturnsPage = createMerchantPage("/merchant/returns");
 export const MerchantAnalyticsPage = createMerchantPage("/merchant/analytics");
 export const MerchantAgentPage = createMerchantPage("/merchant/agent");
 export const MerchantRulesPage = createMerchantPage("/merchant/rules");
-export const MerchantModelPerformancePage = createMerchantPage("/merchant/model-performance");
+export const MerchantModelPerformancePage = ModelPerformancePage;
 export const MerchantAuditPage = createMerchantPage("/merchant/audit");
 
