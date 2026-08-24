@@ -27,6 +27,11 @@ import {
   Zap,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import {
+  deterministicRiskEngine,
+  TransactionFeatureInput,
+  RiskFactorContribution,
+} from "../sentinel/engine/transactionRiskEngine";
 
 export interface RiskTransaction {
   id: string;
@@ -35,10 +40,10 @@ export interface RiskTransaction {
   customerAvatar: string;
   amount: number;
   currency: string;
-  riskScore: number; // 0-100
+  riskScore: number; // 0-100 derived from engine
   riskLevel: "Low" | "Medium" | "High" | "Critical";
   riskType: "Fraud" | "Return" | "Chargeback" | "Abuse";
-  riskFactors: string[];
+  riskFactors: RiskFactorContribution[];
   status: "Pending Review" | "Flagged" | "Auto-Blocked" | "Resolved" | "Whitelisted";
   recommendedAction: string;
   date: string;
@@ -49,10 +54,10 @@ export interface RiskTransaction {
   country: string;
   deviceType: string;
   aiExplanation: string;
-  signals: { name: string; score: number; detail: string }[];
+  rawFeatures: TransactionFeatureInput;
 }
 
-const DEMO_RISK_TRANSACTIONS: RiskTransaction[] = [
+const RAW_DEMO_TRANSACTIONS: (Omit<RiskTransaction, "riskScore" | "riskLevel" | "riskFactors" | "recommendedAction" | "aiExplanation"> & { rawFeatures: TransactionFeatureInput })[] = [
   {
     id: "TX-948201",
     customerName: "Alex Rivera",
@@ -60,12 +65,8 @@ const DEMO_RISK_TRANSACTIONS: RiskTransaction[] = [
     customerAvatar: "AR",
     amount: 4850.00,
     currency: "USD",
-    riskScore: 94,
-    riskLevel: "Critical",
     riskType: "Fraud",
-    riskFactors: ["Anonymous Proxy", "High Velocity (14/hr)", "Card BIN Mismatch", "New Device"],
     status: "Auto-Blocked",
-    recommendedAction: "Block Card & Refund",
     date: "2026-08-24",
     timestamp: "10:14:22 AM",
     paymentMethod: "Visa ending in 4921",
@@ -73,13 +74,20 @@ const DEMO_RISK_TRANSACTIONS: RiskTransaction[] = [
     ipAddress: "185.220.101.4 (TOR Exit Node)",
     country: "Romania (Card: USA)",
     deviceType: "Linux / Firefox (Incognito)",
-    aiExplanation: "Extreme risk transaction. Payment initiated via known TOR exit node in Romania using a US-issued credit card. Velocity checks triggered 14 transaction attempts within 60 minutes across multiple merchant domains.",
-    signals: [
-      { name: "IP Anonymizer Check", score: 98, detail: "Confirmed TOR exit node address" },
-      { name: "Velocity Anomaly", score: 92, detail: "14 payment attempts in 60 mins" },
-      { name: "Geo-Billing Mismatch", score: 95, detail: "Card issued in US, IP located in RO" },
-      { name: "Device Fingerprint", score: 88, detail: "Headless browser environment detected" },
-    ],
+    rawFeatures: {
+      transactionId: "TX-948201",
+      amount: 4850.00,
+      velocityPerHour: 7, // 40 pts
+      failedAttempts: 3, // 30 pts
+      customerHistoryCount: 0,
+      isNewCustomer: true, // 8 pts
+      isNewDevice: true, // 10 pts
+      isUnusualAmount: true, // 20 pts
+      isUnusualTime: true, // 10 pts
+      returnHistoryCount: 1,
+      chargebackHistoryCount: 2, // 60 pts
+      transactionVelocity24h: 12,
+    },
   },
   {
     id: "TX-948195",
@@ -88,12 +96,8 @@ const DEMO_RISK_TRANSACTIONS: RiskTransaction[] = [
     customerAvatar: "MV",
     amount: 12500.00,
     currency: "USD",
-    riskScore: 88,
-    riskLevel: "Critical",
     riskType: "Chargeback",
-    riskFactors: ["High Order Value", "Past Chargeback History", "Email Domain Created < 7 days"],
     status: "Flagged",
-    recommendedAction: "Request 3DS Verification",
     date: "2026-08-24",
     timestamp: "09:48:10 AM",
     paymentMethod: "Mastercard ending in 8812",
@@ -101,12 +105,20 @@ const DEMO_RISK_TRANSACTIONS: RiskTransaction[] = [
     ipAddress: "198.51.100.42",
     country: "United States",
     deviceType: "Macintosh / Chrome",
-    aiExplanation: "High financial exposure transaction. Customer account has 2 previously confirmed chargebacks on partner merchant platforms within the last 90 days. Domain age for email is less than 7 days old.",
-    signals: [
-      { name: "Chargeback History", score: 94, detail: "2 prior chargeback disputes" },
-      { name: "Order Value Outlier", score: 85, detail: "450% higher than average user order" },
-      { name: "Domain Reputation", score: 86, detail: "Newly registered domain (5 days old)" },
-    ],
+    rawFeatures: {
+      transactionId: "TX-948195",
+      amount: 12500.00, // 15 pts high dollar
+      velocityPerHour: 3, // 8 pts
+      failedAttempts: 1, // 12 pts
+      customerHistoryCount: 1,
+      isNewCustomer: true, // 8 pts
+      isNewDevice: true, // 10 pts
+      isUnusualAmount: true, // 20 pts
+      isUnusualTime: false,
+      returnHistoryCount: 0,
+      chargebackHistoryCount: 1, // 30 pts
+      transactionVelocity24h: 4,
+    },
   },
   {
     id: "TX-948188",
@@ -115,12 +127,8 @@ const DEMO_RISK_TRANSACTIONS: RiskTransaction[] = [
     customerAvatar: "ER",
     amount: 3200.00,
     currency: "USD",
-    riskScore: 78,
-    riskLevel: "High",
     riskType: "Abuse",
-    riskFactors: ["Promo Abuse Pattern", "Multiple Accounts Same Device", "Fast Checkout"],
     status: "Pending Review",
-    recommendedAction: "Manual Review",
     date: "2026-08-24",
     timestamp: "09:12:05 AM",
     paymentMethod: "Amex ending in 1004",
@@ -128,12 +136,20 @@ const DEMO_RISK_TRANSACTIONS: RiskTransaction[] = [
     ipAddress: "84.115.22.18",
     country: "Germany",
     deviceType: "iPhone / Safari",
-    aiExplanation: "Promotion code abuse pattern. Device hardware fingerprint matches 5 separate registered accounts claiming first-time signup merchant discounts.",
-    signals: [
-      { name: "Device Multi-Accounting", score: 82, detail: "5 accounts registered on same device" },
-      { name: "Promo Stacking", score: 76, detail: "Redeemed single-use promo code across accounts" },
-      { name: "Checkout Speed", score: 74, detail: "Form completed in under 1.2 seconds" },
-    ],
+    rawFeatures: {
+      transactionId: "TX-948188",
+      amount: 3200.00,
+      velocityPerHour: 4, // 16 pts
+      failedAttempts: 2, // 24 pts
+      customerHistoryCount: 0,
+      isNewCustomer: true, // 8 pts
+      isNewDevice: true, // 10 pts
+      isUnusualAmount: true, // 20 pts
+      isUnusualTime: false,
+      returnHistoryCount: 0,
+      chargebackHistoryCount: 0,
+      transactionVelocity24h: 5,
+    },
   },
   {
     id: "TX-948172",
@@ -142,12 +158,8 @@ const DEMO_RISK_TRANSACTIONS: RiskTransaction[] = [
     customerAvatar: "DC",
     amount: 1450.00,
     currency: "USD",
-    riskScore: 72,
-    riskLevel: "High",
     riskType: "Return",
-    riskFactors: ["High Return Rate (82%)", "Wardrobing Pattern", "Bulk Item Return History"],
     status: "Pending Review",
-    recommendedAction: "Manual Review",
     date: "2026-08-23",
     timestamp: "11:55:40 PM",
     paymentMethod: "Visa ending in 7120",
@@ -155,11 +167,20 @@ const DEMO_RISK_TRANSACTIONS: RiskTransaction[] = [
     ipAddress: "172.56.21.90",
     country: "United States",
     deviceType: "Windows / Chrome",
-    aiExplanation: "Abnormal return behavior pattern. Customer has initiated returns on 82% of all purchases made in the last 6 months, exhibiting policy abuse signals.",
-    signals: [
-      { name: "Historical Return Rate", score: 84, detail: "82% return rate over 18 transactions" },
-      { name: "Policy Threshold", score: 70, detail: "Exceeds merchant return frequency cap" },
-    ],
+    rawFeatures: {
+      transactionId: "TX-948172",
+      amount: 1450.00,
+      velocityPerHour: 1,
+      failedAttempts: 1, // 12 pts
+      customerHistoryCount: 15,
+      isNewCustomer: false,
+      isNewDevice: false,
+      isUnusualAmount: true, // 20 pts
+      isUnusualTime: true, // 10 pts
+      returnHistoryCount: 4, // 24 pts
+      chargebackHistoryCount: 0,
+      transactionVelocity24h: 2,
+    },
   },
   {
     id: "TX-948160",
@@ -168,12 +189,8 @@ const DEMO_RISK_TRANSACTIONS: RiskTransaction[] = [
     customerAvatar: "SJ",
     amount: 890.00,
     currency: "USD",
-    riskScore: 54,
-    riskLevel: "Medium",
     riskType: "Fraud",
-    riskFactors: ["First Order High Value", "IP Distance > 500mi from Billing"],
     status: "Pending Review",
-    recommendedAction: "Approve with Monitoring",
     date: "2026-08-23",
     timestamp: "10:30:15 PM",
     paymentMethod: "Visa ending in 3391",
@@ -181,11 +198,20 @@ const DEMO_RISK_TRANSACTIONS: RiskTransaction[] = [
     ipAddress: "31.205.88.12",
     country: "United Kingdom",
     deviceType: "iPad / Mobile Safari",
-    aiExplanation: "Moderate risk level. IP address is located in London while billing zip code is in Manchester. First time customer purchase.",
-    signals: [
-      { name: "Distance Variance", score: 58, detail: "200 miles between IP and billing address" },
-      { name: "New Customer Profile", score: 50, detail: "No prior purchase history on platform" },
-    ],
+    rawFeatures: {
+      transactionId: "TX-948160",
+      amount: 890.00,
+      velocityPerHour: 2,
+      failedAttempts: 1, // 12 pts
+      customerHistoryCount: 0,
+      isNewCustomer: true, // 8 pts
+      isNewDevice: true, // 10 pts
+      isUnusualAmount: true, // 20 pts
+      isUnusualTime: false,
+      returnHistoryCount: 0,
+      chargebackHistoryCount: 0,
+      transactionVelocity24h: 2,
+    },
   },
   {
     id: "TX-948151",
@@ -194,12 +220,8 @@ const DEMO_RISK_TRANSACTIONS: RiskTransaction[] = [
     customerAvatar: "LO",
     amount: 620.00,
     currency: "USD",
-    riskScore: 42,
-    riskLevel: "Medium",
     riskType: "Return",
-    riskFactors: ["Slightly Elevated Return History"],
     status: "Resolved",
-    recommendedAction: "Approve",
     date: "2026-08-23",
     timestamp: "08:14:02 PM",
     paymentMethod: "Mastercard ending in 5012",
@@ -207,11 +229,20 @@ const DEMO_RISK_TRANSACTIONS: RiskTransaction[] = [
     ipAddress: "89.101.44.12",
     country: "Ireland",
     deviceType: "Macintosh / Safari",
-    aiExplanation: "Low-to-moderate risk. Minor return history, but identity and payment details match verified customer profile.",
-    signals: [
-      { name: "Identity Match", score: 10, detail: "100% address and phone verification match" },
-      { name: "Return Frequency", score: 45, detail: "2 returns out of 12 orders" },
-    ],
+    rawFeatures: {
+      transactionId: "TX-948151",
+      amount: 620.00,
+      velocityPerHour: 1,
+      failedAttempts: 0,
+      customerHistoryCount: 12,
+      isNewCustomer: false,
+      isNewDevice: false,
+      isUnusualAmount: false,
+      isUnusualTime: false,
+      returnHistoryCount: 3, // 24 pts
+      chargebackHistoryCount: 0,
+      transactionVelocity24h: 1,
+    },
   },
   {
     id: "TX-948144",
@@ -220,12 +251,8 @@ const DEMO_RISK_TRANSACTIONS: RiskTransaction[] = [
     customerAvatar: "PS",
     amount: 340.00,
     currency: "USD",
-    riskScore: 18,
-    riskLevel: "Low",
     riskType: "Fraud",
-    riskFactors: ["Verified 3DS", "Low Velocity", "Matching Billing & IP"],
     status: "Whitelisted",
-    recommendedAction: "Auto-Approve",
     date: "2026-08-23",
     timestamp: "06:45:30 PM",
     paymentMethod: "Visa ending in 9081",
@@ -233,11 +260,20 @@ const DEMO_RISK_TRANSACTIONS: RiskTransaction[] = [
     ipAddress: "103.211.52.19",
     country: "India",
     deviceType: "Android / Chrome",
-    aiExplanation: "Low risk transaction. Full 3DS verification completed successfully. Customer account has 14 prior successful orders.",
-    signals: [
-      { name: "3DS Auth", score: 0, detail: "Biometric 3DS2 challenge passed" },
-      { name: "Account Longevity", score: 5, detail: "Active customer for 24 months" },
-    ],
+    rawFeatures: {
+      transactionId: "TX-948144",
+      amount: 340.00,
+      velocityPerHour: 1,
+      failedAttempts: 0,
+      customerHistoryCount: 18,
+      isNewCustomer: false,
+      isNewDevice: false,
+      isUnusualAmount: false,
+      isUnusualTime: false,
+      returnHistoryCount: 0,
+      chargebackHistoryCount: 0,
+      transactionVelocity24h: 1,
+    },
   },
   {
     id: "TX-948130",
@@ -246,12 +282,8 @@ const DEMO_RISK_TRANSACTIONS: RiskTransaction[] = [
     customerAvatar: "TW",
     amount: 1980.00,
     currency: "USD",
-    riskScore: 12,
-    riskLevel: "Low",
     riskType: "Fraud",
-    riskFactors: ["Established Enterprise VIP", "Zero Anomalies"],
     status: "Resolved",
-    recommendedAction: "Auto-Approve",
     date: "2026-08-23",
     timestamp: "04:20:11 PM",
     paymentMethod: "Amex ending in 4001",
@@ -259,11 +291,20 @@ const DEMO_RISK_TRANSACTIONS: RiskTransaction[] = [
     ipAddress: "192.241.180.5",
     country: "United States",
     deviceType: "Macintosh / Chrome",
-    aiExplanation: "Very low risk transaction. Customer is a verified VIP enterprise corporate buyer with clean historical record.",
-    signals: [
-      { name: "VIP Status", score: 0, detail: "Verified Corporate Account" },
-      { name: "Historical Trust", score: 2, detail: "Over $50,000 processed lifetime" },
-    ],
+    rawFeatures: {
+      transactionId: "TX-948130",
+      amount: 1980.00,
+      velocityPerHour: 1,
+      failedAttempts: 0,
+      customerHistoryCount: 45,
+      isNewCustomer: false,
+      isNewDevice: false,
+      isUnusualAmount: false,
+      isUnusualTime: false,
+      returnHistoryCount: 0,
+      chargebackHistoryCount: 0,
+      transactionVelocity24h: 1,
+    },
   },
 ];
 
@@ -274,9 +315,36 @@ export function RiskCenterPage() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedTransaction, setSelectedTransaction] = useState<RiskTransaction | null>(null);
 
+  // Dynamically evaluate demo transactions through DeterministicRiskEngine
+  const evaluatedTransactions: RiskTransaction[] = useMemo(() => {
+    return RAW_DEMO_TRANSACTIONS.map((raw) => {
+      const evalResult = deterministicRiskEngine.evaluateTransaction(raw.rawFeatures);
+      
+      // Map engine level string format
+      let mappedLevel: "Low" | "Medium" | "High" | "Critical" = "Low";
+      if (evalResult.level === "CRITICAL") mappedLevel = "Critical";
+      else if (evalResult.level === "HIGH") mappedLevel = "High";
+      else if (evalResult.level === "MEDIUM") mappedLevel = "Medium";
+
+      let readableAction = "Auto-Approve";
+      if (evalResult.recommendedAction === "BLOCK_AND_REFUND") readableAction = "Block Card & Refund";
+      else if (evalResult.recommendedAction === "MANUAL_REVIEW") readableAction = "Manual Review";
+      else if (evalResult.recommendedAction === "REQUIRE_3DS") readableAction = "Request 3DS Verification";
+
+      return {
+        ...raw,
+        riskScore: evalResult.riskScore,
+        riskLevel: mappedLevel,
+        riskFactors: evalResult.factors,
+        recommendedAction: readableAction,
+        aiExplanation: evalResult.explanationSummary,
+      };
+    });
+  }, []);
+
   // Filtered transactions
   const filteredTransactions = useMemo(() => {
-    return DEMO_RISK_TRANSACTIONS.filter((tx) => {
+    return evaluatedTransactions.filter((tx) => {
       if (selectedRiskType !== "All" && tx.riskType !== selectedRiskType) return false;
       if (selectedRiskLevel !== "All" && tx.riskLevel !== selectedRiskLevel) return false;
       if (selectedStatus !== "All" && tx.status !== selectedStatus) return false;
@@ -290,7 +358,7 @@ export function RiskCenterPage() {
       }
       return true;
     });
-  }, [selectedRiskType, selectedRiskLevel, selectedStatus, searchQuery]);
+  }, [evaluatedTransactions, selectedRiskType, selectedRiskLevel, selectedStatus, searchQuery]);
 
   // Aggregate Metrics
   const metrics = useMemo(() => {
@@ -370,7 +438,7 @@ export function RiskCenterPage() {
             <div>
               <h1 className="text-2xl font-bold text-slate-100 tracking-tight">Sentinel Risk Center</h1>
               <p className="text-sm text-slate-400">
-                Centralized merchant risk operations, anomaly detection, money exposure & policy enforcement
+                Centralized merchant risk operations powered by Nexora Deterministic Rule Engine
               </p>
             </div>
           </div>
@@ -628,7 +696,7 @@ export function RiskCenterPage() {
             <p className="text-xs text-slate-400">Click any transaction to launch full investigation panel</p>
           </div>
           <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded border border-emerald-500/20">
-            Showing {filteredTransactions.length} of {DEMO_RISK_TRANSACTIONS.length} items
+            Showing {filteredTransactions.length} of {evaluatedTransactions.length} items
           </span>
         </div>
 
@@ -639,7 +707,7 @@ export function RiskCenterPage() {
                 <th className="py-3 px-4">Transaction ID</th>
                 <th className="py-3 px-4">Customer</th>
                 <th className="py-3 px-4">Amount</th>
-                <th className="py-3 px-4">Risk Score</th>
+                <th className="py-3 px-4">Deterministic Risk Score</th>
                 <th className="py-3 px-4">Risk Type</th>
                 <th className="py-3 px-4">Risk Factors</th>
                 <th className="py-3 px-4">Status</th>
@@ -677,10 +745,10 @@ export function RiskCenterPage() {
                     {getRiskTypeBadge(tx.riskType)}
                   </td>
                   <td className="py-3 px-4">
-                    <div className="flex flex-wrap gap-1 max-w-[200px]">
+                    <div className="flex flex-wrap gap-1 max-w-[220px]">
                       {tx.riskFactors.slice(0, 2).map((factor) => (
-                        <span key={factor} className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded border border-slate-700">
-                          {factor}
+                        <span key={factor.name} className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded border border-slate-700">
+                          {factor.name} (+{factor.contribution})
                         </span>
                       ))}
                       {tx.riskFactors.length > 2 && (
@@ -733,8 +801,8 @@ export function RiskCenterPage() {
             {/* Recommended Action Banner */}
             <div className="rounded-xl bg-slate-900 border border-slate-800 p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Recommended Next Step</span>
-                <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30">AI Recommendation Engine</Badge>
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Deterministic Engine Recommendation</span>
+                <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30">Rules Evaluation Engine</Badge>
               </div>
               <p className="text-base font-bold text-slate-100 flex items-center gap-2">
                 <Zap className="h-5 w-5 text-amber-400" />
@@ -756,60 +824,62 @@ export function RiskCenterPage() {
             {/* AI Explanation Box */}
             <div className="rounded-xl bg-slate-900/60 border border-slate-800 p-4 space-y-2">
               <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                <AlertCircle className="h-4 w-4 text-emerald-400" /> Why Is This Risky?
+                <AlertCircle className="h-4 w-4 text-emerald-400" /> Explainable Risk Summary
               </h3>
               <p className="text-xs text-slate-300 leading-relaxed font-sans bg-slate-950/60 p-3 rounded-lg border border-slate-800">
                 {selectedTransaction.aiExplanation}
               </p>
             </div>
 
-            {/* Signals Breakdown */}
+            {/* Risk Factor Contributions */}
             <div className="space-y-3">
-              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Risk Signal Breakdown</h3>
+              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Identified Risk Factors & Contributions</h3>
               <div className="space-y-2">
-                {selectedTransaction.signals.map((signal) => (
-                  <div key={signal.name} className="p-3 bg-slate-900/40 rounded-lg border border-slate-800/80 flex items-center justify-between text-xs">
+                {selectedTransaction.riskFactors.map((factor) => (
+                  <div key={factor.name} className="p-3 bg-slate-900/40 rounded-lg border border-slate-800/80 flex items-center justify-between text-xs">
                     <div>
-                      <p className="font-semibold text-slate-200">{signal.name}</p>
-                      <p className="text-[11px] text-slate-400">{signal.detail}</p>
+                      <p className="font-semibold text-slate-200">{factor.name}</p>
+                      <p className="text-[11px] text-slate-400">{factor.description}</p>
                     </div>
-                    <span className={`font-mono font-bold px-2 py-0.5 rounded text-xs ${
-                      signal.score > 80 ? "bg-red-500/20 text-red-400" : signal.score > 50 ? "bg-amber-500/20 text-amber-400" : "bg-emerald-500/20 text-emerald-400"
-                    }`}>
-                      {signal.score} / 100
+                    <span className="font-mono font-bold px-2 py-0.5 rounded text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                      +{factor.contribution} pts
                     </span>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Transaction Metadata Grid */}
+            {/* Raw Transaction Feature Inputs */}
             <div className="space-y-3">
-              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Transaction Metadata</h3>
+              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Engine Input Features</h3>
               <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="p-3 bg-slate-900/40 rounded-lg border border-slate-800">
-                  <span className="text-slate-500 block text-[10px]">Customer Name</span>
-                  <span className="font-medium text-slate-200">{selectedTransaction.customerName}</span>
+                <div className="p-3 bg-slate-900/40 rounded-lg border border-slate-800 font-mono">
+                  <span className="text-slate-500 block text-[10px]">1h Velocity</span>
+                  <span className="font-medium text-slate-200">{selectedTransaction.rawFeatures.velocityPerHour} attempts / hr</span>
                 </div>
-                <div className="p-3 bg-slate-900/40 rounded-lg border border-slate-800">
-                  <span className="text-slate-500 block text-[10px]">Email Address</span>
-                  <span className="font-medium text-slate-200">{selectedTransaction.customerEmail}</span>
+                <div className="p-3 bg-slate-900/40 rounded-lg border border-slate-800 font-mono">
+                  <span className="text-slate-500 block text-[10px]">Failed Attempts</span>
+                  <span className="font-medium text-slate-200">{selectedTransaction.rawFeatures.failedAttempts} failed auths</span>
                 </div>
-                <div className="p-3 bg-slate-900/40 rounded-lg border border-slate-800">
-                  <span className="text-slate-500 block text-[10px]">Transaction Amount</span>
-                  <span className="font-medium text-emerald-400 font-mono">${selectedTransaction.amount.toFixed(2)}</span>
+                <div className="p-3 bg-slate-900/40 rounded-lg border border-slate-800 font-mono">
+                  <span className="text-slate-500 block text-[10px]">Chargeback History</span>
+                  <span className="font-medium text-slate-200">{selectedTransaction.rawFeatures.chargebackHistoryCount} chargebacks</span>
                 </div>
-                <div className="p-3 bg-slate-900/40 rounded-lg border border-slate-800">
-                  <span className="text-slate-500 block text-[10px]">Payment Method</span>
-                  <span className="font-medium text-slate-200">{selectedTransaction.paymentMethod}</span>
+                <div className="p-3 bg-slate-900/40 rounded-lg border border-slate-800 font-mono">
+                  <span className="text-slate-500 block text-[10px]">Return History</span>
+                  <span className="font-medium text-slate-200">{selectedTransaction.rawFeatures.returnHistoryCount} returns</span>
                 </div>
-                <div className="p-3 bg-slate-900/40 rounded-lg border border-slate-800">
-                  <span className="text-slate-500 block text-[10px]">IP Address & Node</span>
-                  <span className="font-medium text-slate-200">{selectedTransaction.ipAddress}</span>
+                <div className="p-3 bg-slate-900/40 rounded-lg border border-slate-800 font-mono">
+                  <span className="text-slate-500 block text-[10px]">New Device / Customer</span>
+                  <span className="font-medium text-slate-200">
+                    {selectedTransaction.rawFeatures.isNewDevice ? "New Device" : "Known Device"} · {selectedTransaction.rawFeatures.isNewCustomer ? "New User" : "Returning User"}
+                  </span>
                 </div>
-                <div className="p-3 bg-slate-900/40 rounded-lg border border-slate-800">
-                  <span className="text-slate-500 block text-[10px]">Location & Billing Geo</span>
-                  <span className="font-medium text-slate-200">{selectedTransaction.country}</span>
+                <div className="p-3 bg-slate-900/40 rounded-lg border border-slate-800 font-mono">
+                  <span className="text-slate-500 block text-[10px]">Unusual Amount / Time</span>
+                  <span className="font-medium text-slate-200">
+                    {selectedTransaction.rawFeatures.isUnusualAmount ? "Unusual Amt" : "Normal Amt"} · {selectedTransaction.rawFeatures.isUnusualTime ? "Off-Peak Time" : "Normal Time"}
+                  </span>
                 </div>
               </div>
             </div>
