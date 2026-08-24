@@ -30,6 +30,7 @@ import {
   AuditLogEntry,
 } from "../sentinel/services/investigationAiService";
 import { deterministicRiskEngine } from "../sentinel/engine/transactionRiskEngine";
+import { AbuseNetworkGraph } from "../sentinel/components/AbuseNetworkGraph";
 
 // Comprehensive Investigation Cases Dataset
 const DEMO_CASES: InvestigationEvidencePayload[] = [
@@ -201,6 +202,7 @@ const DEMO_CASES: InvestigationEvidencePayload[] = [
 ];
 
 export function InvestigationsPage() {
+  const [activeView, setActiveView] = useState<"dossier" | "network">("dossier");
   const [selectedCaseId, setSelectedCaseId] = useState<string>("CASE-948201");
   const [merchantNote, setMerchantNote] = useState<string>("");
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(() => sentinelAuditLogger.getLogs());
@@ -299,33 +301,64 @@ export function InvestigationsPage() {
           </div>
         </div>
 
-        {/* Case Switcher Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
-          <span className="text-xs text-slate-400 font-semibold mr-1">Flagged Cases:</span>
-          {DEMO_CASES.map((c) => (
+        {/* View Mode & Case Switcher Controls */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Main View Mode Selector */}
+          <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
             <button
-              key={c.caseId}
-              onClick={() => setSelectedCaseId(c.caseId)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all ${
-                selectedCaseId === c.caseId
+              onClick={() => setActiveView("dossier")}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                activeView === "dossier"
                   ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm"
-                  : "bg-slate-900 text-slate-400 hover:text-white border border-slate-800"
+                  : "text-slate-400 hover:text-slate-200"
               }`}
             >
-              {c.caseId}
+              Investigation Dossier
             </button>
-          ))}
+            <button
+              onClick={() => setActiveView("network")}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                activeView === "network"
+                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              Abuse Network Graph
+            </button>
+          </div>
+
+          {/* Case Switcher Tabs */}
+          <div className="flex items-center gap-1.5 overflow-x-auto">
+            {DEMO_CASES.map((c) => (
+              <button
+                key={c.caseId}
+                onClick={() => setSelectedCaseId(c.caseId)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all ${
+                  selectedCaseId === c.caseId
+                    ? "bg-slate-800 text-emerald-400 border border-emerald-500/30"
+                    : "bg-slate-900 text-slate-400 hover:text-white border border-slate-800"
+                }`}
+              >
+                {c.caseId}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Safety Gating Banner */}
-      <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-4 flex items-start gap-3 text-amber-300 text-xs leading-relaxed">
-        <Lock className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
-        <div>
-          <p className="font-bold text-amber-200">Merchant Approval Safety Gate Active</p>
-          <p>{aiDossier.safetyGatingNotice}</p>
-        </div>
-      </div>
+      {/* Conditionally Render Active View */}
+      {activeView === "network" ? (
+        <AbuseNetworkGraph />
+      ) : (
+        <>
+          {/* Safety Gating Banner */}
+          <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-4 flex items-start gap-3 text-amber-300 text-xs leading-relaxed">
+            <Lock className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-amber-200">Merchant Approval Safety Gate Active</p>
+              <p>{aiDossier.safetyGatingNotice}</p>
+            </div>
+          </div>
 
       {/* Grid Section: 1. Overview + 2. Score + 3. Factors */}
       <div className="grid gap-6 md:grid-cols-12">
@@ -676,6 +709,8 @@ export function InvestigationsPage() {
           </table>
         </div>
       </div>
-    </div>
+    </>
+  )}
+</div>
   );
 }
