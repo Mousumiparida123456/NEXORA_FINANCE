@@ -2,6 +2,9 @@
   "name": "workspace",
   "version": "0.0.0",
   "license": "MIT",
+  "engines": {
+    "node": ">=24.x"
+  },
   "scripts": {
     "build": "echo skipping workspace build",
     "typecheck:libs": "tsc --build",
