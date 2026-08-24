@@ -12,12 +12,13 @@ function createMerchantPage(href: string) {
 }
 
 import { RiskCenterPage } from "./pages/RiskCenterPage";
+import { InvestigationsPage } from "./pages/InvestigationsPage";
 
 export const MerchantOverviewPage = SentinelDashboard;
 export const MerchantRiskPage = RiskCenterPage;
 export const MerchantTransactionsPage = createMerchantPage("/merchant/transactions");
 export const MerchantCustomersPage = createMerchantPage("/merchant/customers");
-export const MerchantInvestigationsPage = createMerchantPage("/merchant/investigations");
+export const MerchantInvestigationsPage = InvestigationsPage;
 export const MerchantReturnsPage = createMerchantPage("/merchant/returns");
 export const MerchantAnalyticsPage = createMerchantPage("/merchant/analytics");
 export const MerchantAgentPage = createMerchantPage("/merchant/agent");
