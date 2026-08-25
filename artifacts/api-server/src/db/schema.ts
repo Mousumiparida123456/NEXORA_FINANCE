@@ -18,7 +18,7 @@ export const users = pgTable(
   "users",
   {
     id: serial("id").primaryKey(),
-    email: text("email").notNull().unique(),
+    email: text("email").notNull(),
     password: text("password"),
     refreshToken: text("refresh_token"),
     failedAttempts: integer("failed_attempts").default(0),
@@ -39,6 +39,7 @@ export const users = pgTable(
   },
   (table) => ({
     emailIdx: index("email_idx").on(table.email),
+    emailRoleUniqueIdx: uniqueIndex("email_role_unique_idx").on(table.email, table.role),
   }),
 );
 

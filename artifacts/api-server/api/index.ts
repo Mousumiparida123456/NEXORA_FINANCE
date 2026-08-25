@@ -373,14 +373,20 @@ app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], asyn
   const assignedRole = (normalizedRoleInput === "MERCHANT_USER" || normalizedRoleInput === "MERCHANT") ? "MERCHANT_USER" : "PERSONAL_USER";
 
   try {
-    const existingUser = await db.query.users.findFirst({ where: sql`LOWER(${users.email}) = ${cleanEmail}` });
-    const isDemoEmail = ["demo@nexora.finance", "merchant@nexora.finance", "admin@nexora.finance", "demo@nexora.local"].includes(cleanEmail);
+    const existingUser = await db.query.users.findFirst({
+      where: sql`LOWER(${users.email}) = ${cleanEmail} AND ${users.role} = ${assignedRole}`
+    });
+    const isDemoEmail = (cleanEmail === "demo@nexora.finance" && assignedRole === "PERSONAL_USER") ||
+                        (cleanEmail === "merchant@nexora.finance" && assignedRole === "MERCHANT_USER");
 
-    if (existingUser || isDemoEmail || inMemoryUsers.has(cleanEmail)) {
+    if (existingUser || isDemoEmail || (inMemoryUsers.has(cleanEmail) && inMemoryUsers.get(cleanEmail)?.role === assignedRole)) {
+      const duplicateMsg = assignedRole === "MERCHANT_USER"
+        ? "A Merchant Sentinel account with this email already exists. Please sign in."
+        : "A Personal account with this email already exists. Please sign in.";
       return res.status(409).json({
         success: false,
-        message: "An account with this email already exists. Please sign in.",
-        error: "An account with this email already exists. Please sign in."
+        message: duplicateMsg,
+        error: duplicateMsg
       });
     }
 
@@ -407,7 +413,7 @@ app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], asyn
       console.warn("⚠️ Account record creation error (non-fatal):", acctErr);
     }
 
-    inMemoryUsers.set(cleanEmail, {
+    inMemoryUsers.set(`${cleanEmail}:${assignedRole}`, {
       id: insertedUser.id,
       email: cleanEmail,
       passwordHash: hashedPassword,
@@ -424,7 +430,7 @@ app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], asyn
     res.cookie("nexora_refresh", tokens.refreshToken, { httpOnly: true, secure: COOKIE_SECURE, sameSite: "lax", maxAge: 604800000, path: "/" });
     res.cookie("nexora_session", "active", { maxAge: 604800000, path: "/" });
     
-    console.log(`✅ [REG] Registration successful for ${cleanEmail} (+${Date.now() - start}ms)`);
+    console.log(`✅ [REG] Registration successful for ${cleanEmail} (${assignedRole}) (+${Date.now() - start}ms)`);
     return res.status(201).json({ 
       success: true,
       message: "Account created successfully",
@@ -441,10 +447,13 @@ app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], asyn
   } catch (error: any) { 
     console.error(`❌ [REG] Error after ${Date.now() - start}ms:`, error);
     if (error?.code === "23505" || String(error).includes("unique") || String(error).includes("users_email_unique")) {
+      const duplicateMsg = assignedRole === "MERCHANT_USER"
+        ? "A Merchant Sentinel account with this email already exists. Please sign in."
+        : "A Personal account with this email already exists. Please sign in.";
       return res.status(409).json({
         success: false,
-        message: "An account with this email already exists. Please sign in.",
-        error: "An account with this email already exists. Please sign in."
+        message: duplicateMsg,
+        error: duplicateMsg
       });
     }
     return res.status(500).json({ success: false, message: "Registration failed", error: error?.message || "Registration failed" }); 
@@ -453,7 +462,7 @@ app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], asyn
 
 app.post(["/api/v1/auth/login", "/api/auth/login", "/auth/login"], loginLimiter, async (req, res) => {
   const start = Date.now();
-  const { email, password } = req.body;
+  const { email, password, workspace, role: reqRole } = req.body;
   if (!email || !password) {
     return res.status(400).json({ success: false, message: "Invalid email or password.", error: "Invalid email or password." });
   }
@@ -462,36 +471,45 @@ app.post(["/api/v1/auth/login", "/api/auth/login", "/auth/login"], loginLimiter,
   if (!EMAIL_REGEX.test(cleanEmail)) {
     return res.status(400).json({ success: false, message: "Invalid email address format", error: "Invalid email address format" });
   }
+
+  const rawRole = String(reqRole || workspace || "").toUpperCase().trim();
+  const targetRole = (rawRole === "MERCHANT" || rawRole === "MERCHANT_USER") ? "MERCHANT_USER" : "PERSONAL_USER";
   
   try {
-    console.log(`⏱️ [LOGIN] Searching database for user ${cleanEmail}... (+${Date.now() - start}ms)`);
+    console.log(`⏱️ [LOGIN] Searching database for user ${cleanEmail} (${targetRole})... (+${Date.now() - start}ms)`);
     
     let user: any = null;
     let isDemoAccount = false;
 
-    // 1. Query PostgreSQL database for registered user first
+    // 1. Query PostgreSQL database for registered user with matching (email, targetRole)
     try {
-      user = await db.query.users.findFirst({ where: sql`LOWER(${users.email}) = ${cleanEmail}` });
+      user = await db.query.users.findFirst({
+        where: sql`LOWER(${users.email}) = ${cleanEmail} AND ${users.role} = ${targetRole}`
+      });
+
+      // Fallback: If no role explicitly selected or if legacy single user exists
+      if (!user && !reqRole && !workspace) {
+        user = await db.query.users.findFirst({
+          where: sql`LOWER(${users.email}) = ${cleanEmail}`
+        });
+      }
     } catch (dbErr) {
       console.warn("⚠️ [LOGIN] DB query failed:", dbErr);
     }
 
     // 2. Check system demo account presets if not in DB
     if (!user) {
-      if (cleanEmail === "demo@nexora.finance") {
+      if (cleanEmail === "demo@nexora.finance" && targetRole === "PERSONAL_USER") {
         isDemoAccount = true;
         user = { id: 999, email: cleanEmail, firstName: "Personal", lastName: "User", role: "PERSONAL_USER", password: await AuthService.hashPassword("DemoAccount123!") };
-      } else if (cleanEmail === "merchant@nexora.finance") {
+      } else if ((cleanEmail === "merchant@nexora.finance" || cleanEmail === "demo@nexora.local") && targetRole === "MERCHANT_USER") {
         isDemoAccount = true;
-        user = { id: 998, email: cleanEmail, firstName: "Merchant", lastName: "Sentinel", role: "MERCHANT_USER", password: await AuthService.hashPassword("SentinelMerchant123!") };
-      } else if (cleanEmail === "demo@nexora.local") {
-        isDemoAccount = true;
-        user = { id: 998, email: "demo@nexora.local", firstName: "Nexora Demo", lastName: "Merchant", role: "MERCHANT_USER", demoMode: true, password: await AuthService.hashPassword("Demo123!") };
+        user = { id: 998, email: cleanEmail, firstName: "Merchant", lastName: "Sentinel", role: "MERCHANT_USER", password: await AuthService.hashPassword(cleanEmail === "demo@nexora.local" ? "Demo123!" : "SentinelMerchant123!") };
       } else if (cleanEmail === "admin@nexora.finance") {
         isDemoAccount = true;
         user = { id: 997, email: cleanEmail, firstName: "Admin", lastName: "Nexora", role: "ADMIN", password: await AuthService.hashPassword("NexoraAdmin123!") };
-      } else if (inMemoryUsers.has(cleanEmail)) {
-        const memUser = inMemoryUsers.get(cleanEmail)!;
+      } else if (inMemoryUsers.has(`${cleanEmail}:${targetRole}`)) {
+        const memUser = inMemoryUsers.get(`${cleanEmail}:${targetRole}`)!;
         user = {
           id: memUser.id,
           email: memUser.email,
@@ -503,17 +521,20 @@ app.post(["/api/v1/auth/login", "/api/auth/login", "/auth/login"], loginLimiter,
       }
     }
 
-    // CASE 1: If NO user exists with that email in the database -> Return "Account not created. Please create an account first."
+    // CASE 1: If NO user exists with that email for selected workspace role
     if (!user) {
-      console.log(`❌ [LOGIN] Account not found for ${cleanEmail} (+${Date.now() - start}ms)`);
+      console.log(`❌ [LOGIN] Account not found for ${cleanEmail} in workspace ${targetRole} (+${Date.now() - start}ms)`);
+      const notFoundMsg = targetRole === "MERCHANT_USER"
+        ? "No Merchant Sentinel account exists for this email. Please create a Merchant account."
+        : "No Personal account exists for this email. Please create a Personal account.";
       return res.status(404).json({
         success: false,
-        message: "Account not created. Please create an account first.",
-        error: "Account not created. Please create an account first."
+        message: notFoundMsg,
+        error: notFoundMsg
       });
     }
 
-    // CASE 2 & 3: Compare entered password with stored password hash
+    // CASE 2: Compare entered password with stored password hash
     let isPasswordValid = false;
     if (isDemoAccount && (password === "DemoAccount123!" || password === "SentinelMerchant123!" || password === "NexoraAdmin123!" || password === "Demo123!")) {
       isPasswordValid = true;
@@ -522,11 +543,11 @@ app.post(["/api/v1/auth/login", "/api/auth/login", "/auth/login"], loginLimiter,
     }
 
     if (!isPasswordValid) {
-      console.log(`❌ [LOGIN] Incorrect password attempt for ${cleanEmail} (+${Date.now() - start}ms)`);
+      console.log(`❌ [LOGIN] Incorrect password attempt for ${cleanEmail} (${targetRole}) (+${Date.now() - start}ms)`);
       return res.status(401).json({
         success: false,
-        message: "Invalid email or password.",
-        error: "Invalid email or password."
+        message: "Incorrect password.",
+        error: "Incorrect password."
       });
     }
 

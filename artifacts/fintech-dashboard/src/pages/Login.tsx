@@ -7,6 +7,7 @@ export function Login() {
   const [, setLocation] = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [workspace, setWorkspace] = useState<"PERSONAL_USER" | "MERCHANT_USER">("PERSONAL_USER");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -17,6 +18,15 @@ export function Login() {
     const params = new URLSearchParams(window.location.search);
     if (params.get("registered") === "true") {
       setSuccessMessage("Account created successfully. Please sign in.");
+    }
+    const targetW = params.get("workspace") || params.get("role");
+    if (targetW === "merchant" || targetW === "MERCHANT" || targetW === "MERCHANT_USER") {
+      setWorkspace("MERCHANT_USER");
+    } else {
+      const active = localStorage.getItem("nexora.active-workspace");
+      if (active === "merchant") {
+        setWorkspace("MERCHANT_USER");
+      }
     }
   }, []);
 
@@ -32,8 +42,8 @@ export function Login() {
     setSuccessMessage(null);
 
     try {
-      const result = await api.login({ email, password });
-      const userRole = result.user?.role || "PERSONAL_USER";
+      const result = await api.login({ email, password, role: workspace, workspace });
+      const userRole = result.user?.role || workspace || "PERSONAL_USER";
 
       // Role-based redirection logic
       if (userRole === "MERCHANT_USER" || userRole === "ADMIN") {
@@ -137,6 +147,37 @@ export function Login() {
 
               {/* Login Form */}
               <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+                {/* Workspace Target Selection */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wider">
+                    Select Workspace Account
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-slate-950/80 border border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setWorkspace("PERSONAL_USER")}
+                      className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        workspace === "PERSONAL_USER"
+                          ? "bg-blue-600 text-white shadow-md shadow-blue-600/30"
+                          : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                      }`}
+                    >
+                      Personal Account
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWorkspace("MERCHANT_USER")}
+                      className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        workspace === "MERCHANT_USER"
+                          ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/30"
+                          : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                      }`}
+                    >
+                      Merchant Sentinel
+                    </button>
+                  </div>
+                </div>
+
                 {/* Email Field */}
                 <div>
                   <label htmlFor="email" className="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wider">
