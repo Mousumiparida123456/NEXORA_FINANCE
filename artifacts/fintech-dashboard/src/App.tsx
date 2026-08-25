@@ -203,30 +203,40 @@ class ErrorBoundary extends React.Component<
 function Router({ authStatus, userRole }: { authStatus: AuthStatus; userRole: string }) {
   const [location] = useLocation();
 
-  const isAuthRoute =
-    location === "/" ||
+  const isPublicAuthRoute =
     location === "/login" ||
     location === "/register" ||
     location.startsWith("/forgot-password") ||
     location.startsWith("/reset-password");
 
-  const showShell = authStatus === "authenticated" && !isAuthRoute;
+  const showShell = authStatus === "authenticated" && !isPublicAuthRoute && location !== "/";
   const isMerchantRoute = location === "/merchant" || location.startsWith("/merchant/");
 
-  // Redirect unauthenticated users attempting to access any protected route back to login
-  if (authStatus === "unauthenticated" && !isAuthRoute) {
+  // 1. Full page spinner while verifying session on mount/refresh
+  if (authStatus === "checking") {
+    return <FullPageSpinner />;
+  }
+
+  // 2. Redirect unauthenticated users attempting to access ANY protected route (or root /) back to /login
+  if (authStatus === "unauthenticated" && !isPublicAuthRoute) {
     return <Redirect to="/login" />;
   }
 
-  // Enforce 403 Forbidden check on merchant routes for authenticated personal users (direct URL entry fallback)
+  // 3. Handle root route "/" for authenticated users -> redirect to appropriate workspace dashboard
+  if (location === "/") {
+    if (authStatus === "authenticated") {
+      return <Redirect to={userRole === "MERCHANT_USER" || userRole === "ADMIN" ? "/merchant" : "/dashboard"} />;
+    }
+    return <Redirect to="/login" />;
+  }
+
+  // 4. Enforce 403 Forbidden check on merchant routes for authenticated personal users (direct URL entry fallback)
   if (isMerchantRoute && userRole === "PERSONAL_USER") {
     return <Forbidden403 />;
   }
 
   const loginEntry = () =>
-    authStatus === "checking" ? (
-      <FullPageSpinner />
-    ) : authStatus === "authenticated" ? (
+    authStatus === "authenticated" ? (
       <Redirect to={userRole === "MERCHANT_USER" || userRole === "ADMIN" ? "/merchant" : "/dashboard"} />
     ) : (
       <Login />
@@ -268,12 +278,11 @@ function Router({ authStatus, userRole }: { authStatus: AuthStatus; userRole: st
       <Route path="/merchant/model-performance" component={MerchantModelPerformancePage} />
       <Route path="/merchant/audit" component={MerchantAuditPage} />
 
-      {/* Auth & Root */}
+      {/* Auth & Public Routes */}
       <Route path="/login" component={loginEntry} />
       <Route path="/register" component={Register} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
-      <Route path="/" component={loginEntry} />
       <Route component={NotFound} />
     </Switch>
   );

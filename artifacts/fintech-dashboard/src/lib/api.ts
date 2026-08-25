@@ -153,36 +153,33 @@ class ApiClient {
   }
 
   async getCurrentUser(): Promise<AuthUser | null> {
+    const token = this.getAccessToken();
+
     try {
-      const data = await this.get<{ authenticated?: boolean; user: AuthUser }>("/auth/user");
-      if (data?.user) {
+      const data = await this.get<{ authenticated?: boolean; user: AuthUser | null }>("/auth/user");
+      if (data && data.authenticated !== false && data.user) {
         window.localStorage.setItem("nexora_current_user", JSON.stringify(data.user));
         return data.user;
       }
+      // Backend returned null user or explicit authenticated: false -> clear local state
+      this.clearAccessToken();
+      return null;
     } catch (e) {
-      console.warn("Backend getCurrentUser unavailable, checking local active user session...");
+      console.warn("Backend getCurrentUser check failed:", e);
+      // Fallback only if we have an active access token stored
+      if (token) {
+        const local = this.getActiveLocalUser();
+        if (local) return local;
+      }
     }
-    const local = this.getActiveLocalUser();
-    if (local) return local;
-    
-    const token = this.getAccessToken();
-    if (token) {
-      const fallback: AuthUser = {
-        id: "usr_active_session",
-        email: "user@nexora.finance",
-        firstName: "Nexora User",
-        role: "PERSONAL_USER"
-      };
-      window.localStorage.setItem("nexora_current_user", JSON.stringify(fallback));
-      return fallback;
-    }
+
+    this.clearAccessToken();
     return null;
   }
 
   async isAuthenticated(): Promise<boolean> {
-    const token = this.getAccessToken();
     const user = await this.getCurrentUser();
-    return !!user || !!token;
+    return !!user;
   }
 
   async login(data: any): Promise<{ user: AuthUser; accessToken?: string }> {
