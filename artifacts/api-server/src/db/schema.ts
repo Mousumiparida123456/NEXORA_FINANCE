@@ -34,6 +34,7 @@ export const users = pgTable(
     savingsGoal: integer("savings_goal").default(15000),
     investStyle: text("invest_style").default("balanced"),
     twoFactorEnabled: boolean("two_factor_enabled").default(false),
+    role: text("role").default("PERSONAL_USER").notNull(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => ({

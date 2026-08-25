@@ -24,7 +24,7 @@ export class AuthService {
   /**
    * Generate a pair of secure tokens
    */
-  static generateTokens(payload: { userId: number; email: string }) {
+  static generateTokens(payload: { userId: number; email: string; role?: string }) {
     const accessToken = jwt.sign(payload, JWT_ACCESS_SECRET, { expiresIn: "15m" });
     const refreshToken = jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: "7d" });
     
@@ -36,7 +36,7 @@ export class AuthService {
    */
   static verifyAccessToken(token: string) {
     try {
-      return jwt.verify(token, JWT_ACCESS_SECRET) as { userId: number; email: string };
+      return jwt.verify(token, JWT_ACCESS_SECRET) as { userId: number; email: string; role?: string };
     } catch (error) {
       return null;
     }
@@ -47,7 +47,7 @@ export class AuthService {
    */
   static verifyRefreshToken(token: string) {
     try {
-      return jwt.verify(token, JWT_REFRESH_SECRET) as { userId: number; email: string };
+      return jwt.verify(token, JWT_REFRESH_SECRET) as { userId: number; email: string; role?: string };
     } catch (error) {
       return null;
     }

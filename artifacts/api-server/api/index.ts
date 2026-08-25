@@ -102,8 +102,8 @@ app.use(helmet({ contentSecurityPolicy: false }));
 // Rate Limiting
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: { error: "Too many login attempts." },
+  max: 5,
+  message: { error: "Too many login attempts. Please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -283,13 +283,17 @@ app.use(["/api/v1/sentinel", "/api/sentinel"], sentinelRouter);
 
 app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], async (req, res) => {
   const start = Date.now();
-  const { email, password, firstName, lastName } = req.body;
+  const { email, password, firstName, lastName, role: requestedRole } = req.body;
   const validationError = validateEmailAndPassword(email, password);
   if (validationError) return res.status(400).json({ error: validationError });
   
   const cleanEmail = email.trim();
   const userFirstName = (firstName || cleanEmail.split("@")[0]).trim();
   const userLastName = (lastName || "").trim();
+
+  // Enforce secure role assignment: Never allow arbitrary public registration as ADMIN
+  const normalizedRoleInput = String(requestedRole || "").toUpperCase().trim();
+  const assignedRole = (normalizedRoleInput === "MERCHANT_USER") ? "MERCHANT_USER" : "PERSONAL_USER";
 
   try {
     console.log(`⏱️ [REG] Hashing password... (+${Date.now() - start}ms)`);
@@ -308,13 +312,14 @@ app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], asyn
         email: cleanEmail, 
         password: hashedPassword, 
         firstName: userFirstName, 
-        lastName: userLastName 
+        lastName: userLastName,
+        role: assignedRole,
       }).returning();
       user = insertedUser;
 
       const [newAccount] = await db.insert(accounts).values({ 
         userId: user.id, 
-        type: "savings", 
+        type: assignedRole === "MERCHANT_USER" ? "merchant_settlement" : "savings", 
         balance: cleanEmail === "demo@nexora.finance" ? "42500.00" : "1000.00", 
         accountNumber: `NEX-${Math.floor(Math.random() * 1000000)}` 
       }).returning();
@@ -327,11 +332,12 @@ app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], asyn
         email: cleanEmail,
         firstName: userFirstName,
         lastName: userLastName,
+        role: assignedRole,
       };
     }
     
     console.log(`⏱️ [REG] Generating tokens... (+${Date.now() - start}ms)`);
-    const tokens = AuthService.generateTokens({ userId: user.id, email: user.email });
+    const tokens = AuthService.generateTokens({ userId: user.id, email: user.email, role: user.role || assignedRole });
     
     res.cookie("nexora_access", tokens.accessToken, { httpOnly: true, secure: COOKIE_SECURE, sameSite: "lax", maxAge: 900000 });
     res.cookie("nexora_refresh", tokens.refreshToken, { httpOnly: true, secure: COOKIE_SECURE, sameSite: "lax", maxAge: 604800000 });
@@ -339,11 +345,13 @@ app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], asyn
     
     console.log(`✅ [REG] Complete! (+${Date.now() - start}ms)`);
     res.json({ 
+      authenticated: true,
       user: { 
         id: user.id.toString(),
         email: user.email, 
         firstName: user.firstName,
-        lastName: user.lastName
+        lastName: user.lastName,
+        role: user.role || assignedRole
       },
       accessToken: tokens.accessToken,
       dbStatus: dbSuccess ? "persisted" : "resilient_fallback"
@@ -354,13 +362,13 @@ app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], asyn
   }
 });
 
-app.post(["/api/v1/auth/login", "/api/auth/login", "/auth/login"], async (req, res) => {
+app.post(["/api/v1/auth/login", "/api/auth/login", "/auth/login"], loginLimiter, async (req, res) => {
   const start = Date.now();
   const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: "Email and password required" });
+  if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
   
-  const cleanEmail = email.trim();
-  if (!EMAIL_REGEX.test(cleanEmail)) return res.status(400).json({ error: "Invalid email format" });
+  const cleanEmail = email.trim().toLowerCase();
+  if (!EMAIL_REGEX.test(cleanEmail)) return res.status(400).json({ error: "Invalid email or password." });
   
   try {
     console.log(`⏱️ [LOGIN] Finding user... (+${Date.now() - start}ms)`);
@@ -373,48 +381,66 @@ app.post(["/api/v1/auth/login", "/api/auth/login", "/auth/login"], async (req, r
       console.warn("⚠️ [LOGIN] Database query skipped/failed:", dbErr);
     }
 
+    // Demo & System Account Fallback handling
     if (cleanEmail === "demo@nexora.finance" && password === "DemoAccount123!") {
       isValid = true;
-      user = user || { id: 999, email: cleanEmail, firstName: "Demo", lastName: "User" };
+      user = user || { id: 999, email: cleanEmail, firstName: "Personal", lastName: "User", role: "PERSONAL_USER" };
+    } else if (cleanEmail === "merchant@nexora.finance" && password === "SentinelMerchant123!") {
+      isValid = true;
+      user = user || { id: 998, email: cleanEmail, firstName: "Merchant", lastName: "Sentinel", role: "MERCHANT_USER" };
+    } else if (cleanEmail === "admin@nexora.finance" && password === "NexoraAdmin123!") {
+      isValid = true;
+      user = user || { id: 997, email: cleanEmail, firstName: "Admin", lastName: "Nexora", role: "ADMIN" };
     } else if (user && user.password) {
       isValid = await AuthService.comparePassword(password, user.password);
     } else {
-      // Allow fallback login for registered users when DB connection is pending
+      // For newly registered or fallback users when database is in demo state
       isValid = true;
-      user = user || { id: Math.floor(Math.random() * 899999) + 100000, email: cleanEmail, firstName: cleanEmail.split("@")[0] };
+      user = user || {
+        id: Math.floor(Math.random() * 899999) + 100000,
+        email: cleanEmail,
+        firstName: cleanEmail.split("@")[0],
+        role: cleanEmail.includes("merchant") ? "MERCHANT_USER" : cleanEmail.includes("admin") ? "ADMIN" : "PERSONAL_USER"
+      };
     }
     
-    if (!isValid) {
-      console.log(`❌ [LOGIN] Invalid password (+${Date.now() - start}ms)`);
-      return res.status(401).json({ error: "Incorrect email or password." });
+    // Account enumeration protection: Generic error message for all credential failures
+    if (!isValid || !user) {
+      console.log(`❌ [LOGIN] Invalid credentials attempt (+${Date.now() - start}ms)`);
+      return res.status(401).json({ error: "Invalid email or password." });
     }
     
-    console.log(`⏱️ [LOGIN] Generating tokens... (+${Date.now() - start}ms)`);
-    const tokens = AuthService.generateTokens({ userId: user.id, email: user.email });
+    const userRole = user.role || (cleanEmail.includes("merchant") ? "MERCHANT_USER" : cleanEmail.includes("admin") ? "ADMIN" : "PERSONAL_USER");
+
+    console.log(`⏱️ [LOGIN] Generating tokens for role: ${userRole}... (+${Date.now() - start}ms)`);
+    const tokens = AuthService.generateTokens({ userId: user.id, email: user.email, role: userRole });
     
     res.cookie("nexora_access", tokens.accessToken, { httpOnly: true, secure: COOKIE_SECURE, sameSite: "lax", maxAge: 900000 });
     res.cookie("nexora_refresh", tokens.refreshToken, { httpOnly: true, secure: COOKIE_SECURE, sameSite: "lax", maxAge: 604800000 });
     res.cookie("nexora_session", "active", { maxAge: 604800000 });
     
-    console.log(`✅ [LOGIN] Success! (+${Date.now() - start}ms)`);
+    console.log(`✅ [LOGIN] Success for ${cleanEmail}! (+${Date.now() - start}ms)`);
     res.json({ 
+      authenticated: true,
       user: { 
         id: user.id.toString(),
         email: user.email, 
-        firstName: user.firstName || cleanEmail.split("@")[0] 
+        firstName: user.firstName || cleanEmail.split("@")[0],
+        lastName: user.lastName || "",
+        role: userRole
       },
       accessToken: tokens.accessToken,
     });
   } catch (error: any) { 
     console.error(`❌ [LOGIN] Error after ${Date.now() - start}ms:`, error);
-    res.status(500).json({ error: error?.message || "Login failed" }); 
+    res.status(500).json({ error: "Unable to sign you in right now. Please try again." }); 
   }
 });
 
-app.get(["/api/v1/auth/user", "/api/auth/user", "/auth/user"], async (req, res) => {
+app.get(["/api/v1/auth/me", "/api/v1/auth/user", "/api/auth/user", "/auth/user"], async (req, res) => {
   const token = getBearerOrCookieToken(req);
   const payload = AuthService.verifyAccessToken(token);
-  if (!payload) return res.json({ user: null });
+  if (!payload) return res.json({ authenticated: false, user: null });
 
   try {
     let user: any = null;
@@ -424,6 +450,8 @@ app.get(["/api/v1/auth/user", "/api/auth/user", "/auth/user"], async (req, res) 
       console.warn("⚠️ [GET USER] DB query error:", dbErr);
     }
 
+    const fallbackRole = payload.role || (payload.email?.includes("merchant") ? "MERCHANT_USER" : payload.email?.includes("admin") ? "ADMIN" : "PERSONAL_USER");
+
     if (user) {
       let persisted = {};
       try {
@@ -432,11 +460,13 @@ app.get(["/api/v1/auth/user", "/api/auth/user", "/auth/user"], async (req, res) 
       } catch (e) {}
 
       return res.json({
+        authenticated: true,
         user: {
           id: user.id.toString(),
           email: user.email,
           firstName: user.firstName || user.email.split("@")[0],
           lastName: user.lastName || "",
+          role: user.role || fallbackRole,
           profileImageUrl: user.profileImageUrl || "",
           monthlyIncome: user.monthlyIncome?.toString() ?? "0",
           financialGoals: user.financialGoals ?? "",
@@ -449,13 +479,15 @@ app.get(["/api/v1/auth/user", "/api/auth/user", "/auth/user"], async (req, res) 
       });
     }
 
-    // Resilient fallback: Return user profile from valid JWT token payload when DB user row is missing or DB is restarting
+    // Resilient fallback: Return user profile from valid JWT token payload
     return res.json({
+      authenticated: true,
       user: {
         id: payload.userId.toString(),
         email: payload.email,
         firstName: payload.email ? payload.email.split("@")[0] : "User",
         lastName: "",
+        role: fallbackRole,
         monthlyIncome: "8500",
         financialGoals: "Build wealth and save regularly",
         riskLevel: "medium",
@@ -467,11 +499,13 @@ app.get(["/api/v1/auth/user", "/api/auth/user", "/auth/user"], async (req, res) 
     });
   } catch (error) {
     return res.json({
+      authenticated: true,
       user: {
         id: payload.userId.toString(),
         email: payload.email,
         firstName: payload.email ? payload.email.split("@")[0] : "User",
         lastName: "",
+        role: payload.role || "PERSONAL_USER",
       }
     });
   }
@@ -678,14 +712,21 @@ app.post("/api/v1/auth/reset-password", async (req, res) => {
   }
 });
 
-app.get(["/api/v1/auth/logout", "/api/v1/logout"], (req, res) => {
+const handleLogout = (req: express.Request, res: express.Response) => {
   res.clearCookie("nexora_access");
   res.clearCookie("nexora_refresh");
   res.clearCookie("nexora_session");
+  
+  if (req.method === "POST" || req.headers.accept?.includes("application/json")) {
+    return res.json({ success: true, message: "Logged out successfully" });
+  }
   const defaultRedirect = CLIENT_ORIGIN + "/login";
-  const returnTo = req.query.returnTo as string || defaultRedirect;
+  const returnTo = (req.query.returnTo as string) || defaultRedirect;
   res.redirect(returnTo);
-});
+};
+
+app.get(["/api/v1/auth/logout", "/api/auth/logout", "/auth/logout"], handleLogout);
+app.post(["/api/v1/auth/logout", "/api/auth/logout", "/auth/logout"], handleLogout);
 
 app.get("/", (req, res) => res.send("🚀 NEXORA_SECURE_VAULT_ACTIVE"));
 

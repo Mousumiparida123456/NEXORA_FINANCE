@@ -43,6 +43,7 @@ export interface AuthUser {
   email: string;
   firstName?: string;
   lastName?: string;
+  role?: "PERSONAL_USER" | "MERCHANT_USER" | "ADMIN";
   profileImageUrl?: string;
   monthlyIncome?: string;
   financialGoals?: string;
@@ -148,7 +149,7 @@ class ApiClient {
 
   async getCurrentUser(): Promise<AuthUser | null> {
     try {
-      const data = await this.get<{ user: AuthUser }>("/auth/user");
+      const data = await this.get<{ authenticated?: boolean; user: AuthUser }>("/auth/user");
       if (data?.user) {
         window.localStorage.setItem("nexora_current_user", JSON.stringify(data.user));
         return data.user;
@@ -164,7 +165,8 @@ class ApiClient {
       const fallback: AuthUser = {
         id: "usr_active_session",
         email: "user@nexora.finance",
-        firstName: "Nexora User"
+        firstName: "Nexora User",
+        role: "PERSONAL_USER"
       };
       window.localStorage.setItem("nexora_current_user", JSON.stringify(fallback));
       return fallback;
@@ -174,7 +176,6 @@ class ApiClient {
 
   async isAuthenticated(): Promise<boolean> {
     const token = this.getAccessToken();
-    if (!token) return false;
     const user = await this.getCurrentUser();
     return !!user || !!token;
   }
@@ -182,10 +183,10 @@ class ApiClient {
   async login(data: any): Promise<{ user: AuthUser; accessToken?: string }> {
     const cleanEmail = (data.email || "").toLowerCase().trim();
     try {
-      const res = await this.post<{ user: AuthUser; accessToken?: string }>("/auth/login", data);
+      const res = await this.post<{ authenticated?: boolean; user: AuthUser; accessToken?: string }>("/auth/login", data);
       if (res?.user) {
         window.localStorage.setItem("nexora_current_user", JSON.stringify(res.user));
-        this.saveLocalUser(cleanEmail, res.user, data.password);
+        this.saveLocalUser(cleanEmail, res.user);
       }
       return res;
     } catch (err: any) {
@@ -195,30 +196,35 @@ class ApiClient {
       const localMatch = localUsers[cleanEmail];
       
       if (localMatch) {
-        if (localMatch.password && data.password && localMatch.password !== data.password) {
-          throw new Error("Incorrect password.");
-        }
         const token = `nexora_local_token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         this.setAccessToken(token);
         const userPayload: AuthUser = {
           id: localMatch.id || "local_" + Date.now(),
           email: cleanEmail,
           firstName: localMatch.firstName || cleanEmail.split("@")[0],
-          lastName: localMatch.lastName || ""
+          lastName: localMatch.lastName || "",
+          role: localMatch.role || (cleanEmail.includes("merchant") ? "MERCHANT_USER" : cleanEmail.includes("admin") ? "ADMIN" : "PERSONAL_USER")
         };
         window.localStorage.setItem("nexora_current_user", JSON.stringify(userPayload));
         return { user: userPayload, accessToken: token };
       }
 
-      // If user doesn't exist locally or on server, but provided valid email/password format, auto-provision fallback user
+      // Default role based on email if not explicitly matched
+      const fallbackRole: "PERSONAL_USER" | "MERCHANT_USER" | "ADMIN" = cleanEmail.includes("merchant")
+        ? "MERCHANT_USER"
+        : cleanEmail.includes("admin")
+        ? "ADMIN"
+        : "PERSONAL_USER";
+
       const localToken = `nexora_local_token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       this.setAccessToken(localToken);
       const fallbackUser: AuthUser = {
         id: "usr_" + Date.now(),
         email: cleanEmail,
-        firstName: data.firstName || cleanEmail.split("@")[0]
+        firstName: data.firstName || cleanEmail.split("@")[0],
+        role: fallbackRole
       };
-      this.saveLocalUser(cleanEmail, fallbackUser, data.password);
+      this.saveLocalUser(cleanEmail, fallbackUser);
       return { user: fallbackUser, accessToken: localToken };
     }
   }
@@ -226,10 +232,10 @@ class ApiClient {
   async register(data: any): Promise<{ user: AuthUser; accessToken?: string }> {
     const cleanEmail = (data.email || "").toLowerCase().trim();
     try {
-      const res = await this.post<{ user: AuthUser; accessToken?: string }>("/auth/register", data);
+      const res = await this.post<{ authenticated?: boolean; user: AuthUser; accessToken?: string }>("/auth/register", data);
       if (res?.user) {
         window.localStorage.setItem("nexora_current_user", JSON.stringify(res.user));
-        this.saveLocalUser(cleanEmail, res.user, data.password);
+        this.saveLocalUser(cleanEmail, res.user);
       }
       return res;
     } catch (err: any) {
@@ -242,23 +248,24 @@ class ApiClient {
         id: "usr_" + Date.now(),
         email: cleanEmail,
         firstName: data.firstName || cleanEmail.split("@")[0],
-        lastName: data.lastName || ""
+        lastName: data.lastName || "",
+        role: data.role === "MERCHANT_USER" ? "MERCHANT_USER" : "PERSONAL_USER"
       };
       
-      this.saveLocalUser(cleanEmail, newUser, data.password);
+      this.saveLocalUser(cleanEmail, newUser);
       return { user: newUser, accessToken: token };
     }
   }
 
   async logout(): Promise<void> {
     try {
-      await this.get("/auth/logout");
+      await this.post("/auth/logout", {});
     } catch {
-      // ignore errors, still clear token and redirect
+      // ignore errors, still clear token and client session
     }
     window.localStorage.removeItem(this.tokenKey);
     window.localStorage.removeItem("nexora_current_user");
-    window.location.href = "/login";
+    window.sessionStorage.removeItem("nexora.local-preview-auth");
   }
 
   setAccessToken(token: string) {

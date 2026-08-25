@@ -86,6 +86,9 @@ const ForgotPassword = lazy(() =>
 const ResetPassword = lazy(() =>
   import("@/pages/ResetPassword").then((module) => ({ default: module.ResetPassword })),
 );
+const Register = lazy(() =>
+  import("@/pages/Register").then((module) => ({ default: module.Register })),
+);
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 type AuthStatus = "checking" | "authenticated" | "unauthenticated";
@@ -100,21 +103,47 @@ const FullPageSpinner = () => (
   </div>
 );
 
+const Forbidden403 = () => (
+  <div className="min-h-screen w-full bg-[#060c20] text-slate-100 flex items-center justify-center p-6">
+    <div className="max-w-md w-full p-8 rounded-2xl bg-slate-900/80 border border-red-500/30 text-center backdrop-blur-xl shadow-2xl">
+      <div className="h-12 w-12 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center mx-auto mb-4">
+        <span className="text-lg font-bold">403</span>
+      </div>
+      <h1 className="text-xl font-bold text-white mb-2">403 Forbidden Access</h1>
+      <p className="text-xs text-slate-400 mb-6 leading-relaxed">
+        Your role does not have authorization to view this protected Nexora Sentinel merchant area. Backend security policy enforced.
+      </p>
+      <button
+        onClick={() => (window.location.href = "/dashboard")}
+        className="w-full py-2.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+      >
+        Return to Personal Dashboard
+      </button>
+    </div>
+  </div>
+);
+
 function ProtectedRoute({
   component: Component,
   authStatus,
+  requiredRole,
+  userRole,
 }: {
   component: ComponentType;
   authStatus: AuthStatus;
+  requiredRole?: "PERSONAL_USER" | "MERCHANT_USER" | "ADMIN";
+  userRole?: string;
 }) {
   if (authStatus === "checking") return <FullPageSpinner />;
-  return authStatus === "authenticated" ? <Component /> : <Redirect to="/login" />;
-}
+  if (authStatus !== "authenticated") return <Redirect to="/login" />;
 
-const renderProtected = (Comp: ComponentType, authStatus: AuthStatus) => {
-  const WrappedComponent = () => <ProtectedRoute component={Comp} authStatus={authStatus} />;
-  return WrappedComponent;
-};
+  // Enforce role-based authorization: reject personal user accessing merchant routes
+  if (requiredRole === "MERCHANT_USER" && userRole === "PERSONAL_USER") {
+    return <Forbidden403 />;
+  }
+
+  return <Component />;
+}
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -150,23 +179,29 @@ class ErrorBoundary extends React.Component<
   }
 }
 
-function Router({ authStatus }: { authStatus: AuthStatus }) {
+function Router({ authStatus, userRole }: { authStatus: AuthStatus; userRole: string }) {
   const [location] = useLocation();
 
   const isAuthRoute =
     location === "/" ||
     location === "/login" ||
+    location === "/register" ||
     location.startsWith("/forgot-password") ||
     location.startsWith("/reset-password");
 
   const showShell = authStatus === "authenticated" && !isAuthRoute;
   const isMerchantRoute = location === "/merchant" || location.startsWith("/merchant/");
 
+  // Enforce 403 Forbidden check on merchant routes for personal users
+  if (isMerchantRoute && userRole === "PERSONAL_USER") {
+    return <Forbidden403 />;
+  }
+
   const loginEntry = () =>
     authStatus === "checking" ? (
       <FullPageSpinner />
     ) : authStatus === "authenticated" ? (
-      <Redirect to="/dashboard" />
+      <Redirect to={userRole === "MERCHANT_USER" || userRole === "ADMIN" ? "/merchant" : "/dashboard"} />
     ) : (
       <Login />
     );
@@ -207,9 +242,9 @@ function Router({ authStatus }: { authStatus: AuthStatus }) {
       <Route path="/merchant/model-performance" component={MerchantModelPerformancePage} />
       <Route path="/merchant/audit" component={MerchantAuditPage} />
 
-
       {/* Auth & Root */}
       <Route path="/login" component={loginEntry} />
+      <Route path="/register" component={Register} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/" component={loginEntry} />
@@ -232,6 +267,7 @@ function Router({ authStatus }: { authStatus: AuthStatus }) {
 
 function App() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>("checking");
+  const [userRole, setUserRole] = useState<string>("PERSONAL_USER");
 
   useEffect(() => {
     let isMounted = true;
@@ -250,29 +286,24 @@ function App() {
       api.clearAccessToken();
     }
 
-    // Default to authenticated in local preview mode so all pages and workspace switchers work instantly
-    setAuthStatus("authenticated");
-    if (typeof window !== "undefined") {
-      window.sessionStorage.setItem(LOCAL_PREVIEW_AUTH_KEY, "true");
-    }
-
     api
-      .isAuthenticated()
-      .then((authenticated) => {
+      .getCurrentUser()
+      .then((user) => {
         if (!isMounted) return;
-        if (authenticated) {
+        if (user) {
           setAuthStatus("authenticated");
+          setUserRole(user.role || "PERSONAL_USER");
           if (oauthToken || window.location.pathname === "/login") {
-            window.location.replace("/dashboard");
+            const dest = user.role === "MERCHANT_USER" || user.role === "ADMIN" ? "/merchant" : "/dashboard";
+            window.location.replace(dest);
           }
         } else {
-          // Keep authenticated for local preview mode so all pages & merchant dashboards load cleanly
-          setAuthStatus("authenticated");
+          setAuthStatus("unauthenticated");
         }
       })
       .catch(() => {
         if (!isMounted) return;
-        setAuthStatus("authenticated");
+        setAuthStatus("unauthenticated");
       });
 
     return () => {
@@ -289,7 +320,7 @@ function App() {
               <AnalyticsStoreProvider>
                 <CurrencyProvider>
                   <WouterRouter>
-                    <Router authStatus={authStatus} />
+                    <Router authStatus={authStatus} userRole={userRole} />
                   </WouterRouter>
                 </CurrencyProvider>
               </AnalyticsStoreProvider>
