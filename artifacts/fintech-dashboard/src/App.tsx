@@ -213,14 +213,14 @@ function Router({ authStatus, userRole }: { authStatus: AuthStatus; userRole: st
   const showShell = authStatus === "authenticated" && !isAuthRoute;
   const isMerchantRoute = location === "/merchant" || location.startsWith("/merchant/");
 
-  // Enforce 403 Forbidden check on merchant routes for personal users
-  if (isMerchantRoute && userRole === "PERSONAL_USER") {
-    return <Forbidden403 />;
-  }
-
   // Redirect unauthenticated users attempting to access any protected route back to login
   if (authStatus === "unauthenticated" && !isAuthRoute) {
     return <Redirect to="/login" />;
+  }
+
+  // Enforce 403 Forbidden check on merchant routes for authenticated personal users (direct URL entry fallback)
+  if (isMerchantRoute && userRole === "PERSONAL_USER") {
+    return <Forbidden403 />;
   }
 
   const loginEntry = () =>

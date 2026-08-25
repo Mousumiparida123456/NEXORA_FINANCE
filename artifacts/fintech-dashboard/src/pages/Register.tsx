@@ -15,6 +15,14 @@ export function Register() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedRole = params.get("role");
+    if (requestedRole === "merchant" || requestedRole === "MERCHANT" || requestedRole === "MERCHANT_USER") {
+      setRole("MERCHANT_USER");
+    }
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password || !firstName) {

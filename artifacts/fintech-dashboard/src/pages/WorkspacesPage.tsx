@@ -1,11 +1,23 @@
-import React from "react";
-import { Link } from "wouter";
+import React, { useState } from "react";
+import { Link, useLocation } from "wouter";
 import { PieChart, ShieldCheck, ArrowRight, Sparkles } from "lucide-react";
 import { useDashboard } from "@/lib/dashboard-context";
+import { MerchantAccessModal } from "@/components/layout/MerchantAccessModal";
 
 export function WorkspacesPage() {
-  const { theme } = useDashboard();
-  const isDark = theme === "dark";
+  const { user } = useDashboard();
+  const [, setLocation] = useLocation();
+  const [showAccessModal, setShowAccessModal] = useState(false);
+
+  const handleSelectMerchant = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const userRole = user?.role || "PERSONAL_USER";
+    if (userRole === "PERSONAL_USER") {
+      setShowAccessModal(true);
+      return;
+    }
+    setLocation("/merchant");
+  };
 
   return (
     <div className="container mx-auto max-w-5xl px-4 py-12">
@@ -50,7 +62,7 @@ export function WorkspacesPage() {
         </Link>
 
         {/* Merchant Sentinel Workspace Card */}
-        <Link href="/merchant">
+        <div onClick={handleSelectMerchant}>
           <div className="group relative cursor-pointer overflow-hidden rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-slate-900/90 via-emerald-950/40 to-slate-950 p-8 shadow-2xl transition-all duration-300 hover:border-emerald-400 hover:shadow-emerald-500/20 hover:-translate-y-1">
             <div className="absolute right-0 top-0 h-40 w-40 translate-x-10 -translate-y-10 rounded-full bg-emerald-500/10 blur-3xl group-hover:bg-emerald-500/20 transition-all" />
             
@@ -73,8 +85,13 @@ export function WorkspacesPage() {
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </div>
           </div>
-        </Link>
+        </div>
       </div>
+
+      <MerchantAccessModal
+        isOpen={showAccessModal}
+        onClose={() => setShowAccessModal(false)}
+      />
     </div>
   );
 }
