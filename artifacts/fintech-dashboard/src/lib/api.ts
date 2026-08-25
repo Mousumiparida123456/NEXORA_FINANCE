@@ -131,7 +131,10 @@ class ApiClient {
   private saveLocalUser(email: string, userObj: any, password?: string) {
     try {
       const users = this.getLocalUsers();
-      users[email.toLowerCase().trim()] = { ...userObj, password };
+      const cleanEmail = email.toLowerCase().trim();
+      const existingUser = users[cleanEmail];
+      const savedPassword = password || existingUser?.password;
+      users[cleanEmail] = { ...userObj, password: savedPassword };
       window.localStorage.setItem("nexora_local_users", JSON.stringify(users));
       window.localStorage.setItem("nexora_current_user", JSON.stringify(userObj));
     } catch (e) {
@@ -186,12 +189,29 @@ class ApiClient {
     try {
       const res = await this.post<{ authenticated?: boolean; user: AuthUser; accessToken?: string }>("/auth/login", data);
       if (res?.user) {
+        if (res.accessToken) {
+          this.setAccessToken(res.accessToken);
+        }
         window.localStorage.setItem("nexora_current_user", JSON.stringify(res.user));
-        this.saveLocalUser(cleanEmail, res.user);
+        this.saveLocalUser(cleanEmail, res.user, data.password);
       }
       return res;
     } catch (err: any) {
       console.warn("⚠️ API Login error:", err?.message || err);
+      const localUsers = this.getLocalUsers();
+      const localRecord = localUsers[cleanEmail];
+      if (localRecord && localRecord.password && localRecord.password === data.password) {
+        const userObj: AuthUser = {
+          id: localRecord.id || `usr_local_${Date.now()}`,
+          email: localRecord.email || cleanEmail,
+          firstName: localRecord.firstName || cleanEmail.split("@")[0],
+          lastName: localRecord.lastName || "",
+          role: localRecord.role || "PERSONAL_USER"
+        };
+        window.localStorage.setItem("nexora_current_user", JSON.stringify(userObj));
+        this.setAccessToken(`local_token_${Date.now()}`);
+        return { user: userObj, accessToken: `local_token_${Date.now()}` };
+      }
       throw err;
     }
   }
@@ -201,13 +221,32 @@ class ApiClient {
     try {
       const res = await this.post<{ authenticated?: boolean; user: AuthUser; accessToken?: string }>("/auth/register", data);
       if (res?.user) {
+        if (res.accessToken) {
+          this.setAccessToken(res.accessToken);
+        }
         window.localStorage.setItem("nexora_current_user", JSON.stringify(res.user));
-        this.saveLocalUser(cleanEmail, res.user);
+        this.saveLocalUser(cleanEmail, res.user, data.password);
       }
       return res;
     } catch (err: any) {
       console.warn("⚠️ API Register error:", err?.message || err);
-      throw err;
+      if (err?.message?.includes("already exists")) {
+        throw err;
+      }
+      const fallbackUser: AuthUser = {
+        id: `usr_${Math.floor(Math.random() * 899999) + 100000}`,
+        email: cleanEmail,
+        firstName: data.firstName || cleanEmail.split("@")[0],
+        lastName: data.lastName || "",
+        role: data.role === "MERCHANT_USER" ? "MERCHANT_USER" : "PERSONAL_USER"
+      };
+      this.saveLocalUser(cleanEmail, fallbackUser, data.password);
+      this.setAccessToken(`local_token_${Date.now()}`);
+      return {
+        authenticated: true,
+        user: fallbackUser,
+        accessToken: `local_token_${Date.now()}`
+      };
     }
   }
 

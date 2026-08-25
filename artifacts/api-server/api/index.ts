@@ -26,6 +26,18 @@ const SMTP_USER = process.env.SMTP_USER;
 const SMTP_PASS = process.env.SMTP_PASS;
 const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER || "no-reply@nexora.finance";
 
+interface FallbackUserRecord {
+  id: number | string;
+  email: string;
+  passwordHash: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  createdAt: string;
+}
+
+const inMemoryUsers = new Map<string, FallbackUserRecord>();
+
 const smtpConfigured = Boolean(SMTP_HOST && SMTP_USER && SMTP_PASS);
 const mailTransporter = smtpConfigured
   ? nodemailer.createTransport({
@@ -335,9 +347,9 @@ app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], asyn
   const normalizedRoleInput = String(requestedRole || "").toUpperCase().trim();
   const assignedRole = (normalizedRoleInput === "MERCHANT_USER") ? "MERCHANT_USER" : "PERSONAL_USER";
 
-  // Check if system demo user email exists
+  // Check if system demo user email or in-memory registered user email exists
   const isDemoEmail = ["demo@nexora.finance", "merchant@nexora.finance", "admin@nexora.finance", "demo@nexora.local"].includes(cleanEmail);
-  if (isDemoEmail) {
+  if (isDemoEmail || inMemoryUsers.has(cleanEmail)) {
     return res.status(409).json({
       success: false,
       message: "An account with this email already exists. Please sign in.",
@@ -401,6 +413,17 @@ app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], asyn
         role: assignedRole,
       };
     }
+
+    // Always register in server-side in-memory user registry for resilient authentication
+    inMemoryUsers.set(cleanEmail, {
+      id: user.id,
+      email: cleanEmail,
+      passwordHash: hashedPassword,
+      firstName: userFirstName,
+      lastName: userLastName,
+      role: assignedRole,
+      createdAt: new Date().toISOString(),
+    });
     
     console.log(`⏱️ [REG] Generating tokens... (+${Date.now() - start}ms)`);
     const tokens = AuthService.generateTokens({ userId: user.id, email: user.email, role: user.role || assignedRole });
@@ -469,6 +492,23 @@ app.post(["/api/v1/auth/login", "/api/auth/login", "/auth/login"], loginLimiter,
 
       if (user && user.password) {
         isValid = await AuthService.comparePassword(password, user.password);
+      }
+
+      // 3. Fallback to in-memory user registry if DB user check failed or user registered in fallback mode
+      if (!isValid && inMemoryUsers.has(cleanEmail)) {
+        const memUser = inMemoryUsers.get(cleanEmail)!;
+        const matchesMemPass = await AuthService.comparePassword(password, memUser.passwordHash);
+        if (matchesMemPass) {
+          isValid = true;
+          user = {
+            id: memUser.id,
+            email: memUser.email,
+            firstName: memUser.firstName,
+            lastName: memUser.lastName,
+            role: memUser.role,
+          };
+          console.log(`ℹ️ [LOGIN] Verified ${cleanEmail} via server in-memory fallback user registry`);
+        }
       }
     }
     
