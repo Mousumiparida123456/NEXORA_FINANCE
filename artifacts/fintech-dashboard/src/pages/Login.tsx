@@ -11,6 +11,14 @@ export function Login() {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("registered") === "true") {
+      setSuccessMessage("Account created successfully. Please sign in.");
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,6 +29,7 @@ export function Login() {
 
     setIsLoading(true);
     setErrorMessage(null);
+    setSuccessMessage(null);
 
     try {
       const result = await api.login({ email, password });
@@ -109,6 +118,14 @@ export function Login() {
                   Sign in securely to continue to your Nexora workspace.
                 </p>
               </div>
+
+              {/* Success Alert */}
+              {successMessage && (
+                <div className="mb-6 p-3.5 rounded-xl bg-emerald-950/50 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-3 animate-in fade-in">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                  <span>{successMessage}</span>
+                </div>
+              )}
 
               {/* Error Alert */}
               {errorMessage && (

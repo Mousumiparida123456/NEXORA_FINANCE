@@ -134,9 +134,10 @@ class ApiClient {
       const cleanEmail = email.toLowerCase().trim();
       const existingUser = users[cleanEmail];
       const savedPassword = password || existingUser?.password;
-      users[cleanEmail] = { ...userObj, password: savedPassword };
+      const updatedUser = { ...existingUser, ...userObj, password: savedPassword };
+      users[cleanEmail] = updatedUser;
       window.localStorage.setItem("nexora_local_users", JSON.stringify(users));
-      window.localStorage.setItem("nexora_current_user", JSON.stringify(userObj));
+      window.localStorage.setItem("nexora_current_user", JSON.stringify(updatedUser));
     } catch (e) {
       console.warn("Failed to save local user:", e);
     }
@@ -185,69 +186,24 @@ class ApiClient {
   }
 
   async login(data: any): Promise<{ user: AuthUser; accessToken?: string }> {
-    const cleanEmail = (data.email || "").toLowerCase().trim();
-    try {
-      const res = await this.post<{ authenticated?: boolean; user: AuthUser; accessToken?: string }>("/auth/login", data);
-      if (res?.user) {
-        if (res.accessToken) {
-          this.setAccessToken(res.accessToken);
-        }
+    const res = await this.post<{ authenticated?: boolean; user: AuthUser; accessToken?: string }>("/auth/login", data);
+    if (res?.user) {
+      if (res.accessToken) {
+        this.setAccessToken(res.accessToken);
+      }
+      try {
         window.localStorage.setItem("nexora_current_user", JSON.stringify(res.user));
-        this.saveLocalUser(cleanEmail, res.user, data.password);
+      } catch (e) {
+        console.warn("Failed to set current user:", e);
       }
-      return res;
-    } catch (err: any) {
-      console.warn("⚠️ API Login error:", err?.message || err);
-      const localUsers = this.getLocalUsers();
-      const localRecord = localUsers[cleanEmail];
-      if (localRecord && localRecord.password && localRecord.password === data.password) {
-        const userObj: AuthUser = {
-          id: localRecord.id || `usr_local_${Date.now()}`,
-          email: localRecord.email || cleanEmail,
-          firstName: localRecord.firstName || cleanEmail.split("@")[0],
-          lastName: localRecord.lastName || "",
-          role: localRecord.role || "PERSONAL_USER"
-        };
-        window.localStorage.setItem("nexora_current_user", JSON.stringify(userObj));
-        this.setAccessToken(`local_token_${Date.now()}`);
-        return { user: userObj, accessToken: `local_token_${Date.now()}` };
-      }
-      throw err;
     }
+    return res;
   }
 
-  async register(data: any): Promise<{ user: AuthUser; accessToken?: string }> {
-    const cleanEmail = (data.email || "").toLowerCase().trim();
-    try {
-      const res = await this.post<{ authenticated?: boolean; user: AuthUser; accessToken?: string }>("/auth/register", data);
-      if (res?.user) {
-        if (res.accessToken) {
-          this.setAccessToken(res.accessToken);
-        }
-        window.localStorage.setItem("nexora_current_user", JSON.stringify(res.user));
-        this.saveLocalUser(cleanEmail, res.user, data.password);
-      }
-      return res;
-    } catch (err: any) {
-      console.warn("⚠️ API Register error:", err?.message || err);
-      if (err?.message?.includes("already exists")) {
-        throw err;
-      }
-      const fallbackUser: AuthUser = {
-        id: `usr_${Math.floor(Math.random() * 899999) + 100000}`,
-        email: cleanEmail,
-        firstName: data.firstName || cleanEmail.split("@")[0],
-        lastName: data.lastName || "",
-        role: data.role === "MERCHANT_USER" ? "MERCHANT_USER" : "PERSONAL_USER"
-      };
-      this.saveLocalUser(cleanEmail, fallbackUser, data.password);
-      this.setAccessToken(`local_token_${Date.now()}`);
-      return {
-        authenticated: true,
-        user: fallbackUser,
-        accessToken: `local_token_${Date.now()}`
-      };
-    }
+  async register(data: any): Promise<{ success: boolean; user?: AuthUser; message?: string }> {
+    const res = await this.post<{ success: boolean; message?: string; user?: AuthUser }>("/auth/register", data);
+    this.clearAccessToken();
+    return res;
   }
 
   async startDemoMerchantSession(): Promise<AuthUser> {
@@ -281,6 +237,7 @@ class ApiClient {
       try {
         window.localStorage.removeItem(this.tokenKey);
         window.localStorage.removeItem("nexora_current_user");
+        window.localStorage.removeItem("nexora_local_users");
         window.localStorage.clear();
         window.sessionStorage.clear();
         document.cookie = "nexora_access=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";

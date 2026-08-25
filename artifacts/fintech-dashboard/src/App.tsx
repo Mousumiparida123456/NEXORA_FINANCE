@@ -218,6 +218,11 @@ function Router({ authStatus, userRole }: { authStatus: AuthStatus; userRole: st
     return <Forbidden403 />;
   }
 
+  // Redirect unauthenticated users attempting to access any protected route back to login
+  if (authStatus === "unauthenticated" && !isAuthRoute) {
+    return <Redirect to="/login" />;
+  }
+
   const loginEntry = () =>
     authStatus === "checking" ? (
       <FullPageSpinner />

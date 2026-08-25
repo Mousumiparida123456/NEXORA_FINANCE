@@ -7,6 +7,7 @@ import * as schema from "./schema";
 const { Pool } = pg;
 
 dotenv.config({ path: resolve(__dirname, "../../../.env") });
+dotenv.config({ path: resolve(process.cwd(), "artifacts/api-server/.env"), override: true });
 dotenv.config({ path: resolve(process.cwd(), ".env"), override: true });
 
 if (!process.env.DATABASE_URL) {

@@ -33,6 +33,7 @@ CREATE TABLE users (
   savings_goal         INTEGER DEFAULT 15000,
   invest_style         TEXT DEFAULT 'balanced',
   two_factor_enabled   BOOLEAN DEFAULT FALSE,
+  role                 TEXT DEFAULT 'PERSONAL_USER' NOT NULL,
   created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS email_idx ON users(email);

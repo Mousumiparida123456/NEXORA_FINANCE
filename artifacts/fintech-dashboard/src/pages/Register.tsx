@@ -21,6 +21,13 @@ export function Register() {
       setErrorMsg("Please fill in all required fields.");
       return;
     }
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(email.trim())) {
+      setErrorMsg("Please enter a valid email address.");
+      return;
+    }
+
     if (password !== confirmPassword) {
       setErrorMsg("Passwords do not match.");
       return;
@@ -29,12 +36,20 @@ export function Register() {
       setErrorMsg("Password must be at least 8 characters long.");
       return;
     }
+    if (!/[A-Z]/.test(password)) {
+      setErrorMsg("Password must contain at least one uppercase letter.");
+      return;
+    }
+    if (!/[^A-Za-z0-9]/.test(password)) {
+      setErrorMsg("Password must contain at least one symbol.");
+      return;
+    }
 
     setIsLoading(true);
     setErrorMsg(null);
 
     try {
-      const res = await api.register({
+      await api.register({
         email,
         password,
         confirmPassword,
@@ -43,14 +58,9 @@ export function Register() {
         role,
       });
 
-      const assignedRole = res.user?.role || role;
-
-      // Role-based redirect
-      if (assignedRole === "MERCHANT_USER") {
-        window.location.href = "/merchant";
-      } else {
-        window.location.href = "/dashboard";
-      }
+      // Clear any session tokens and redirect to Sign In with registration success query param
+      api.clearAccessToken();
+      window.location.href = "/login?registered=true";
     } catch (err: any) {
       setErrorMsg(err.message || "An account with this email already exists. Please sign in.");
     } finally {

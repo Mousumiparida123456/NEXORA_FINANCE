@@ -1,15 +1,19 @@
+import dotenv from "dotenv";
+dotenv.config({ path: "artifacts/api-server/.env" });
+dotenv.config({ path: ".env" });
+
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
-import { db, users, accounts, transactions, userPreferences, eq, sql, desc } from "../src/db";
 import { AuthService } from "../src/services/AuthService";
 import { AIService } from "../src/services/AIService";
 import { AnalyticsService } from "../src/services/AnalyticsService";
 import { logger } from "../src/lib/logger";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
+import { db, users, accounts, transactions, userPreferences, eq, sql, desc } from "../src/db";
 
 const app = express();
 const CLIENT_ORIGIN =
@@ -352,33 +356,27 @@ app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], asyn
   if (password.length < 8) {
     return res.status(400).json({ success: false, message: "Password must be at least 8 characters long.", error: "Password must be at least 8 characters long." });
   }
+
+  if (!/[A-Z]/.test(password)) {
+    return res.status(400).json({ success: false, message: "Password must contain at least one uppercase letter.", error: "Password must contain at least one uppercase letter." });
+  }
+
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    return res.status(400).json({ success: false, message: "Password must contain at least one symbol.", error: "Password must contain at least one symbol." });
+  }
   
   const userFirstName = (firstName || cleanEmail.split("@")[0]).trim();
   const userLastName = (lastName || "").trim();
 
   // Enforce secure role assignment: Never allow arbitrary public registration as ADMIN
   const normalizedRoleInput = String(requestedRole || "").toUpperCase().trim();
-  const assignedRole = (normalizedRoleInput === "MERCHANT_USER") ? "MERCHANT_USER" : "PERSONAL_USER";
-
-  // Check if system demo user email or in-memory registered user email exists
-  const isDemoEmail = ["demo@nexora.finance", "merchant@nexora.finance", "admin@nexora.finance", "demo@nexora.local"].includes(cleanEmail);
-  if (isDemoEmail || inMemoryUsers.has(cleanEmail)) {
-    return res.status(409).json({
-      success: false,
-      message: "An account with this email already exists. Please sign in.",
-      error: "An account with this email already exists. Please sign in."
-    });
-  }
+  const assignedRole = (normalizedRoleInput === "MERCHANT_USER" || normalizedRoleInput === "MERCHANT") ? "MERCHANT_USER" : "PERSONAL_USER";
 
   try {
-    let existingUser: any = null;
-    try {
-      existingUser = await db.query.users.findFirst({ where: sql`LOWER(${users.email}) = ${cleanEmail}` });
-    } catch (dbReadErr) {
-      console.warn("⚠️ [REG] DB read error during existence check:", dbReadErr);
-    }
+    const existingUser = await db.query.users.findFirst({ where: sql`LOWER(${users.email}) = ${cleanEmail}` });
+    const isDemoEmail = ["demo@nexora.finance", "merchant@nexora.finance", "admin@nexora.finance", "demo@nexora.local"].includes(cleanEmail);
 
-    if (existingUser) {
+    if (existingUser || isDemoEmail || inMemoryUsers.has(cleanEmail)) {
       return res.status(409).json({
         success: false,
         message: "An account with this email already exists. Please sign in.",
@@ -389,47 +387,28 @@ app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], asyn
     console.log(`⏱️ [REG] Hashing password... (+${Date.now() - start}ms)`);
     const hashedPassword = await AuthService.hashPassword(password);
     
-    let user: any = null;
-    try {
-      console.log(`⏱️ [REG] Inserting user into PostgreSQL... (+${Date.now() - start}ms)`);
-      const [insertedUser] = await db.insert(users).values({ 
-        email: cleanEmail, 
-        password: hashedPassword, 
-        firstName: userFirstName, 
-        lastName: userLastName,
-        role: assignedRole,
-      }).returning();
-      user = insertedUser;
+    console.log(`⏱️ [REG] Inserting user into PostgreSQL... (+${Date.now() - start}ms)`);
+    const [insertedUser] = await db.insert(users).values({ 
+      email: cleanEmail, 
+      password: hashedPassword, 
+      firstName: userFirstName, 
+      lastName: userLastName,
+      role: assignedRole,
+    }).returning();
 
+    try {
       await db.insert(accounts).values({ 
-        userId: user.id, 
+        userId: insertedUser.id, 
         type: assignedRole === "MERCHANT_USER" ? "merchant_settlement" : "savings", 
         balance: "1000.00", 
         accountNumber: `NEX-${Math.floor(Math.random() * 1000000)}` 
       }).returning();
-    } catch (dbErr: any) {
-      console.warn("⚠️ [REG] Database write error:", dbErr);
-      if (dbErr?.code === "23505" || String(dbErr).includes("unique") || String(dbErr).includes("users_email_unique")) {
-        return res.status(409).json({
-          success: false,
-          message: "An account with this email already exists. Please sign in.",
-          error: "An account with this email already exists. Please sign in."
-        });
-      }
-
-      // Generate isolated runtime user object if DB connection fails
-      user = {
-        id: Math.floor(Math.random() * 899999) + 100000,
-        email: cleanEmail,
-        firstName: userFirstName,
-        lastName: userLastName,
-        role: assignedRole,
-      };
+    } catch (acctErr) {
+      console.warn("⚠️ Account record creation error (non-fatal):", acctErr);
     }
 
-    // Always register in server-side in-memory user registry for resilient authentication
     inMemoryUsers.set(cleanEmail, {
-      id: user.id,
+      id: insertedUser.id,
       email: cleanEmail,
       passwordHash: hashedPassword,
       firstName: userFirstName,
@@ -439,7 +418,7 @@ app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], asyn
     });
     
     console.log(`⏱️ [REG] Generating tokens... (+${Date.now() - start}ms)`);
-    const tokens = AuthService.generateTokens({ userId: user.id, email: user.email, role: user.role || assignedRole });
+    const tokens = AuthService.generateTokens({ userId: insertedUser.id, email: insertedUser.email, role: insertedUser.role || assignedRole });
     
     res.cookie("nexora_access", tokens.accessToken, { httpOnly: true, secure: COOKIE_SECURE, sameSite: "lax", maxAge: 900000, path: "/" });
     res.cookie("nexora_refresh", tokens.refreshToken, { httpOnly: true, secure: COOKIE_SECURE, sameSite: "lax", maxAge: 604800000, path: "/" });
@@ -451,16 +430,23 @@ app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], asyn
       message: "Account created successfully",
       authenticated: true,
       user: { 
-        id: user.id.toString(),
-        email: user.email, 
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role || assignedRole
+        id: insertedUser.id.toString(),
+        email: insertedUser.email, 
+        firstName: insertedUser.firstName,
+        lastName: insertedUser.lastName,
+        role: insertedUser.role || assignedRole
       },
       accessToken: tokens.accessToken
     });
   } catch (error: any) { 
     console.error(`❌ [REG] Error after ${Date.now() - start}ms:`, error);
+    if (error?.code === "23505" || String(error).includes("unique") || String(error).includes("users_email_unique")) {
+      return res.status(409).json({
+        success: false,
+        message: "An account with this email already exists. Please sign in.",
+        error: "An account with this email already exists. Please sign in."
+      });
+    }
     return res.status(500).json({ success: false, message: "Registration failed", error: error?.message || "Registration failed" }); 
   }
 });
@@ -469,68 +455,81 @@ app.post(["/api/v1/auth/login", "/api/auth/login", "/auth/login"], loginLimiter,
   const start = Date.now();
   const { email, password } = req.body;
   if (!email || !password) {
-    return res.status(400).json({ success: false, message: "Invalid email or password", error: "Invalid email or password" });
+    return res.status(400).json({ success: false, message: "Invalid email or password.", error: "Invalid email or password." });
   }
   
   const cleanEmail = String(email).trim().toLowerCase();
   if (!EMAIL_REGEX.test(cleanEmail)) {
-    return res.status(401).json({ success: false, message: "Invalid email or password", error: "Invalid email or password" });
+    return res.status(400).json({ success: false, message: "Invalid email address format", error: "Invalid email address format" });
   }
   
   try {
-    console.log(`⏱️ [LOGIN] Verifying user ${cleanEmail}... (+${Date.now() - start}ms)`);
+    console.log(`⏱️ [LOGIN] Searching database for user ${cleanEmail}... (+${Date.now() - start}ms)`);
+    
     let user: any = null;
-    let isValid = false;
+    let isDemoAccount = false;
 
-    // 1. Check system demo accounts
-    if (cleanEmail === "demo@nexora.finance" && password === "DemoAccount123!") {
-      isValid = true;
-      user = { id: 999, email: cleanEmail, firstName: "Personal", lastName: "User", role: "PERSONAL_USER" };
-    } else if (cleanEmail === "merchant@nexora.finance" && password === "SentinelMerchant123!") {
-      isValid = true;
-      user = { id: 998, email: cleanEmail, firstName: "Merchant", lastName: "Sentinel", role: "MERCHANT_USER" };
-    } else if (cleanEmail === "demo@nexora.local") {
-      isValid = true;
-      user = { id: 998, email: "demo@nexora.local", firstName: "Nexora Demo", lastName: "Merchant", role: "MERCHANT_USER", demoMode: true };
-    } else if (cleanEmail === "admin@nexora.finance" && password === "NexoraAdmin123!") {
-      isValid = true;
-      user = { id: 997, email: cleanEmail, firstName: "Admin", lastName: "Nexora", role: "ADMIN" };
-    } else {
-      // 2. Query DB for registered user
-      try {
-        user = await db.query.users.findFirst({ where: sql`LOWER(${users.email}) = ${cleanEmail}` });
-      } catch (dbErr) {
-        console.warn("⚠️ [LOGIN] DB query failed:", dbErr);
-      }
+    // 1. Query PostgreSQL database for registered user first
+    try {
+      user = await db.query.users.findFirst({ where: sql`LOWER(${users.email}) = ${cleanEmail}` });
+    } catch (dbErr) {
+      console.warn("⚠️ [LOGIN] DB query failed:", dbErr);
+    }
 
-      if (user && user.password) {
-        isValid = await AuthService.comparePassword(password, user.password);
-      }
-
-      // 3. Fallback to in-memory user registry if DB user check failed or user registered in fallback mode
-      if (!isValid && inMemoryUsers.has(cleanEmail)) {
+    // 2. Check system demo account presets if not in DB
+    if (!user) {
+      if (cleanEmail === "demo@nexora.finance") {
+        isDemoAccount = true;
+        user = { id: 999, email: cleanEmail, firstName: "Personal", lastName: "User", role: "PERSONAL_USER", password: await AuthService.hashPassword("DemoAccount123!") };
+      } else if (cleanEmail === "merchant@nexora.finance") {
+        isDemoAccount = true;
+        user = { id: 998, email: cleanEmail, firstName: "Merchant", lastName: "Sentinel", role: "MERCHANT_USER", password: await AuthService.hashPassword("SentinelMerchant123!") };
+      } else if (cleanEmail === "demo@nexora.local") {
+        isDemoAccount = true;
+        user = { id: 998, email: "demo@nexora.local", firstName: "Nexora Demo", lastName: "Merchant", role: "MERCHANT_USER", demoMode: true, password: await AuthService.hashPassword("Demo123!") };
+      } else if (cleanEmail === "admin@nexora.finance") {
+        isDemoAccount = true;
+        user = { id: 997, email: cleanEmail, firstName: "Admin", lastName: "Nexora", role: "ADMIN", password: await AuthService.hashPassword("NexoraAdmin123!") };
+      } else if (inMemoryUsers.has(cleanEmail)) {
         const memUser = inMemoryUsers.get(cleanEmail)!;
-        const matchesMemPass = await AuthService.comparePassword(password, memUser.passwordHash);
-        if (matchesMemPass) {
-          isValid = true;
-          user = {
-            id: memUser.id,
-            email: memUser.email,
-            firstName: memUser.firstName,
-            lastName: memUser.lastName,
-            role: memUser.role,
-          };
-          console.log(`ℹ️ [LOGIN] Verified ${cleanEmail} via server in-memory fallback user registry`);
-        }
+        user = {
+          id: memUser.id,
+          email: memUser.email,
+          password: memUser.passwordHash,
+          firstName: memUser.firstName,
+          lastName: memUser.lastName,
+          role: memUser.role,
+        };
       }
     }
-    
-    // Account enumeration protection: Generic 401 message for all credential failures
-    if (!isValid || !user) {
-      console.log(`❌ [LOGIN] Invalid credentials attempt for ${cleanEmail} (+${Date.now() - start}ms)`);
-      return res.status(401).json({ success: false, message: "Invalid email or password", error: "Invalid email or password" });
+
+    // CASE 1: If NO user exists with that email in the database -> Return "Account not created. Please create an account first."
+    if (!user) {
+      console.log(`❌ [LOGIN] Account not found for ${cleanEmail} (+${Date.now() - start}ms)`);
+      return res.status(404).json({
+        success: false,
+        message: "Account not created. Please create an account first.",
+        error: "Account not created. Please create an account first."
+      });
     }
-    
+
+    // CASE 2 & 3: Compare entered password with stored password hash
+    let isPasswordValid = false;
+    if (isDemoAccount && (password === "DemoAccount123!" || password === "SentinelMerchant123!" || password === "NexoraAdmin123!" || password === "Demo123!")) {
+      isPasswordValid = true;
+    } else if (user.password) {
+      isPasswordValid = await AuthService.comparePassword(password, user.password);
+    }
+
+    if (!isPasswordValid) {
+      console.log(`❌ [LOGIN] Incorrect password attempt for ${cleanEmail} (+${Date.now() - start}ms)`);
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password.",
+        error: "Invalid email or password."
+      });
+    }
+
     const userRole = user.role || "PERSONAL_USER";
 
     console.log(`⏱️ [LOGIN] Generating tokens for ${cleanEmail} (role: ${userRole})... (+${Date.now() - start}ms)`);
@@ -555,9 +554,16 @@ app.post(["/api/v1/auth/login", "/api/auth/login", "/auth/login"], loginLimiter,
       accessToken: tokens.accessToken
     });
   } catch (error: any) { 
-    console.error(`❌ [REG/LOGIN] Error after ${Date.now() - start}ms:`, error);
+    console.error(`❌ [LOGIN] Error after ${Date.now() - start}ms:`, error);
     return res.status(500).json({ success: false, message: "Unable to connect to Nexora authentication service. Please try again.", error: "Unable to connect to Nexora authentication service." }); 
   }
+});
+
+app.post(["/api/v1/auth/logout", "/api/auth/logout", "/auth/logout"], (req, res) => {
+  res.clearCookie("nexora_access", { path: "/" });
+  res.clearCookie("nexora_refresh", { path: "/" });
+  res.clearCookie("nexora_session", { path: "/" });
+  return res.json({ success: true, message: "Logged out successfully" });
 });
 
 app.get(["/api/v1/auth/me", "/api/v1/auth/user", "/api/auth/user", "/auth/user"], async (req, res) => {
@@ -1101,5 +1107,12 @@ app.use((req, res) => {
     suggestion: "Check api/index.ts for this route definition"
   });
 });
+
+const PORT = process.env.PORT || 9999;
+if (process.env.NODE_ENV !== "test" && !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Nexora API Server listening on port ${PORT}`);
+  });
+}
 
 export default app;
