@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from "react";
-import { Transaction, Category, TransactionType, MOCK_TRANSACTIONS } from "@/components/transactions/transactionData";
+import { Transaction, Category, TransactionType } from "@/components/transactions/transactionData";
 import { api } from "@/lib/api";
 import { MonthlyData, ExpenseBreakdown, generateMonthlyChartData, generateExpenseBreakdown, calculateFinancialHealth } from "./financial-analytics";
 import { subscribeToTransactionsRealtime } from "@/lib/supabase-realtime-bridge";
@@ -49,25 +49,6 @@ const TransactionsContext = createContext<TransactionsContextState | undefined>(
 const TRANSACTION_SYNC_EVENT = "nexora:transactions:changed";
 const TRANSACTION_NOTIFICATION_EVENT = "nexora:transaction:notify";
 
-export function TransactionsProvider({ children }: { children: ReactNode }) {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  // Filters
-  const [filterMonth, setFilterMonth] = useState<number | null>(null);
-  const [filterYear, setFilterYear] = useState<number | null>(null);
-  const [filterCategory, setFilterCategory] = useState<Category | "All">("All");
-  const [filterType, setFilterType] = useState<TransactionType | "All">("All");
-
-  const clearFilters = useCallback(() => {
-    setFilterMonth(null);
-    setFilterYear(null);
-    setFilterCategory("All");
-    setFilterType("All");
-  }, []);
-
 const LOCAL_TX_KEY = "nexora_custom_transactions";
 
 function getLocalStoredTransactions(): Transaction[] {
@@ -101,6 +82,25 @@ function mergeTransactions(primary: Transaction[], local: Transaction[]): Transa
   });
 }
 
+export function TransactionsProvider({ children }: { children: ReactNode }) {
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  // Filters
+  const [filterMonth, setFilterMonth] = useState<number | null>(null);
+  const [filterYear, setFilterYear] = useState<number | null>(null);
+  const [filterCategory, setFilterCategory] = useState<Category | "All">("All");
+  const [filterType, setFilterType] = useState<TransactionType | "All">("All");
+
+  const clearFilters = useCallback(() => {
+    setFilterMonth(null);
+    setFilterYear(null);
+    setFilterCategory("All");
+    setFilterType("All");
+  }, []);
+
   const refreshTransactions = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -116,10 +116,9 @@ function mergeTransactions(primary: Transaction[], local: Transaction[]): Transa
       const merged = mergeTransactions(mapped, localTxs);
       setTransactions(merged);
     } catch (err: any) {
-      console.warn("API Error, falling back to local & mock transactions", err);
+      console.warn("API Error, falling back to user local transactions only:", err);
       setError(err?.message || "Failed to fetch transactions.");
-      const merged = mergeTransactions(MOCK_TRANSACTIONS, localTxs);
-      setTransactions(merged);
+      setTransactions(localTxs);
     } finally {
       setLoading(false);
     }
