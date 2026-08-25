@@ -37,6 +37,7 @@ export function Register() {
       const res = await api.register({
         email,
         password,
+        confirmPassword,
         firstName,
         lastName,
         role,
@@ -51,8 +52,9 @@ export function Register() {
         window.location.href = "/dashboard";
       }
     } catch (err: any) {
+      setErrorMsg(err.message || "An account with this email already exists. Please sign in.");
+    } finally {
       setIsLoading(false);
-      setErrorMsg(err.message || "Registration failed. Please try again.");
     }
   };
 

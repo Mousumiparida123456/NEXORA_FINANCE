@@ -191,42 +191,8 @@ class ApiClient {
       }
       return res;
     } catch (err: any) {
-      console.warn("⚠️ API Login failed/unreachable. Attempting local session login:", err.message);
-      
-      const localUsers = this.getLocalUsers();
-      const localMatch = localUsers[cleanEmail];
-      
-      if (localMatch) {
-        const token = `nexora_local_token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        this.setAccessToken(token);
-        const userPayload: AuthUser = {
-          id: localMatch.id || "local_" + Date.now(),
-          email: cleanEmail,
-          firstName: localMatch.firstName || cleanEmail.split("@")[0],
-          lastName: localMatch.lastName || "",
-          role: localMatch.role || (cleanEmail.includes("merchant") ? "MERCHANT_USER" : cleanEmail.includes("admin") ? "ADMIN" : "PERSONAL_USER")
-        };
-        window.localStorage.setItem("nexora_current_user", JSON.stringify(userPayload));
-        return { user: userPayload, accessToken: token };
-      }
-
-      // Default role based on email if not explicitly matched
-      const fallbackRole: "PERSONAL_USER" | "MERCHANT_USER" | "ADMIN" = cleanEmail.includes("merchant")
-        ? "MERCHANT_USER"
-        : cleanEmail.includes("admin")
-        ? "ADMIN"
-        : "PERSONAL_USER";
-
-      const localToken = `nexora_local_token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      this.setAccessToken(localToken);
-      const fallbackUser: AuthUser = {
-        id: "usr_" + Date.now(),
-        email: cleanEmail,
-        firstName: data.firstName || cleanEmail.split("@")[0],
-        role: fallbackRole
-      };
-      this.saveLocalUser(cleanEmail, fallbackUser);
-      return { user: fallbackUser, accessToken: localToken };
+      console.warn("⚠️ API Login error:", err?.message || err);
+      throw err;
     }
   }
 
@@ -240,21 +206,8 @@ class ApiClient {
       }
       return res;
     } catch (err: any) {
-      console.warn("⚠️ API Register failed/unreachable. Initializing resilient local user creation:", err.message);
-      
-      const token = `nexora_local_token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      this.setAccessToken(token);
-      
-      const newUser: AuthUser = {
-        id: "usr_" + Date.now(),
-        email: cleanEmail,
-        firstName: data.firstName || cleanEmail.split("@")[0],
-        lastName: data.lastName || "",
-        role: data.role === "MERCHANT_USER" ? "MERCHANT_USER" : "PERSONAL_USER"
-      };
-      
-      this.saveLocalUser(cleanEmail, newUser);
-      return { user: newUser, accessToken: token };
+      console.warn("⚠️ API Register error:", err?.message || err);
+      throw err;
     }
   }
 

@@ -33,8 +33,9 @@ export function Login() {
         window.location.href = "/dashboard";
       }
     } catch (err: any) {
-      setIsLoading(false);
       setErrorMessage(err.message || "Invalid email or password.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -51,8 +52,9 @@ export function Login() {
       await api.startDemoMerchantSession();
       window.location.href = "/merchant";
     } catch (err: any) {
-      setIsLoading(false);
       setErrorMessage(err?.message || "Unable to initialize Demo Merchant session.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
