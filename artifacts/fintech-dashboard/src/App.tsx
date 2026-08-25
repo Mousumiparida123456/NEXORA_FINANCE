@@ -76,19 +76,10 @@ const Settings = lazy(() =>
 );
 import { Merchant } from "@/pages/Merchant";
 import { WorkspacesPage } from "@/pages/WorkspacesPage";
-
-const Login = lazy(() =>
-  import("@/pages/Login").then((module) => ({ default: module.Login })),
-);
-const ForgotPassword = lazy(() =>
-  import("@/pages/ForgotPassword").then((module) => ({ default: module.ForgotPassword })),
-);
-const ResetPassword = lazy(() =>
-  import("@/pages/ResetPassword").then((module) => ({ default: module.ResetPassword })),
-);
-const Register = lazy(() =>
-  import("@/pages/Register").then((module) => ({ default: module.Register })),
-);
+import { Login } from "@/pages/Login";
+import { ForgotPassword } from "@/pages/ForgotPassword";
+import { ResetPassword } from "@/pages/ResetPassword";
+import { Register } from "@/pages/Register";
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 type AuthStatus = "checking" | "authenticated" | "unauthenticated";
@@ -160,18 +151,48 @@ class ErrorBoundary extends React.Component<
 
   componentDidCatch(error: Error, errorInfo: any) {
     console.error("EXPLICIT ROUTE RENDER ERROR:", error, errorInfo);
+    if (
+      error?.toString()?.includes("Failed to fetch dynamically imported module") ||
+      error?.message?.includes("dynamically imported module")
+    ) {
+      const refreshed = sessionStorage.getItem("nexora_chunk_refreshed");
+      if (!refreshed) {
+        sessionStorage.setItem("nexora_chunk_refreshed", "true");
+        window.location.reload();
+      }
+    }
   }
 
   render() {
     if (this.state.hasError) {
+      const isChunkError =
+        this.state.error?.toString()?.includes("Failed to fetch dynamically imported module") ||
+        this.state.error?.message?.includes("dynamically imported module");
+
       return (
-        <div className="p-8 bg-red-950 text-red-200 min-h-screen z-[99999] relative">
-          <h1 className="text-2xl font-bold text-red-400 mb-4">React Render Error Caught!</h1>
-          <pre className="p-4 bg-black/60 rounded text-xs font-mono whitespace-pre-wrap">
-            {this.state.error?.toString()}
-            {"\n"}
-            {this.state.error?.stack}
-          </pre>
+        <div className="p-8 bg-[#060c20] text-slate-100 min-h-screen z-[99999] flex flex-col items-center justify-center relative font-sans">
+          <div className="max-w-md w-full p-8 rounded-2xl bg-slate-900/90 border border-slate-800 backdrop-blur-xl text-center shadow-2xl">
+            <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-4">
+              <span className="text-xl font-bold">⚡</span>
+            </div>
+            <h1 className="text-xl font-bold text-white mb-2">
+              {isChunkError ? "New Version Available" : "Application Update"}
+            </h1>
+            <p className="text-xs text-slate-400 mb-6 leading-relaxed">
+              {isChunkError
+                ? "The application was updated with a new version. Reloading to fetch the latest features."
+                : "An unexpected runtime error occurred. Please reload to restore your session."}
+            </p>
+            <button
+              onClick={() => {
+                sessionStorage.removeItem("nexora_chunk_refreshed");
+                window.location.reload();
+              }}
+              className="w-full py-3 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 text-slate-950 font-bold rounded-xl text-xs transition-all cursor-pointer shadow-lg shadow-emerald-500/20"
+            >
+              Reload Page
+            </button>
+          </div>
         </div>
       );
     }
