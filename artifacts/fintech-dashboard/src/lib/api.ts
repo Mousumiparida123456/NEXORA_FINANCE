@@ -44,6 +44,7 @@ export interface AuthUser {
   firstName?: string;
   lastName?: string;
   role?: "PERSONAL_USER" | "MERCHANT_USER" | "ADMIN";
+  demoMode?: boolean;
   profileImageUrl?: string;
   monthlyIncome?: string;
   financialGoals?: string;
@@ -257,15 +258,45 @@ class ApiClient {
     }
   }
 
+  async startDemoMerchantSession(): Promise<AuthUser> {
+    try {
+      const res = await this.post<{ authenticated: boolean; user: AuthUser; accessToken?: string }>("/auth/demo", {});
+      if (res.accessToken) {
+        this.setAccessToken(res.accessToken);
+      }
+      if (res.user && typeof window !== "undefined") {
+        window.localStorage.setItem("nexora_current_user", JSON.stringify(res.user));
+      }
+      return res.user || { id: "DEMO-MERCHANT-001", email: "demo@nexora.local", firstName: "Nexora Demo", lastName: "Merchant", role: "MERCHANT_USER", demoMode: true };
+    } catch (e) {
+      console.warn("⚠️ Demo session endpoint fallback:", e);
+      const demoUser: AuthUser = { id: "DEMO-MERCHANT-001", email: "demo@nexora.local", firstName: "Nexora Demo", lastName: "Merchant", role: "MERCHANT_USER", demoMode: true };
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("nexora_current_user", JSON.stringify(demoUser));
+      }
+      return demoUser;
+    }
+  }
+
   async logout(): Promise<void> {
     try {
       await this.post("/auth/logout", {});
-    } catch {
-      // ignore errors, still clear token and client session
+    } catch (err) {
+      console.warn("⚠️ API logout call failed, forcing client session cleanup:", err);
     }
-    window.localStorage.removeItem(this.tokenKey);
-    window.localStorage.removeItem("nexora_current_user");
-    window.sessionStorage.removeItem("nexora.local-preview-auth");
+    this.clearAccessToken();
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.removeItem(this.tokenKey);
+        window.localStorage.removeItem("nexora_current_user");
+        window.localStorage.clear();
+        window.sessionStorage.clear();
+        document.cookie = "nexora_access=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+        document.cookie = "nexora_refresh=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+        document.cookie = "nexora_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      } catch (e) {}
+      window.location.href = "/login";
+    }
   }
 
   setAccessToken(token: string) {

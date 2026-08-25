@@ -105,8 +105,13 @@ export function Sidebar() {
     return location.startsWith(href);
   }
 
-  function handleLogout() {
-    api.logout();
+  async function handleLogout(e?: React.MouseEvent) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    await api.logout();
+    window.location.href = "/login";
   }
 
   const displayName = user?.firstName ? `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}` : "John Doe";

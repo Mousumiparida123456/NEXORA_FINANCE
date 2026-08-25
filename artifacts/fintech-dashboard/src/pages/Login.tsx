@@ -44,6 +44,18 @@ export function Login() {
     setErrorMessage(null);
   };
 
+  const handleDemoMerchantAccess = async () => {
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      await api.startDemoMerchantSession();
+      window.location.href = "/merchant";
+    } catch (err: any) {
+      setIsLoading(false);
+      setErrorMessage(err?.message || "Unable to initialize Demo Merchant session.");
+    }
+  };
+
   return (
     <div className="min-h-screen w-full bg-[#060c20] text-slate-100 flex flex-col justify-between relative overflow-hidden font-sans selection:bg-emerald-500/30 selection:text-emerald-200">
       {/* Background Subtle Radial Glow Effects */}
@@ -207,7 +219,7 @@ export function Login() {
                   </span>
                   <Sparkles className="h-3 w-3 text-emerald-400" />
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2 mb-2">
                   <button
                     type="button"
                     onClick={() => handleQuickFill("demo@nexora.finance", "DemoAccount123!")}
@@ -225,6 +237,14 @@ export function Login() {
                     <div className="text-[10px] text-slate-400 truncate">merchant@nexora.finance</div>
                   </button>
                 </div>
+                <button
+                  type="button"
+                  onClick={handleDemoMerchantAccess}
+                  className="w-full py-2 px-3 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-xs font-semibold text-emerald-300 flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
+                >
+                  <Shield className="h-3.5 w-3.5 text-emerald-400" />
+                  <span>Launch Demo Merchant Session</span>
+                </button>
               </div>
 
               {/* Register Callout */}

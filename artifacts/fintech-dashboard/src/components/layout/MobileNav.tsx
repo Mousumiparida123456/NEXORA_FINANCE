@@ -66,8 +66,13 @@ export function MobileNav() {
 
   const currentLabel = [...MAIN_NAV, ...TOOL_NAV, ...BOTTOM_NAV].find((x) => isActive(x.href))?.label ?? BRAND.name;
 
-  function handleLogout() {
-    api.logout();
+  async function handleLogout(e?: React.MouseEvent) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    await api.logout();
+    window.location.href = "/login";
   }
 
   return (

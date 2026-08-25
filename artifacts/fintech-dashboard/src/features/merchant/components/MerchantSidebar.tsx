@@ -1,11 +1,16 @@
 import { Link, useLocation } from "wouter";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, LogOut } from "lucide-react";
 import { MERCHANT_NAV_SECTIONS } from "../merchant-nav";
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
 import { WorkspacePillSwitcher } from "@/components/layout/WorkspacePillSwitcher";
 
 export function MerchantSidebar() {
   const [location] = useLocation();
+
+  const handleLogout = async () => {
+    await api.logout();
+  };
 
   return (
     <aside className="fixed top-0 left-0 hidden h-screen w-72 flex-col border-r border-slate-800 bg-[#07131e] z-30 overflow-hidden md:flex">
@@ -54,10 +59,23 @@ export function MerchantSidebar() {
         ))}
       </nav>
 
-      {/* Footer */}
-      <div className="border-t border-slate-800 px-3.5 py-1.5 text-[10px] text-slate-500 font-mono flex items-center justify-between">
-        <span>Merchant workspace</span>
-        <span className="text-emerald-500/70 font-semibold">v2.0</span>
+      {/* Footer & Logout */}
+      <div className="border-t border-slate-800 p-2.5 space-y-2 bg-[#050e17]">
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex w-full items-center justify-between gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 hover:border-rose-500/50 transition-all cursor-pointer shadow-sm"
+        >
+          <span className="flex items-center gap-2">
+            <LogOut className="h-4 w-4 text-rose-400" />
+            <span>Logout Session</span>
+          </span>
+          <span className="text-[10px] text-rose-400/70 font-mono">Exit</span>
+        </button>
+        <div className="px-1 text-[10px] text-slate-500 font-mono flex items-center justify-between">
+          <span>Merchant workspace</span>
+          <span className="text-emerald-500/70 font-semibold">v2.0</span>
+        </div>
       </div>
     </aside>
   );

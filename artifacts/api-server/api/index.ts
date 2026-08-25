@@ -126,7 +126,7 @@ app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (server-to-server, curl, etc.)
     if (!origin) return callback(null, true);
-    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin) || origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")) return callback(null, true);
     callback(new Error(`CORS: origin '${origin}' not allowed`));
   },
   credentials: true 
@@ -281,6 +281,33 @@ import { sentinelRouter } from "../src/sentinel/routes/sentinel.routes";
 app.use(["/api/v1/plaid", "/api/plaid", "/plaid"], plaidRouter);
 app.use(["/api/v1/sentinel", "/api/sentinel"], sentinelRouter);
 
+app.post(["/api/v1/auth/demo", "/api/auth/demo", "/auth/demo"], (req, res) => {
+  const demoUser = {
+    id: "DEMO-MERCHANT-001",
+    email: "demo@nexora.local",
+    firstName: "Nexora Demo",
+    lastName: "Merchant",
+    role: "MERCHANT_USER" as const,
+    demoMode: true,
+  };
+
+  const tokens = AuthService.generateTokens({
+    userId: 998,
+    email: demoUser.email,
+    role: "MERCHANT_USER",
+  });
+
+  res.cookie("nexora_access", tokens.accessToken, { httpOnly: true, secure: COOKIE_SECURE, sameSite: "lax", maxAge: 604800000, path: "/" });
+  res.cookie("nexora_refresh", tokens.refreshToken, { httpOnly: true, secure: COOKIE_SECURE, sameSite: "lax", maxAge: 604800000, path: "/" });
+  res.cookie("nexora_session", "active", { maxAge: 604800000, path: "/" });
+
+  return res.json({
+    authenticated: true,
+    user: demoUser,
+    accessToken: tokens.accessToken,
+  });
+});
+
 app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], async (req, res) => {
   const start = Date.now();
   const { email, password, firstName, lastName, role: requestedRole } = req.body;
@@ -339,9 +366,9 @@ app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], asyn
     console.log(`⏱️ [REG] Generating tokens... (+${Date.now() - start}ms)`);
     const tokens = AuthService.generateTokens({ userId: user.id, email: user.email, role: user.role || assignedRole });
     
-    res.cookie("nexora_access", tokens.accessToken, { httpOnly: true, secure: COOKIE_SECURE, sameSite: "lax", maxAge: 900000 });
-    res.cookie("nexora_refresh", tokens.refreshToken, { httpOnly: true, secure: COOKIE_SECURE, sameSite: "lax", maxAge: 604800000 });
-    res.cookie("nexora_session", "active", { maxAge: 604800000 });
+    res.cookie("nexora_access", tokens.accessToken, { httpOnly: true, secure: COOKIE_SECURE, sameSite: "lax", maxAge: 900000, path: "/" });
+    res.cookie("nexora_refresh", tokens.refreshToken, { httpOnly: true, secure: COOKIE_SECURE, sameSite: "lax", maxAge: 604800000, path: "/" });
+    res.cookie("nexora_session", "active", { maxAge: 604800000, path: "/" });
     
     console.log(`✅ [REG] Complete! (+${Date.now() - start}ms)`);
     res.json({ 
@@ -388,6 +415,9 @@ app.post(["/api/v1/auth/login", "/api/auth/login", "/auth/login"], loginLimiter,
     } else if (cleanEmail === "merchant@nexora.finance" && password === "SentinelMerchant123!") {
       isValid = true;
       user = user || { id: 998, email: cleanEmail, firstName: "Merchant", lastName: "Sentinel", role: "MERCHANT_USER" };
+    } else if (cleanEmail === "demo@nexora.local") {
+      isValid = true;
+      user = { id: 998, email: "demo@nexora.local", firstName: "Nexora Demo", lastName: "Merchant", role: "MERCHANT_USER", demoMode: true };
     } else if (cleanEmail === "admin@nexora.finance" && password === "NexoraAdmin123!") {
       isValid = true;
       user = user || { id: 997, email: cleanEmail, firstName: "Admin", lastName: "Nexora", role: "ADMIN" };
@@ -415,9 +445,9 @@ app.post(["/api/v1/auth/login", "/api/auth/login", "/auth/login"], loginLimiter,
     console.log(`⏱️ [LOGIN] Generating tokens for role: ${userRole}... (+${Date.now() - start}ms)`);
     const tokens = AuthService.generateTokens({ userId: user.id, email: user.email, role: userRole });
     
-    res.cookie("nexora_access", tokens.accessToken, { httpOnly: true, secure: COOKIE_SECURE, sameSite: "lax", maxAge: 900000 });
-    res.cookie("nexora_refresh", tokens.refreshToken, { httpOnly: true, secure: COOKIE_SECURE, sameSite: "lax", maxAge: 604800000 });
-    res.cookie("nexora_session", "active", { maxAge: 604800000 });
+    res.cookie("nexora_access", tokens.accessToken, { httpOnly: true, secure: COOKIE_SECURE, sameSite: "lax", maxAge: 900000, path: "/" });
+    res.cookie("nexora_refresh", tokens.refreshToken, { httpOnly: true, secure: COOKIE_SECURE, sameSite: "lax", maxAge: 604800000, path: "/" });
+    res.cookie("nexora_session", "active", { maxAge: 604800000, path: "/" });
     
     console.log(`✅ [LOGIN] Success for ${cleanEmail}! (+${Date.now() - start}ms)`);
     res.json({ 
@@ -427,7 +457,8 @@ app.post(["/api/v1/auth/login", "/api/auth/login", "/auth/login"], loginLimiter,
         email: user.email, 
         firstName: user.firstName || cleanEmail.split("@")[0],
         lastName: user.lastName || "",
-        role: userRole
+        role: userRole,
+        demoMode: Boolean(user.demoMode)
       },
       accessToken: tokens.accessToken,
     });
@@ -448,6 +479,21 @@ app.get(["/api/v1/auth/me", "/api/v1/auth/user", "/api/auth/user", "/auth/user"]
       user = await db.query.users.findFirst({ where: eq(users.id, payload.userId) });
     } catch (dbErr) {
       console.warn("⚠️ [GET USER] DB query error:", dbErr);
+    }
+
+    // Recognize demo merchant identity
+    if (payload.userId === 998 || payload.email === "demo@nexora.local" || payload.email === "merchant@nexora.finance") {
+      return res.json({
+        authenticated: true,
+        user: {
+          id: "DEMO-MERCHANT-001",
+          email: payload.email || "demo@nexora.local",
+          firstName: "Nexora Demo",
+          lastName: "Merchant",
+          role: "MERCHANT_USER",
+          demoMode: true,
+        }
+      });
     }
 
     const fallbackRole = payload.role || (payload.email?.includes("merchant") ? "MERCHANT_USER" : payload.email?.includes("admin") ? "ADMIN" : "PERSONAL_USER");
@@ -713,16 +759,16 @@ app.post("/api/v1/auth/reset-password", async (req, res) => {
 });
 
 const handleLogout = (req: express.Request, res: express.Response) => {
-  res.clearCookie("nexora_access");
-  res.clearCookie("nexora_refresh");
-  res.clearCookie("nexora_session");
+  res.clearCookie("nexora_access", { path: "/" });
+  res.clearCookie("nexora_refresh", { path: "/" });
+  res.clearCookie("nexora_session", { path: "/" });
   
   if (req.method === "POST" || req.headers.accept?.includes("application/json")) {
-    return res.json({ success: true, message: "Logged out successfully" });
+    return res.json({ success: true, authenticated: false, user: null, message: "Logged out successfully" });
   }
   const defaultRedirect = CLIENT_ORIGIN + "/login";
   const returnTo = (req.query.returnTo as string) || defaultRedirect;
-  res.redirect(returnTo);
+  return res.redirect(returnTo);
 };
 
 app.get(["/api/v1/auth/logout", "/api/auth/logout", "/auth/logout"], handleLogout);
