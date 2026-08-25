@@ -68,9 +68,43 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
     setFilterType("All");
   }, []);
 
+const LOCAL_TX_KEY = "nexora_custom_transactions";
+
+function getLocalStoredTransactions(): Transaction[] {
+  try {
+    const data = window.localStorage.getItem(LOCAL_TX_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalStoredTransaction(tx: Transaction) {
+  try {
+    const existing = getLocalStoredTransactions();
+    const filtered = existing.filter(t => t.id !== tx.id);
+    const updated = [tx, ...filtered];
+    window.localStorage.setItem(LOCAL_TX_KEY, JSON.stringify(updated));
+  } catch (e) {
+    console.warn("Failed to save local transaction:", e);
+  }
+}
+
+function mergeTransactions(primary: Transaction[], local: Transaction[]): Transaction[] {
+  const map = new Map<string, Transaction>();
+  local.forEach(tx => map.set(String(tx.id), tx));
+  primary.forEach(tx => map.set(String(tx.id), tx));
+  return Array.from(map.values()).sort((a, b) => {
+    const dateA = a.date ? new Date(a.date).getTime() : 0;
+    const dateB = b.date ? new Date(b.date).getTime() : 0;
+    return dateB - dateA;
+  });
+}
+
   const refreshTransactions = useCallback(async () => {
     setLoading(true);
     setError("");
+    const localTxs = getLocalStoredTransactions();
     try {
       const data = await api.get<Transaction[]>("/transactions");
       const mapped = data.map(tx => ({
@@ -79,11 +113,13 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
         date: tx.date ? String(tx.date).slice(0, 10) : "",
         amount: Number(tx.amount)
       }));
-      setTransactions(mapped);
+      const merged = mergeTransactions(mapped, localTxs);
+      setTransactions(merged);
     } catch (err: any) {
-      console.warn("API Error, falling back to mock transactions", err);
+      console.warn("API Error, falling back to local & mock transactions", err);
       setError(err?.message || "Failed to fetch transactions.");
-      setTransactions(MOCK_TRANSACTIONS);
+      const merged = mergeTransactions(MOCK_TRANSACTIONS, localTxs);
+      setTransactions(merged);
     } finally {
       setLoading(false);
     }
@@ -92,22 +128,21 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
   const addTransaction = useCallback(async (input: TransactionInput) => {
     setSaving(true);
     setError("");
+    let newTx: Transaction;
     try {
       const created = await api.post<Transaction>("/transactions", input);
-      const mappedCreated = {
+      newTx = {
         ...created,
         id: String(created.id || Date.now()),
         date: created.date ? String(created.date).slice(0, 10) : (input.date || new Date().toISOString().split('T')[0]),
-        amount: Number(created.amount || input.amount)
+        amount: Number(created.amount || input.amount),
+        description: created.description || input.description,
+        category: created.category || input.category,
+        type: created.type || input.type
       };
-      setTransactions((prev) => [mappedCreated, ...prev]);
-      window.dispatchEvent(new CustomEvent(TRANSACTION_SYNC_EVENT));
-      window.dispatchEvent(new CustomEvent(TRANSACTION_NOTIFICATION_EVENT, {
-        detail: { action: "add", description: input.description, category: input.category, amount: Number(input.amount), type: input.type }
-      }));
     } catch (err: any) {
       console.warn("⚠️ API addTransaction error, saving transaction locally:", err?.message || err);
-      const fallbackTx: Transaction = {
+      newTx = {
         id: `tx_${Date.now()}`,
         description: input.description,
         amount: Number(input.amount),
@@ -115,14 +150,18 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
         type: input.type,
         date: input.date || new Date().toISOString().split('T')[0]
       };
-      setTransactions((prev) => [fallbackTx, ...prev]);
-      window.dispatchEvent(new CustomEvent(TRANSACTION_SYNC_EVENT));
-      window.dispatchEvent(new CustomEvent(TRANSACTION_NOTIFICATION_EVENT, {
-        detail: { action: "add", description: input.description, category: input.category, amount: Number(input.amount), type: input.type }
-      }));
-    } finally {
-      setSaving(false);
     }
+
+    saveLocalStoredTransaction(newTx);
+    setTransactions((prev) => {
+      const filtered = prev.filter(t => t.id !== newTx.id);
+      return [newTx, ...filtered];
+    });
+
+    window.dispatchEvent(new CustomEvent(TRANSACTION_NOTIFICATION_EVENT, {
+      detail: { action: "add", description: input.description, category: input.category, amount: Number(input.amount), type: input.type }
+    }));
+    setSaving(false);
   }, []);
 
   const updateTransaction = useCallback(async (id: string, input: TransactionInput) => {
