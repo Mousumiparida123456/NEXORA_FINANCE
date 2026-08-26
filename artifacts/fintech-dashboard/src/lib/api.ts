@@ -315,6 +315,37 @@ class ApiClient {
       throw err;
     }
   }
+
+  async postSentinelAuditEvent(eventPayload: {
+    transactionId?: string;
+    merchantId?: string;
+    actor?: string;
+    action?: string;
+    riskScore?: number;
+    riskLevel?: string;
+    decision?: string;
+    reasons?: string[];
+    modelVersion?: string;
+    policyVersion?: string;
+    metadata?: Record<string, any>;
+    timestamp?: string;
+  }): Promise<{ success: boolean; data?: any }> {
+    try {
+      return await this.post("/sentinel/audit-event", eventPayload);
+    } catch (err: any) {
+      console.warn("⚠️ Remote postSentinelAuditEvent failed, returning resilient fallback:", err?.message);
+      return { success: false };
+    }
+  }
+
+  async evaluateSentinel(payload: any): Promise<{ success: boolean; data?: any }> {
+    try {
+      return await this.post("/sentinel/evaluate", payload);
+    } catch (err: any) {
+      console.warn("⚠️ Remote evaluateSentinel failed, returning resilient fallback:", err?.message);
+      return { success: false };
+    }
+  }
 }
 
 export const api = new ApiClient();

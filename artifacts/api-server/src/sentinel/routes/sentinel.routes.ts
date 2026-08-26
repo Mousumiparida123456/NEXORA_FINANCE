@@ -197,6 +197,69 @@ sentinelRouter.get("/audit-logs", async (req: Request, res: Response) => {
 });
 
 /**
+ * POST /api/v1/sentinel/audit-event
+ * Receives merchant domain actions/events and persists them directly into PostgreSQL sentinel_audit_logs.
+ */
+sentinelRouter.post(
+  "/audit-event",
+  sentinelAuthMiddleware,
+  async (req: Request, res: Response) => {
+    const requestId = (req as any).requestId || (req.headers["x-request-id"] as string) || `REQ-${crypto.randomUUID()}`;
+    try {
+      const {
+        transactionId,
+        merchantId = "MERCHANT-003",
+        actor = "MERCHANT_USER",
+        action = "SENTINEL_EVENT",
+        riskScore = 50,
+        riskLevel = "MEDIUM",
+        decision = "APPROVE",
+        reasons = [],
+        modelVersion = "sentinel-risk-v1",
+        policyVersion = "v2.0.0",
+        metadata = {},
+        timestamp = new Date().toISOString(),
+      } = req.body || {};
+
+      const decisionRecord = {
+        transactionId: transactionId || `TXN-EVENT-${Math.floor(Math.random() * 899999) + 100000}`,
+        merchantId,
+        riskScore,
+        riskLevel,
+        modelVersion,
+        policyVersion,
+        decision,
+        reasons: Array.isArray(reasons) && reasons.length > 0 ? reasons : [action],
+        requiresHumanReview: decision === "BLOCK" || decision === "MANUAL_REVIEW" || decision === "HOLD",
+        requiresMFA: decision === "REQUIRE_3DS",
+        timestamp,
+      };
+
+      const auditResult = await AuditStorageService.logEvent(decisionRecord, {
+        actor,
+        action,
+        requestId,
+        ...metadata,
+      });
+
+      return res.status(200).json({
+        success: true,
+        requestId,
+        data: auditResult.record,
+        auditPersistence: auditResult.auditPersistence,
+      });
+    } catch (error: any) {
+      logger.error({ requestId, error: error?.message }, "❌ [SENTINEL AUDIT EVENT PERSISTENCE ERROR]");
+      return res.status(500).json({
+        success: false,
+        requestId,
+        error: error?.message || "Failed to persist audit event",
+      });
+    }
+  }
+);
+
+/**
  * GET /api/v1/sentinel/health
  * Health status of Sentinel Backend Domain
  */

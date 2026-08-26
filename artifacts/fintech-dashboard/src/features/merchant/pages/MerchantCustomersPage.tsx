@@ -1,8 +1,44 @@
 import React, { useState } from "react";
-import { Users, ShieldAlert, ArrowRight, DollarSign, Activity, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Users, ShieldAlert, ArrowRight, DollarSign, Activity, AlertTriangle, CheckCircle2, ShieldCheck } from "lucide-react";
+import { api } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 export function MerchantCustomersPage() {
   const [selectedCustomerId, setSelectedCustomerId] = useState("CUS-182");
+  const [isAssessing, setIsAssessing] = useState(false);
+  const { toast } = useToast();
+
+  const handleRunAssessment = async (customer: any) => {
+    setIsAssessing(true);
+    try {
+      await api.postSentinelAuditEvent({
+        merchantId: "MERCHANT-003",
+        actor: "Merchant Risk Analyst",
+        action: "CUSTOMER_RISK_ASSESSMENT",
+        riskScore: customer.riskScore,
+        riskLevel: customer.riskLevel,
+        decision: customer.riskLevel === "HIGH" ? "MANUAL_REVIEW" : "APPROVE",
+        reasons: [`Customer ${customer.id} historical risk evaluation`, `Dispute rate: ${customer.chargebacks} chargebacks`],
+        metadata: {
+          eventType: "CUSTOMER_RISK_ASSESSMENT",
+          customerId: customer.id,
+          customerName: customer.name,
+          customerEmail: customer.email,
+          totalTxns: customer.totalTxns,
+          totalSpend: customer.totalSpend,
+          chargebacks: customer.chargebacks,
+        },
+      });
+      toast({
+        title: "✓ Risk Assessment Logged",
+        description: `Logged real-time backend audit event for customer ${customer.id}.`,
+      });
+    } catch (e) {
+      console.warn("Failed to log customer risk assessment:", e);
+    } finally {
+      setIsAssessing(false);
+    }
+  };
 
   const customers = [
     {
@@ -108,9 +144,19 @@ export function MerchantCustomersPage() {
                 <span className="text-xs font-bold text-slate-400 uppercase">CUSTOMER PROFILE</span>
                 <h2 className="text-xl font-black text-white">{activeCustomer.name} (<span className="font-mono text-amber-400">{activeCustomer.id}</span>)</h2>
               </div>
-              <div className="text-right">
-                <span className="text-[10px] text-slate-400 uppercase font-bold block">Risk Assessment</span>
-                <span className="text-xl font-black text-amber-400 font-mono">{activeCustomer.riskScore} / 100 ({activeCustomer.riskLevel})</span>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => handleRunAssessment(activeCustomer)}
+                  disabled={isAssessing}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-indigo-500/40 bg-indigo-500/20 text-xs font-bold text-indigo-300 hover:bg-indigo-500/30 transition-colors disabled:opacity-50"
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  {isAssessing ? "Logging..." : "Run Risk Check"}
+                </button>
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Risk Assessment</span>
+                  <span className="text-xl font-black text-amber-400 font-mono">{activeCustomer.riskScore} / 100 ({activeCustomer.riskLevel})</span>
+                </div>
               </div>
             </div>
 

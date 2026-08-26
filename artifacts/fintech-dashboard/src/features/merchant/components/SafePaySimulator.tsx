@@ -21,7 +21,7 @@ import { sentinelMLRiskEngine } from "../sentinel/engine/mlRiskEngine";
 
 export function SafePaySimulator() {
   const [, setLocation] = useLocation();
-  const { simulateDemoPayment } = useSentinelState() as any;
+  const { simulateDemoPayment, evaluateTransaction } = useSentinelState() as any;
 
   const [recipient, setRecipient] = useState("demo-risk-recipient@upi");
   const [amount, setAmount] = useState("25000");
@@ -38,9 +38,22 @@ export function SafePaySimulator() {
     "Combining ML probability & rule risk score",
   ];
 
-  const handleCheckAndPay = () => {
+  const handleCheckAndPay = async () => {
     setAnalysisState("ANALYZING");
     setActiveStep(0);
+
+    if (evaluateTransaction) {
+      evaluateTransaction({
+        transactionId: "TXN-PITCH-002",
+        merchantId: "MERCHANT-003",
+        customerId: "CUST-DEMO-002",
+        amount: Number(amount) || 25000,
+        currency: "INR",
+        paymentMethod: paymentMethod || "UPI",
+        ipAddress: "185.220.101.4",
+        deviceId: "DEV-SAFEPAY-99",
+      }).catch(console.warn);
+    }
 
     // Step by step animation
     let current = 0;

@@ -1,3 +1,5 @@
+import { api } from "@/lib/api";
+
 export type AuditActionSource = "AI" | "HUMAN" | "SYSTEM";
 export type SentinelRecommendation = "APPROVE" | "HOLD_FOR_REVIEW" | "REQUEST_VERIFICATION" | "BLOCK" | "MONITOR";
 export type SentinelHumanDecision = "APPROVE" | "HOLD" | "HOLD_FOR_REVIEW" | "REQUEST_3DS" | "REQUEST_VERIFICATION" | "BLOCK" | "MONITOR";
@@ -230,6 +232,27 @@ class AuditLoggerService {
     // Prepend to maintain reverse chronological order (newest first)
     this.logs.unshift(newEntry);
     this.saveLogs();
+
+    // Asynchronously dispatch real backend audit record to PostgreSQL
+    api.postSentinelAuditEvent({
+      transactionId: event.transactionId,
+      merchantId: "MERCHANT-003",
+      actor: event.approvedBy || "MERCHANT_USER",
+      action: event.newStatus || event.humanDecision || "SENTINEL_ACTION",
+      riskScore: event.riskScore || 50,
+      riskLevel: event.riskScore >= 90 ? "CRITICAL" : event.riskScore >= 75 ? "HIGH" : event.riskScore >= 50 ? "MEDIUM" : "LOW",
+      decision: event.humanDecision === "HOLD" ? "MANUAL_REVIEW" : event.humanDecision || "APPROVE",
+      reasons: event.riskFactors || [event.reason],
+      metadata: {
+        investigationId: event.investigationId,
+        previousStatus: event.previousStatus,
+        newStatus: event.newStatus,
+        actionSource: event.actionSource,
+        reason: event.reason,
+      },
+      timestamp: now.toISOString(),
+    }).catch((err) => console.warn("Failed to persist backend audit event:", err));
+
     return newEntry;
   }
 

@@ -1,4 +1,5 @@
 import { RiskFactorContribution } from "../engine/transactionRiskEngine";
+import { api } from "@/lib/api";
 
 export type MerchantDecision = "APPROVE" | "HOLD_FOR_REVIEW" | "REQUEST_VERIFICATION" | "BLOCK" | "MONITOR";
 
@@ -217,6 +218,28 @@ class AuditLogger {
       timestamp: new Date().toISOString(),
     };
     this.logs.unshift(newEntry);
+
+    // Asynchronously dispatch real backend audit record to PostgreSQL
+    api.postSentinelAuditEvent({
+      transactionId: entry.transactionId,
+      merchantId: entry.merchantId || "MERCHANT-003",
+      actor: "Merchant Risk Analyst",
+      action: entry.decision,
+      riskScore: entry.decision === "BLOCK" ? 95 : entry.decision === "HOLD_FOR_REVIEW" ? 75 : 30,
+      riskLevel: entry.decision === "BLOCK" ? "CRITICAL" : entry.decision === "HOLD_FOR_REVIEW" ? "HIGH" : "LOW",
+      decision: entry.decision === "HOLD_FOR_REVIEW" ? "MANUAL_REVIEW" : entry.decision,
+      reasons: [entry.reasonNote],
+      metadata: {
+        eventType: "INVESTIGATION_UPDATE",
+        caseId: entry.caseId,
+        previousStatus: entry.previousStatus,
+        newStatus: entry.newStatus,
+        aiRecommendation: entry.aiRecommendation,
+        evidenceSnapshotCount: entry.evidenceSnapshotCount,
+      },
+      timestamp: newEntry.timestamp,
+    }).catch((err) => console.warn("Failed to persist investigation audit event:", err));
+
     return newEntry;
   }
 }

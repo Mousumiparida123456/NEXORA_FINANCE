@@ -45,6 +45,16 @@ interface SentinelContextType {
   addTransaction: (txn: SentinelTransaction) => void;
   recordAuditLog: (event: Partial<SentinelAuditEvent>) => void;
   refreshTransactions: () => Promise<void>;
+  evaluateTransaction: (payload: {
+    transactionId?: string;
+    merchantId?: string;
+    customerId?: string;
+    amount?: number;
+    currency?: string;
+    paymentMethod?: string;
+    ipAddress?: string;
+    deviceId?: string;
+  }) => Promise<any>;
 }
 
 const STORAGE_KEY = "nexora_sentinel_shared_state_v3";
@@ -545,6 +555,34 @@ export const SentinelProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
   };
 
+  const evaluateTransaction = async (payload: {
+    transactionId?: string;
+    merchantId?: string;
+    customerId?: string;
+    amount?: number;
+    currency?: string;
+    paymentMethod?: string;
+    ipAddress?: string;
+    deviceId?: string;
+  }): Promise<any> => {
+    try {
+      const res = await api.evaluateSentinel({
+        transactionId: payload.transactionId || `TXN-PITCH-${Math.floor(100 + Math.random() * 900)}`,
+        merchantId: payload.merchantId || "MERCHANT-003",
+        customerId: payload.customerId || "CUST-DEMO-002",
+        amount: payload.amount || 25000,
+        currency: payload.currency || "INR",
+        paymentMethod: payload.paymentMethod || "UPI",
+        ipAddress: payload.ipAddress || "185.220.101.4",
+        deviceId: payload.deviceId || "DEV-SAFEPAY-99",
+      });
+      await refreshTransactions();
+      return res?.data;
+    } catch (err) {
+      console.warn("evaluateTransaction error:", err);
+    }
+  };
+
   return (
     <SentinelContext.Provider
       value={{
@@ -558,6 +596,7 @@ export const SentinelProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         addTransaction,
         recordAuditLog,
         refreshTransactions,
+        evaluateTransaction,
       }}
     >
       {children}

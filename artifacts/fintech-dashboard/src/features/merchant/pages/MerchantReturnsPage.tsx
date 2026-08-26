@@ -1,5 +1,6 @@
 import React from "react";
 import { FileWarning, ShieldAlert, DollarSign, ArrowRight, RefreshCcw, AlertTriangle } from "lucide-react";
+import { api } from "@/lib/api";
 
 export function MerchantReturnsPage() {
   return (
@@ -63,9 +64,38 @@ export function MerchantReturnsPage() {
               </div>
               <p className="text-[11px] text-slate-400">Reason: Unauthorized transaction claim (₹25,000 hold mitigation pending)</p>
             </div>
-            <div className="text-right">
-              <span className="text-sm font-black text-red-400">₹25,000</span>
-              <span className="text-[10px] text-red-300 block font-bold uppercase">Representment Draft Ready</span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={async () => {
+                  try {
+                    await api.postSentinelAuditEvent({
+                      transactionId: "TXN-10982",
+                      merchantId: "MERCHANT-003",
+                      actor: "Merchant Chargeback Lead",
+                      action: "SUBMIT_REPRESENTMENT",
+                      riskScore: 85,
+                      riskLevel: "HIGH",
+                      decision: "MANUAL_REVIEW",
+                      reasons: ["Unauthorized transaction claim", "Representment draft submitted with delivery proof"],
+                      metadata: {
+                        eventType: "CHARGEBACK",
+                        disputeId: "CB-9402",
+                        customerId: "CUS-182",
+                        amount: 25000,
+                        previousStatus: "EVIDENCE_DRAFT",
+                        newStatus: "REPRESENTMENT_SUBMITTED",
+                      },
+                    });
+                  } catch (e) {}
+                }}
+                className="px-2.5 py-1 rounded bg-red-500/30 hover:bg-red-500/40 border border-red-500/50 text-[11px] font-bold text-red-200"
+              >
+                Log Dispute Action
+              </button>
+              <div className="text-right">
+                <span className="text-sm font-black text-red-400">₹25,000</span>
+                <span className="text-[10px] text-red-300 block font-bold uppercase">Representment Draft Ready</span>
+              </div>
             </div>
           </div>
 
@@ -77,9 +107,38 @@ export function MerchantReturnsPage() {
               </div>
               <p className="text-[11px] text-slate-400">Reason: Empty box wardrobing return claim</p>
             </div>
-            <div className="text-right">
-              <span className="text-sm font-black text-slate-200">₹12,850</span>
-              <span className="text-[10px] text-emerald-400 block font-bold uppercase">Evidence Submitted</span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={async () => {
+                  try {
+                    await api.postSentinelAuditEvent({
+                      transactionId: "TXN-883910",
+                      merchantId: "MERCHANT-003",
+                      actor: "Merchant Chargeback Lead",
+                      action: "APPROVE_EVIDENCE",
+                      riskScore: 32,
+                      riskLevel: "LOW",
+                      decision: "APPROVE",
+                      reasons: ["Empty box wardrobing return claim", "Evidence approved for chargeback response"],
+                      metadata: {
+                        eventType: "RETURN",
+                        disputeId: "CB-9110",
+                        customerId: "CUS-140",
+                        amount: 12850,
+                        previousStatus: "EVIDENCE_SUBMITTED",
+                        newStatus: "DISPUTE_RESOLVED",
+                      },
+                    });
+                  } catch (e) {}
+                }}
+                className="px-2.5 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-[11px] font-bold text-amber-300"
+              >
+                Log Dispute Action
+              </button>
+              <div className="text-right">
+                <span className="text-sm font-black text-slate-200">₹12,850</span>
+                <span className="text-[10px] text-emerald-400 block font-bold uppercase">Evidence Submitted</span>
+              </div>
             </div>
           </div>
         </div>
