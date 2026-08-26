@@ -6,6 +6,7 @@ import { api, BackendAuditRecord } from "@/lib/api";
 export interface SentinelTransaction {
   id: string;
   amount: number;
+  currency?: string;
   riskScore: number;
   riskType: "Fraud" | "Return" | "Chargeback" | "Abuse";
   riskLevel: "Low" | "Medium" | "High" | "Critical";
@@ -48,6 +49,152 @@ interface SentinelContextType {
 
 const STORAGE_KEY = "nexora_sentinel_shared_state_v3";
 
+const INITIAL_TRANSACTIONS: SentinelTransaction[] = [
+  {
+    id: "TXN-904812",
+    amount: 2450.00,
+    currency: "USD",
+    riskScore: 94,
+    riskType: "Fraud",
+    riskLevel: "Critical",
+    customerName: "Alexander Wright",
+    customerEmail: "alex.w@example.com",
+    detectedAt: "10 mins ago",
+    status: "Action Required",
+    decision: "NONE",
+    refundStatus: "NONE",
+    investigationStatus: "OPEN",
+    location: "Lagos, NG (IP) vs NY, US (Billing)",
+    ipAddress: "194.28.112.44",
+    deviceId: "DEV-MAC-8819",
+    cardBin: "411111 (Visa Infinite)",
+    signals: [
+      "IP location mismatch (Distance > 5,000 miles)",
+      "Velocity spike: 6 transactions in 3 minutes",
+      "Card BIN associated with stolen batch leak #409",
+    ],
+  },
+  {
+    id: "TXN-883910",
+    amount: 1890.50,
+    currency: "USD",
+    riskScore: 88,
+    riskType: "Return",
+    riskLevel: "High",
+    customerName: "Sophia Chen",
+    customerEmail: "sophia.c@example.com",
+    detectedAt: "28 mins ago",
+    status: "Under Review",
+    decision: "NONE",
+    refundStatus: "NONE",
+    investigationStatus: "UNDER_REVIEW",
+    location: "San Francisco, CA, US",
+    ipAddress: "73.162.90.12",
+    deviceId: "DEV-[#IOS-9021]",
+    cardBin: "542418 (Mastercard Platinum)",
+    signals: [
+      "Customer returned 5 high-value electronics items in 7 days",
+      "Serial wardrobing indicator triggered",
+      "Cross-store receipt reuse pattern detected",
+    ],
+  },
+  {
+    id: "TXN-774019",
+    amount: 3200.00,
+    currency: "USD",
+    riskScore: 91,
+    riskType: "Chargeback",
+    riskLevel: "Critical",
+    customerName: "Marcus Vance",
+    customerEmail: "m.vance@example.com",
+    detectedAt: "1 hour ago",
+    status: "Escalated",
+    decision: "NONE",
+    refundStatus: "NONE",
+    investigationStatus: "OPEN",
+    location: "London, UK",
+    ipAddress: "82.165.19.201",
+    deviceId: "DEV-WIN-3301",
+    cardBin: "378282 (Amex Gold)",
+    signals: [
+      "Cardholder initiated 3 friendly fraud claims past 60 days",
+      "Digital goods instant claim threat score: 91/100",
+      "Shipping address changed 4 minutes post-purchase",
+    ],
+  },
+  {
+    id: "TXN-661048",
+    amount: 780.00,
+    currency: "USD",
+    riskScore: 78,
+    riskType: "Abuse",
+    riskLevel: "High",
+    customerName: "Jordan Miller",
+    customerEmail: "j.miller99@example.com",
+    detectedAt: "2 hours ago",
+    status: "Action Required",
+    decision: "NONE",
+    refundStatus: "NONE",
+    investigationStatus: "OPEN",
+    location: "Chicago, IL, US",
+    ipAddress: "107.180.44.11",
+    deviceId: "DEV-ANDROID-110",
+    cardBin: "401200 (Visa Debit)",
+    signals: [
+      "12 accounts created from same IP in 1 hour using promo 'WELCOME50'",
+      "Synthetic identity match score: High",
+      "Referral payout farming suspected",
+    ],
+  },
+  {
+    id: "TXN-559021",
+    amount: 4150.00,
+    currency: "USD",
+    riskScore: 96,
+    riskType: "Fraud",
+    riskLevel: "Critical",
+    customerName: "Elena Rostova",
+    customerEmail: "elena.r@example.com",
+    detectedAt: "3 hours ago",
+    status: "Blocked",
+    decision: "BLOCK_AND_REFUND",
+    refundStatus: "REFUND_INITIATED",
+    investigationStatus: "RESOLVED",
+    location: "Bucharest, RO",
+    ipAddress: "185.220.101.5",
+    deviceId: "DEV-LINUX-901",
+    cardBin: "438857 (Visa Signature)",
+    signals: [
+      "Known Tor exit node proxy detected",
+      "Auto-blocked by Sentinel velocity rule #14",
+      "Mismatched device fingerprint & browser timezone",
+    ],
+  },
+  {
+    id: "TXN-442109",
+    amount: 1250.00,
+    currency: "USD",
+    riskScore: 65,
+    riskType: "Return",
+    riskLevel: "Medium",
+    customerName: "David K.",
+    customerEmail: "david.k@example.com",
+    detectedAt: "4 hours ago",
+    status: "Approved",
+    decision: "APPROVED_BY_MERCHANT",
+    refundStatus: "NONE",
+    investigationStatus: "RESOLVED",
+    location: "Austin, TX, US",
+    ipAddress: "98.209.14.88",
+    deviceId: "DEV-MAC-1120",
+    cardBin: "510510 (Mastercard)",
+    signals: [
+      "Slight return velocity flag, merchant override approved",
+      "Verified customer history: 4 years, $18,000 lifetime value",
+    ],
+  },
+];
+
 const INITIAL_METRICS: SentinelStateMetrics = {
   paymentsBlocked: 14,
   refundsInitiated: 12,
@@ -83,13 +230,34 @@ function mapAuditRecordToTransaction(record: BackendAuditRecord): SentinelTransa
   }
 
   const meta = record.metadata || {};
-  const customerName = meta.customerName || record.actor || record.merchantId || "Merchant Customer";
+
+  // Customer resolution logic (NO hardcoding or fallback to "SENTINEL_AI_ENGINE")
+  let customerName = "Unknown customer";
+  if (meta.customerId) {
+    customerName = meta.customerId;
+  } else if (meta.customerName) {
+    customerName = meta.customerName;
+  } else if (record.actor && record.actor !== "SENTINEL_AI_ENGINE") {
+    customerName = record.actor;
+  } else if (record.merchantId) {
+    customerName = record.merchantId;
+  }
+
   const customerEmail =
     meta.customerEmail ||
     (record.actor && record.actor.includes("@")
       ? record.actor
-      : `${customerName.toLowerCase().replace(/\s+/g, ".")}@example.com`);
-  const amount = typeof meta.amount === "number" ? meta.amount : score * 35 || 2500;
+      : customerName !== "Unknown customer" && !customerName.startsWith("CUST-") && !customerName.startsWith("MERCHANT-")
+      ? `${customerName.toLowerCase().replace(/\s+/g, ".")}@example.com`
+      : `${customerName.toLowerCase()}@nexora.io`);
+
+  // Amount and currency resolution (NO hardcoding or demo multiplication)
+  const rawAmount = meta.amount !== undefined ? meta.amount : meta.transactionAmount;
+  const amount = typeof rawAmount === "number" ? rawAmount : typeof rawAmount === "string" && !isNaN(Number(rawAmount)) ? Number(rawAmount) : 0;
+  const currency = meta.currency || "INR";
+
+  // Payment method resolution (NO defaulting to "Credit Card (Visa)")
+  const paymentMethod = meta.paymentMethod || "Not provided";
 
   const signals =
     Array.isArray(record.reasons) && record.reasons.length > 0
@@ -103,6 +271,7 @@ function mapAuditRecordToTransaction(record: BackendAuditRecord): SentinelTransa
   return {
     id: record.transactionId,
     amount,
+    currency,
     riskScore: score,
     riskType: meta.riskType || (score >= 90 ? "Fraud" : score >= 80 ? "Return" : score >= 70 ? "Chargeback" : "Abuse"),
     riskLevel,
@@ -110,16 +279,16 @@ function mapAuditRecordToTransaction(record: BackendAuditRecord): SentinelTransa
     customerEmail,
     detectedAt: formattedDate,
     timestamp: record.timestamp,
-    paymentMethod: meta.paymentMethod || "Credit Card (Visa)",
+    paymentMethod,
     riskFactors: signals,
     status,
     decision,
     refundStatus: status === "Blocked" ? "REFUND_INITIATED" : "NONE",
     investigationStatus: status === "Approved" || status === "Blocked" ? "RESOLVED" : "OPEN",
-    location: meta.location || "US (Billing) / Remote IP",
+    location: meta.location || meta.ipAddress ? `IP: ${meta.ipAddress || "Remote"}` : "Remote IP",
     ipAddress: meta.ipAddress || "192.168.1.1",
     deviceId: meta.deviceId || "DEV-CLIENT-001",
-    cardBin: meta.cardBin || "411111 (Visa Infinite)",
+    cardBin: meta.cardBin || "N/A",
     signals,
   };
 }
@@ -132,14 +301,14 @@ export const SentinelProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (parsed?.transactions && Array.isArray(parsed.transactions)) {
+        if (parsed?.transactions && Array.isArray(parsed.transactions) && parsed.transactions.length > 0) {
           return parsed.transactions;
         }
       }
     } catch (e) {
       console.warn("Failed to load sentinel state from localStorage:", e);
     }
-    return [];
+    return INITIAL_TRANSACTIONS;
   });
 
   const [metrics, setMetrics] = useState<SentinelStateMetrics>(() => {

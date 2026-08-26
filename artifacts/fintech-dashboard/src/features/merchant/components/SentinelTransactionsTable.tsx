@@ -20,6 +20,18 @@ import {
 } from "@/components/ui/dialog";
 import { useSentinelState, SentinelTransaction } from "../context/SentinelContext";
 
+export const formatAmount = (amount?: number, currency?: string) => {
+  if (amount === undefined || amount === null || isNaN(amount)) return "—";
+  const curr = (currency || "INR").toUpperCase();
+  if (curr === "INR") {
+    return `₹${amount.toLocaleString("en-IN")}`;
+  }
+  if (curr === "USD") {
+    return `$${amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
+  }
+  return `${curr} ${amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+};
+
 export function SentinelTransactionsTable() {
   const { transactions, approveOrder, blockAndRefund } = useSentinelState();
   const [searchTerm, setSearchTerm] = useState("");
@@ -67,6 +79,9 @@ export function SentinelTransactionsTable() {
         return "bg-slate-800 text-slate-300 border-slate-700";
       case "Approved":
         return "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
+      case "Hold":
+      default:
+        return "bg-blue-500/15 text-blue-300 border-blue-500/30";
     }
   };
 
@@ -205,7 +220,7 @@ export function SentinelTransactionsTable() {
 
                   {/* Amount */}
                   <td className="py-3.5 px-3 font-extrabold text-slate-100 font-mono">
-                    ${t.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    {formatAmount(t.amount, t.currency)}
                   </td>
 
                   {/* Risk Score */}
@@ -335,7 +350,7 @@ export function SentinelTransactionsTable() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-900/60 p-3.5 rounded-xl border border-slate-800">
                 <div>
                   <span className="text-[10px] text-slate-400 uppercase block">Amount</span>
-                  <span className="font-extrabold text-white text-sm font-mono">${activeModalTxn.amount.toFixed(2)}</span>
+                  <span className="font-extrabold text-white text-sm font-mono">{formatAmount(activeModalTxn.amount, activeModalTxn.currency)}</span>
                 </div>
                 <div>
                   <span className="text-[10px] text-slate-400 uppercase block">Risk Vector</span>

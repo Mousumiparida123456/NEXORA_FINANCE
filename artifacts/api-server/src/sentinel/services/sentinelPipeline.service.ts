@@ -146,6 +146,15 @@ export class SentinelPipelineService {
 
     // 10. STEP 1I & STEP 7 — Persist Real Audit Log Record
     const { record: auditTrailRecord, auditPersistence } = await AuditStorageService.logEvent(decisionRecord, {
+      transactionId: validatedInput.transactionId,
+      merchantId: validatedInput.merchantId,
+      customerId: validatedInput.customerId,
+      amount: validatedInput.amount,
+      currency: validatedInput.currency,
+      paymentMethod: validatedInput.paymentMethod,
+      ipAddress: validatedInput.ipAddress,
+      deviceId: validatedInput.deviceId,
+      timestamp: validatedInput.timestamp,
       requestId,
       signalsCount: signals.length,
       fraudProbability: modelResult.fraudProbability,
