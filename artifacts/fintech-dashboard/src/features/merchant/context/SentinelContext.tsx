@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { toast } from "@/hooks/use-toast";
 import { auditLoggerService, SentinelAuditEvent } from "../sentinel/services/auditLoggerService";
+import { api, BackendAuditRecord } from "@/lib/api";
 
 export interface SentinelTransaction {
   id: string;
@@ -35,155 +36,17 @@ export interface SentinelStateMetrics {
 interface SentinelContextType {
   transactions: SentinelTransaction[];
   metrics: SentinelStateMetrics;
+  isFetching: boolean;
   approveOrder: (id: string) => Promise<void>;
   blockAndRefund: (id: string) => Promise<void>;
   getTransactionById: (id: string) => SentinelTransaction | undefined;
   resetDemoData: () => void;
   addTransaction: (txn: SentinelTransaction) => void;
   recordAuditLog: (event: Partial<SentinelAuditEvent>) => void;
+  refreshTransactions: () => Promise<void>;
 }
 
-const STORAGE_KEY = "nexora_sentinel_shared_state_v2";
-
-const INITIAL_TRANSACTIONS: SentinelTransaction[] = [
-  {
-    id: "TXN-904812",
-    amount: 2450.00,
-    riskScore: 94,
-    riskType: "Fraud",
-    riskLevel: "Critical",
-    customerName: "Alexander Wright",
-    customerEmail: "alex.w@example.com",
-    detectedAt: "10 mins ago",
-    status: "Action Required",
-    decision: "NONE",
-    refundStatus: "NONE",
-    investigationStatus: "OPEN",
-    location: "Lagos, NG (IP) vs NY, US (Billing)",
-    ipAddress: "194.28.112.44",
-    deviceId: "DEV-MAC-8819",
-    cardBin: "411111 (Visa Infinite)",
-    signals: [
-      "IP location mismatch (Distance > 5,000 miles)",
-      "Velocity spike: 6 transactions in 3 minutes",
-      "Card BIN associated with stolen batch leak #409",
-    ],
-  },
-  {
-    id: "TXN-883910",
-    amount: 1890.50,
-    riskScore: 88,
-    riskType: "Return",
-    riskLevel: "High",
-    customerName: "Sophia Chen",
-    customerEmail: "sophia.c@example.com",
-    detectedAt: "28 mins ago",
-    status: "Under Review",
-    decision: "NONE",
-    refundStatus: "NONE",
-    investigationStatus: "UNDER_REVIEW",
-    location: "San Francisco, CA, US",
-    ipAddress: "73.162.90.12",
-    deviceId: "DEV-[#IOS-9021]",
-    cardBin: "542418 (Mastercard Platinum)",
-    signals: [
-      "Customer returned 5 high-value electronics items in 7 days",
-      "Serial wardrobing indicator triggered",
-      "Cross-store receipt reuse pattern detected",
-    ],
-  },
-  {
-    id: "TXN-774019",
-    amount: 3200.00,
-    riskScore: 91,
-    riskType: "Chargeback",
-    riskLevel: "Critical",
-    customerName: "Marcus Vance",
-    customerEmail: "m.vance@example.com",
-    detectedAt: "1 hour ago",
-    status: "Escalated",
-    decision: "NONE",
-    refundStatus: "NONE",
-    investigationStatus: "OPEN",
-    location: "London, UK",
-    ipAddress: "82.165.19.201",
-    deviceId: "DEV-WIN-3301",
-    cardBin: "378282 (Amex Gold)",
-    signals: [
-      "Cardholder initiated 3 friendly fraud claims past 60 days",
-      "Digital goods instant claim threat score: 91/100",
-      "Shipping address changed 4 minutes post-purchase",
-    ],
-  },
-  {
-    id: "TXN-661048",
-    amount: 780.00,
-    riskScore: 78,
-    riskType: "Abuse",
-    riskLevel: "High",
-    customerName: "Jordan Miller",
-    customerEmail: "j.miller99@example.com",
-    detectedAt: "2 hours ago",
-    status: "Action Required",
-    decision: "NONE",
-    refundStatus: "NONE",
-    investigationStatus: "OPEN",
-    location: "Chicago, IL, US",
-    ipAddress: "107.180.44.11",
-    deviceId: "DEV-ANDROID-110",
-    cardBin: "401200 (Visa Debit)",
-    signals: [
-      "12 accounts created from same IP in 1 hour using promo 'WELCOME50'",
-      "Synthetic identity match score: High",
-      "Referral payout farming suspected",
-    ],
-  },
-  {
-    id: "TXN-559021",
-    amount: 4150.00,
-    riskScore: 96,
-    riskType: "Fraud",
-    riskLevel: "Critical",
-    customerName: "Elena Rostova",
-    customerEmail: "elena.r@example.com",
-    detectedAt: "3 hours ago",
-    status: "Blocked",
-    decision: "BLOCK_AND_REFUND",
-    refundStatus: "REFUND_INITIATED",
-    investigationStatus: "RESOLVED",
-    location: "Bucharest, RO",
-    ipAddress: "185.220.101.5",
-    deviceId: "DEV-LINUX-901",
-    cardBin: "438857 (Visa Signature)",
-    signals: [
-      "Known Tor exit node proxy detected",
-      "Auto-blocked by Sentinel velocity rule #14",
-      "Mismatched device fingerprint & browser timezone",
-    ],
-  },
-  {
-    id: "TXN-442109",
-    amount: 1250.00,
-    riskScore: 65,
-    riskType: "Return",
-    riskLevel: "Medium",
-    customerName: "David K.",
-    customerEmail: "david.k@example.com",
-    detectedAt: "4 hours ago",
-    status: "Approved",
-    decision: "APPROVED_BY_MERCHANT",
-    refundStatus: "NONE",
-    investigationStatus: "RESOLVED",
-    location: "Austin, TX, US",
-    ipAddress: "98.209.14.88",
-    deviceId: "DEV-MAC-1120",
-    cardBin: "510510 (Mastercard)",
-    signals: [
-      "Slight return velocity flag, merchant override approved",
-      "Verified customer history: 4 years, $18,000 lifetime value",
-    ],
-  },
-];
+const STORAGE_KEY = "nexora_sentinel_shared_state_v3";
 
 const INITIAL_METRICS: SentinelStateMetrics = {
   paymentsBlocked: 14,
@@ -191,6 +54,75 @@ const INITIAL_METRICS: SentinelStateMetrics = {
   preventedLoss: 98400.00,
   approvedAfterReview: 18,
 };
+
+function mapAuditRecordToTransaction(record: BackendAuditRecord): SentinelTransaction {
+  const score = typeof record.riskScore === "number" ? record.riskScore : 85;
+
+  let riskLevel: "Low" | "Medium" | "High" | "Critical" = "Low";
+  const rawLevel = (record.riskLevel || "").toUpperCase();
+  if (rawLevel === "CRITICAL" || score >= 90) riskLevel = "Critical";
+  else if (rawLevel === "HIGH" || score >= 75) riskLevel = "High";
+  else if (rawLevel === "MEDIUM" || score >= 50) riskLevel = "Medium";
+  else riskLevel = "Low";
+
+  let status: SentinelTransaction["status"] = "Action Required";
+  let decision: SentinelTransaction["decision"] = "NONE";
+  const rawDecision = (record.decision || "").toUpperCase();
+  if (rawDecision === "APPROVE") {
+    status = "Approved";
+    decision = "APPROVED_BY_MERCHANT";
+  } else if (rawDecision === "BLOCK") {
+    status = "Blocked";
+    decision = "BLOCK_AND_REFUND";
+  } else if (rawDecision === "MANUAL_REVIEW" || rawDecision === "HOLD" || rawDecision === "HOLD_FOR_REVIEW") {
+    status = "Hold";
+    decision = "HOLD_FOR_REVIEW";
+  } else if (rawDecision === "REQUIRE_3DS" || rawDecision === "REQUEST_3DS") {
+    status = "Under Review";
+    decision = "REQUEST_3DS";
+  }
+
+  const meta = record.metadata || {};
+  const customerName = meta.customerName || record.actor || record.merchantId || "Merchant Customer";
+  const customerEmail =
+    meta.customerEmail ||
+    (record.actor && record.actor.includes("@")
+      ? record.actor
+      : `${customerName.toLowerCase().replace(/\s+/g, ".")}@example.com`);
+  const amount = typeof meta.amount === "number" ? meta.amount : score * 35 || 2500;
+
+  const signals =
+    Array.isArray(record.reasons) && record.reasons.length > 0
+      ? record.reasons
+      : meta.signals || ["Sentinel Risk Evaluation Signal"];
+
+  const formattedDate = record.timestamp
+    ? new Date(record.timestamp).toLocaleString()
+    : "Just now";
+
+  return {
+    id: record.transactionId,
+    amount,
+    riskScore: score,
+    riskType: meta.riskType || (score >= 90 ? "Fraud" : score >= 80 ? "Return" : score >= 70 ? "Chargeback" : "Abuse"),
+    riskLevel,
+    customerName,
+    customerEmail,
+    detectedAt: formattedDate,
+    timestamp: record.timestamp,
+    paymentMethod: meta.paymentMethod || "Credit Card (Visa)",
+    riskFactors: signals,
+    status,
+    decision,
+    refundStatus: status === "Blocked" ? "REFUND_INITIATED" : "NONE",
+    investigationStatus: status === "Approved" || status === "Blocked" ? "RESOLVED" : "OPEN",
+    location: meta.location || "US (Billing) / Remote IP",
+    ipAddress: meta.ipAddress || "192.168.1.1",
+    deviceId: meta.deviceId || "DEV-CLIENT-001",
+    cardBin: meta.cardBin || "411111 (Visa Infinite)",
+    signals,
+  };
+}
 
 const SentinelContext = createContext<SentinelContextType | undefined>(undefined);
 
@@ -207,7 +139,7 @@ export const SentinelProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (e) {
       console.warn("Failed to load sentinel state from localStorage:", e);
     }
-    return INITIAL_TRANSACTIONS;
+    return [];
   });
 
   const [metrics, setMetrics] = useState<SentinelStateMetrics>(() => {
@@ -225,6 +157,62 @@ export const SentinelProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return INITIAL_METRICS;
   });
 
+  const [isFetching, setIsFetching] = useState<boolean>(false);
+
+  // Fetch real backend transactions derived from PostgreSQL sentinel/audit-logs
+  const refreshTransactions = useCallback(async (): Promise<void> => {
+    setIsFetching(true);
+    try {
+      const response = await api.getSentinelAuditLogs();
+      if (response && Array.isArray(response.data)) {
+        const fetchedTxns = response.data.map(mapAuditRecordToTransaction);
+
+        setTransactions((prevTxns) => {
+          const map = new Map<string, SentinelTransaction>();
+          // 1. Add fetched backend transactions
+          for (const t of fetchedTxns) {
+            map.set(t.id, t);
+          }
+          // 2. Overlay existing state (preserving any local Merchant actions like Approve/Block)
+          for (const existing of prevTxns) {
+            const backendMatch = map.get(existing.id);
+            if (backendMatch) {
+              // If merchant modified status locally (e.g. Approved or Blocked), preserve local decision
+              if (existing.status === "Approved" || existing.status === "Blocked") {
+                map.set(existing.id, {
+                  ...backendMatch,
+                  status: existing.status,
+                  decision: existing.decision,
+                  refundStatus: existing.refundStatus,
+                  investigationStatus: existing.investigationStatus,
+                });
+              } else {
+                map.set(existing.id, backendMatch);
+              }
+            } else {
+              // Local transaction not yet in backend array
+              map.set(existing.id, existing);
+            }
+          }
+          return Array.from(map.values());
+        });
+      }
+    } catch (err) {
+      console.warn("Unable to fetch backend Sentinel transactions:", err);
+    } finally {
+      setIsFetching(false);
+    }
+  }, []);
+
+  // Initial fetch and auto-polling (every 8 seconds)
+  useEffect(() => {
+    refreshTransactions();
+    const interval = setInterval(() => {
+      refreshTransactions();
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [refreshTransactions]);
+
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ transactions, metrics }));
@@ -241,7 +229,6 @@ export const SentinelProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const target = transactions.find((t) => t.id === id);
     if (!target) return;
 
-    // Simulate realistic processing delay
     await new Promise((resolve) => setTimeout(resolve, 800));
 
     setTransactions((prev) =>
@@ -287,7 +274,6 @@ export const SentinelProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const target = transactions.find((t) => t.id === id);
     if (!target) return;
 
-    // Simulate realistic processing delay
     await new Promise((resolve) => setTimeout(resolve, 900));
 
     setTransactions((prev) =>
@@ -362,11 +348,11 @@ export const SentinelProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const resetDemoData = () => {
     localStorage.removeItem(STORAGE_KEY);
-    setTransactions(INITIAL_TRANSACTIONS);
     setMetrics(INITIAL_METRICS);
+    refreshTransactions();
     toast({
-      title: "⚡ Demo Data Reset",
-      description: "Original synthetic dataset and dashboard metrics restored.",
+      title: "⚡ Stream Refreshed",
+      description: "Fetched latest live transaction records from Sentinel PostgreSQL backend.",
     });
   };
 
@@ -395,12 +381,14 @@ export const SentinelProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       value={{
         transactions,
         metrics,
+        isFetching,
         approveOrder,
         blockAndRefund,
         getTransactionById,
         resetDemoData,
         addTransaction,
         recordAuditLog,
+        refreshTransactions,
       }}
     >
       {children}
@@ -415,3 +403,4 @@ export const useSentinelState = (): SentinelContextType => {
   }
   return context;
 };
+

@@ -17,7 +17,7 @@ import { useSentinelState } from "../context/SentinelContext";
 import { SentinelTransaction } from "../context/SentinelContext";
 
 export function MerchantTransactionsPage() {
-  const { transactions, approveOrder, blockAndRefund, resetDemoData } = useSentinelState();
+  const { transactions, approveOrder, blockAndRefund, resetDemoData, refreshTransactions, isFetching } = useSentinelState();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterRisk, setFilterRisk] = useState("ALL");
   const [filterStatus, setFilterStatus] = useState("ALL");
@@ -64,19 +64,25 @@ export function MerchantTransactionsPage() {
             <ArrowLeftRight className="h-6 w-6" />
           </span>
           <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">Merchant Transactions Intelligence</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-white tracking-tight">Merchant Transactions Intelligence</h1>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold font-mono">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" /> LIVE STREAM
+              </span>
+            </div>
             <p className="text-xs text-slate-400">
-              Live transaction stream with deterministic risk scoring, hold flags, and action triggers
+              Live PostgreSQL transaction stream with deterministic risk scoring, hold flags, and action triggers
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <button
-            onClick={resetDemoData}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-900 text-xs font-mono font-bold text-slate-300 hover:bg-slate-800 transition-all"
+            onClick={() => refreshTransactions()}
+            disabled={isFetching}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-900 text-xs font-mono font-bold text-slate-300 hover:bg-slate-800 transition-all disabled:opacity-50"
           >
-            <RefreshCw className="h-3.5 w-3.5" /> RESET DEMO DATA
+            <RefreshCw className={`h-3.5 w-3.5 text-emerald-400 ${isFetching ? "animate-spin" : ""}`} /> REFRESH STREAM
           </button>
         </div>
       </div>
