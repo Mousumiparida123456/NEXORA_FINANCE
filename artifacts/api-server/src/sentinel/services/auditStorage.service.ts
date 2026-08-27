@@ -140,6 +140,8 @@ export class AuditStorageService {
   public static async getRecentLogs(
     limit: number = 20
   ): Promise<AuditTrailRecord[]> {
+    let dbFormatted: AuditTrailRecord[] = [];
+
     try {
       if (db) {
         console.log("🔎 [AUDIT FETCH] Querying PostgreSQL...");
@@ -154,25 +156,23 @@ export class AuditStorageService {
           `🔎 [AUDIT FETCH] PostgreSQL returned ${dbLogs.length} records`
         );
 
-        if (dbLogs.length > 0) {
-          return dbLogs.map((log) => ({
-            auditId: log.auditId,
-            transactionId: log.transactionId,
-            merchantId: log.merchantId,
-            actor: log.actor,
-            action: log.action as any,
-            riskScore: log.riskScore,
-            riskLevel: log.riskLevel,
-            decision: log.decision,
-            reasons: (log.reasons as string[]) || [],
-            modelVersion: log.modelVersion,
-            policyVersion: log.policyVersion,
-            timestamp: log.timestamp
-              ? new Date(log.timestamp).toISOString()
-              : new Date().toISOString(),
-            metadata: (log.metadata as Record<string, any>) || {},
-          }));
-        }
+        dbFormatted = dbLogs.map((log) => ({
+          auditId: log.auditId,
+          transactionId: log.transactionId,
+          merchantId: log.merchantId,
+          actor: log.actor,
+          action: log.action as any,
+          riskScore: log.riskScore,
+          riskLevel: log.riskLevel,
+          decision: log.decision,
+          reasons: (log.reasons as string[]) || [],
+          modelVersion: log.modelVersion,
+          policyVersion: log.policyVersion,
+          timestamp: log.timestamp
+            ? new Date(log.timestamp).toISOString()
+            : new Date().toISOString(),
+          metadata: (log.metadata as Record<string, any>) || {},
+        }));
       }
     } catch (err: any) {
       console.error(
@@ -188,10 +188,21 @@ export class AuditStorageService {
       );
     }
 
-    console.log(
-      `🧠 [AUDIT FETCH] Falling back to memory: ${this.inMemoryAuditBuffer.length} records`
+    // Merge PostgreSQL records with in-memory ring buffer (deduplicate by transactionId/auditId)
+    const map = new Map<string, AuditTrailRecord>();
+    for (const item of dbFormatted) {
+      map.set(item.transactionId || item.auditId, item);
+    }
+    for (const item of this.inMemoryAuditBuffer) {
+      if (!map.has(item.transactionId || item.auditId)) {
+        map.set(item.transactionId || item.auditId, item);
+      }
+    }
+
+    const mergedLogs = Array.from(map.values()).sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
 
-    return this.inMemoryAuditBuffer.slice(0, limit);
+    return mergedLogs.slice(0, limit);
   }
 }

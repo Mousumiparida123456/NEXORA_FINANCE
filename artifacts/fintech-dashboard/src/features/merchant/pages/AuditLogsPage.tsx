@@ -268,7 +268,7 @@ export function AuditLogsPage() {
         <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
           <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">3DS Verification Step-Ups</span>
           <p className="text-2xl font-black font-mono text-blue-400">
-            {loading ? "..." : logs.filter((l) => l.decision?.toUpperCase() === "REQUIRE_3DS").length}
+            {loading ? "..." : logs.filter((l) => ["REQUIRE_3DS", "REQUEST_3DS"].includes(l.decision?.toUpperCase() || "")).length}
           </p>
           <p className="text-[10px] text-slate-500">Identity Challenges</p>
         </div>
@@ -276,7 +276,7 @@ export function AuditLogsPage() {
         <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
           <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Critical Fraud Blocks</span>
           <p className="text-2xl font-black font-mono text-rose-400">
-            {loading ? "..." : logs.filter((l) => l.decision?.toUpperCase() === "BLOCK").length}
+            {loading ? "..." : logs.filter((l) => ["BLOCK", "MANUAL_REVIEW", "HOLD", "HOLD_FOR_REVIEW"].includes(l.decision?.toUpperCase() || "")).length}
           </p>
           <p className="text-[10px] text-slate-500">Interception Records</p>
         </div>

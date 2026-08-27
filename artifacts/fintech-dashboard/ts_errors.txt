@@ -1,0 +1,40 @@
+src/components/layout/MobileNav.tsx(38,12): error TS2604: JSX element type 'Icon' does not have any construct or call signatures.
+src/components/layout/MobileNav.tsx(38,12): error TS2786: 'Icon' cannot be used as a JSX component.
+  Its type 'ElementType<any, keyof IntrinsicElements>' is not a valid JSX element type.
+    Type 'number' is not assignable to type 'ElementType'.
+src/components/layout/Sidebar.tsx(61,10): error TS2604: JSX element type 'Icon' does not have any construct or call signatures.
+src/components/layout/Sidebar.tsx(61,10): error TS2786: 'Icon' cannot be used as a JSX component.
+  Its type 'ElementType<any, keyof IntrinsicElements>' is not a valid JSX element type.
+    Type 'number' is not assignable to type 'ElementType'.
+src/components/transactions/CategoryIcon.tsx(67,8): error TS2604: JSX element type 'Icon' does not have any construct or call signatures.
+src/components/transactions/CategoryIcon.tsx(67,8): error TS2786: 'Icon' cannot be used as a JSX component.
+  Its type 'ElementType<any, keyof IntrinsicElements>' is not a valid JSX element type.
+    Type 'number' is not assignable to type 'ElementType'.
+src/pages/Goals.tsx(404,22): error TS2604: JSX element type 'Icon' does not have any construct or call signatures.
+src/pages/Goals.tsx(404,22): error TS2786: 'Icon' cannot be used as a JSX component.
+  Its type 'ElementType<any, keyof IntrinsicElements>' is not a valid JSX element type.
+    Type 'number' is not assignable to type 'ElementType'.
+src/pages/Notifications.tsx(129,10): error TS2604: JSX element type 'Icon' does not have any construct or call signatures.
+src/pages/Notifications.tsx(129,10): error TS2786: 'Icon' cannot be used as a JSX component.
+  Its type 'ElementType<any, keyof IntrinsicElements>' is not a valid JSX element type.
+    Type 'number' is not assignable to type 'ElementType'.
+src/pages/Notifications.tsx(361,16): error TS2604: JSX element type 'tab.icon' does not have any construct or call signatures.
+src/pages/Notifications.tsx(361,16): error TS2786: 'tab.icon' cannot be used as a JSX component.
+  Its type 'ElementType<any, keyof IntrinsicElements>' is not a valid JSX element type.
+    Type 'number' is not assignable to type 'ElementType'.
+src/pages/Settings.tsx(126,10): error TS2604: JSX element type 'Icon' does not have any construct or call signatures.
+src/pages/Settings.tsx(126,10): error TS2786: 'Icon' cannot be used as a JSX component.
+  Its type 'ElementType<any, keyof IntrinsicElements>' is not a valid JSX element type.
+    Type 'number' is not assignable to type 'ElementType'.
+src/pages/Settings.tsx(588,18): error TS2604: JSX element type 'opt.icon' does not have any construct or call signatures.
+src/pages/Settings.tsx(588,18): error TS2786: 'opt.icon' cannot be used as a JSX component.
+  Its type 'ElementType<any, keyof IntrinsicElements>' is not a valid JSX element type.
+    Type 'number' is not assignable to type 'ElementType'.
+src/pages/Settings.tsx(1041,20): error TS2604: JSX element type 'cat.icon' does not have any construct or call signatures.
+src/pages/Settings.tsx(1041,20): error TS2786: 'cat.icon' cannot be used as a JSX component.
+  Its type 'ElementType<any, keyof IntrinsicElements>' is not a valid JSX element type.
+    Type 'number' is not assignable to type 'ElementType'.
+src/pages/Settings.tsx(1234,14): error TS2604: JSX element type 'tab.icon' does not have any construct or call signatures.
+src/pages/Settings.tsx(1234,14): error TS2786: 'tab.icon' cannot be used as a JSX component.
+  Its type 'ElementType<any, keyof IntrinsicElements>' is not a valid JSX element type.
+    Type 'number' is not assignable to type 'ElementType'.

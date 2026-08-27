@@ -38,8 +38,10 @@ export const TransactionEvaluationSchema = z.object({
   paymentMethod: z.string().max(64, "paymentMethod exceeds maximum 64 characters").optional(),
 
   timestamp: z
-    .string({ required_error: "Timestamp is required" })
-    .refine(isIsoTimestamp, { message: "Timestamp must be a valid ISO 8601 string" }),
+    .string()
+    .refine(isIsoTimestamp, { message: "Timestamp must be a valid ISO 8601 string" })
+    .optional()
+    .default(() => new Date().toISOString()),
 
   // Numeric risk input parameters — Must reject NaN, Infinity, and out-of-range values
   accountAgeDays: z.number().finite("accountAgeDays must be a finite number").min(0, "accountAgeDays cannot be negative").optional().default(180),
