@@ -12,6 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useDashboard } from "@/lib/dashboard-context";
 import { MerchantAccessModal } from "./MerchantAccessModal";
+import { api } from "@/lib/api";
 
 const STORAGE_KEY = "nexora.active-workspace";
 
@@ -25,14 +26,28 @@ export function WorkspaceSwitcher({ className }: { className?: string }) {
     localStorage.setItem(STORAGE_KEY, isMerchant ? "merchant" : "personal");
   }, [isMerchant]);
 
-  const selectWorkspace = (workspace: "personal" | "merchant") => {
-    if (workspace === "merchant") {
-      const userRole = user?.role || "PERSONAL_USER";
-      if (userRole === "PERSONAL_USER") {
+  const selectWorkspace = async (workspace: "personal" | "merchant") => {
+    const targetRole = workspace === "merchant" ? "MERCHANT_USER" : "PERSONAL_USER";
+    const currentRole = user?.role || "PERSONAL_USER";
+
+    if (currentRole !== targetRole) {
+      try {
+        const res = await api.switchWorkspace(targetRole);
+        if (res && res.success) {
+          localStorage.setItem(STORAGE_KEY, workspace);
+          window.location.href = workspace === "merchant" ? "/merchant" : "/dashboard";
+          return;
+        }
+      } catch (e) {
+        console.warn("Seamless workspace switch fallback:", e);
+      }
+
+      if (workspace === "merchant") {
         setShowAccessModal(true);
         return;
       }
     }
+
     localStorage.setItem(STORAGE_KEY, workspace);
     setLocation(workspace === "merchant" ? "/merchant" : "/dashboard");
   };

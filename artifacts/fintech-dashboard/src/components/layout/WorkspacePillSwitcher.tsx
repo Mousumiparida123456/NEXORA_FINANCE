@@ -12,25 +12,38 @@ export interface WorkspacePillSwitcherProps {
   size?: "sm" | "md" | "lg";
 }
 
+import { api } from "@/lib/api";
+
 export function WorkspacePillSwitcher({ className, size = "md" }: WorkspacePillSwitcherProps) {
   const [location, setLocation] = useLocation();
   const { user } = useDashboard();
   const [showAccessModal, setShowAccessModal] = useState(false);
   const isMerchant = location === "/merchant" || location.startsWith("/merchant/");
 
-  const selectWorkspace = (workspace: "personal" | "merchant") => {
-    if (workspace === "merchant" && !isMerchant) {
-      const userRole = user?.role || "PERSONAL_USER";
-      if (userRole === "PERSONAL_USER") {
+  const selectWorkspace = async (workspace: "personal" | "merchant") => {
+    const targetRole = workspace === "merchant" ? "MERCHANT_USER" : "PERSONAL_USER";
+    const currentRole = user?.role || "PERSONAL_USER";
+
+    if (currentRole !== targetRole) {
+      try {
+        const res = await api.switchWorkspace(targetRole);
+        if (res && res.success) {
+          localStorage.setItem(STORAGE_KEY, workspace);
+          window.location.href = workspace === "merchant" ? "/merchant" : "/dashboard";
+          return;
+        }
+      } catch (e) {
+        console.warn("Seamless workspace pill switch fallback:", e);
+      }
+
+      if (workspace === "merchant") {
         setShowAccessModal(true);
         return;
       }
-      localStorage.setItem(STORAGE_KEY, "merchant");
-      setLocation("/merchant");
-    } else if (workspace === "personal" && isMerchant) {
-      localStorage.setItem(STORAGE_KEY, "personal");
-      setLocation("/dashboard");
     }
+
+    localStorage.setItem(STORAGE_KEY, workspace);
+    setLocation(workspace === "merchant" ? "/merchant" : "/dashboard");
   };
 
   const isSm = size === "sm";

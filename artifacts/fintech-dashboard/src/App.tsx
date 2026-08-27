@@ -236,7 +236,7 @@ function Router({ authStatus, userRole }: { authStatus: AuthStatus; userRole: st
   }
 
   const loginEntry = () =>
-    authStatus === "authenticated" ? (
+    authStatus === "authenticated" && !window.location.search.includes("switch=true") && !window.location.search.includes("workspace=") ? (
       <Redirect to={userRole === "MERCHANT_USER" || userRole === "ADMIN" ? "/merchant" : "/dashboard"} />
     ) : (
       <Login />
@@ -310,6 +310,12 @@ function App() {
     const isLoginRoute = url.pathname === "/login" || url.pathname === "/";
     const oauthToken = url.searchParams.get("token");
     const oauthError = url.searchParams.get("error");
+    const isSwitching = url.searchParams.get("switch") === "true";
+    const targetWorkspace = url.searchParams.get("workspace") || url.searchParams.get("role");
+
+    if (isSwitching) {
+      api.clearAccessToken();
+    }
 
     if (oauthToken && isLoginRoute) {
       api.setAccessToken(oauthToken);
@@ -325,10 +331,10 @@ function App() {
       .getCurrentUser()
       .then((user) => {
         if (!isMounted) return;
-        if (user) {
+        if (user && !isSwitching) {
           setAuthStatus("authenticated");
           setUserRole(user.role || "PERSONAL_USER");
-          if (oauthToken || window.location.pathname === "/login") {
+          if (oauthToken || (window.location.pathname === "/login" && !targetWorkspace)) {
             const dest = user.role === "MERCHANT_USER" || user.role === "ADMIN" ? "/merchant" : "/dashboard";
             window.location.replace(dest);
           }

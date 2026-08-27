@@ -19,9 +19,18 @@ export function Login() {
     if (params.get("registered") === "true") {
       setSuccessMessage("Account created successfully. Please sign in.");
     }
+    const prefilledEmail = params.get("email");
+    if (prefilledEmail) {
+      setEmail(prefilledEmail);
+    }
+    if (params.get("switch") === "true") {
+      api.clearAccessToken();
+    }
     const targetW = params.get("workspace") || params.get("role");
     if (targetW === "merchant" || targetW === "MERCHANT" || targetW === "MERCHANT_USER") {
       setWorkspace("MERCHANT_USER");
+    } else if (targetW === "personal" || targetW === "PERSONAL" || targetW === "PERSONAL_USER") {
+      setWorkspace("PERSONAL_USER");
     } else {
       const active = localStorage.getItem("nexora.active-workspace");
       if (active === "merchant") {
@@ -44,6 +53,8 @@ export function Login() {
     try {
       const result = await api.login({ email, password, role: workspace, workspace });
       const userRole = result.user?.role || workspace || "PERSONAL_USER";
+
+      localStorage.setItem("nexora.active-workspace", userRole === "MERCHANT_USER" ? "merchant" : "personal");
 
       // Role-based redirection logic
       if (userRole === "MERCHANT_USER" || userRole === "ADMIN") {

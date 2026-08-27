@@ -9,6 +9,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+import { useDashboard } from "@/lib/dashboard-context";
+
 interface MerchantAccessModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -16,15 +18,18 @@ interface MerchantAccessModalProps {
 
 export function MerchantAccessModal({ isOpen, onClose }: MerchantAccessModalProps) {
   const [, setLocation] = useLocation();
+  const { user } = useDashboard();
 
   const handleCreateMerchantAccount = () => {
     onClose();
-    setLocation("/register?role=merchant");
+    const userEmail = user?.email ? `&email=${encodeURIComponent(user.email)}` : "";
+    window.location.href = `/register?role=merchant${userEmail}`;
   };
 
   const handleSignInMerchantAccount = () => {
     onClose();
-    setLocation("/login");
+    const userEmail = user?.email ? `&email=${encodeURIComponent(user.email)}` : "";
+    window.location.href = `/login?workspace=merchant&switch=true${userEmail}`;
   };
 
   return (

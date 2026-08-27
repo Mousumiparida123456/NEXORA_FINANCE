@@ -3,16 +3,26 @@ import { Link, useLocation } from "wouter";
 import { PieChart, ShieldCheck, ArrowRight, Sparkles } from "lucide-react";
 import { useDashboard } from "@/lib/dashboard-context";
 import { MerchantAccessModal } from "@/components/layout/MerchantAccessModal";
+import { api } from "@/lib/api";
 
 export function WorkspacesPage() {
   const { user } = useDashboard();
   const [, setLocation] = useLocation();
   const [showAccessModal, setShowAccessModal] = useState(false);
 
-  const handleSelectMerchant = (e: React.MouseEvent) => {
+  const handleSelectMerchant = async (e: React.MouseEvent) => {
     e.preventDefault();
     const userRole = user?.role || "PERSONAL_USER";
     if (userRole === "PERSONAL_USER") {
+      try {
+        const res = await api.switchWorkspace("MERCHANT_USER");
+        if (res && res.success) {
+          window.location.href = "/merchant";
+          return;
+        }
+      } catch (err) {
+        console.warn("WorkspacesPage seamless switch fallback:", err);
+      }
       setShowAccessModal(true);
       return;
     }

@@ -197,6 +197,19 @@ class ApiClient {
     return res;
   }
 
+  async switchWorkspace(targetRole: "PERSONAL_USER" | "MERCHANT_USER"): Promise<{ success: boolean; user?: AuthUser; accessToken?: string; message?: string }> {
+    const res = await this.post<{ success: boolean; user?: AuthUser; accessToken?: string; message?: string }>("/auth/switch-workspace", { targetRole });
+    if (res?.user && res.accessToken) {
+      this.setAccessToken(res.accessToken);
+      try {
+        window.localStorage.setItem("nexora_current_user", JSON.stringify(res.user));
+      } catch (e) {
+        console.warn("Failed to set current user on workspace switch:", e);
+      }
+    }
+    return res;
+  }
+
   async register(data: any): Promise<{ success: boolean; user?: AuthUser; message?: string }> {
     const res = await this.post<{ success: boolean; message?: string; user?: AuthUser }>("/auth/register", data);
     this.clearAccessToken();

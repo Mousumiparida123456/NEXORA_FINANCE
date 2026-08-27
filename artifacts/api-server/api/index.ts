@@ -580,6 +580,65 @@ app.post(["/api/v1/auth/login", "/api/auth/login", "/auth/login"], loginLimiter,
   }
 });
 
+app.post(["/api/v1/auth/switch-workspace", "/api/auth/switch-workspace", "/auth/switch-workspace"], async (req, res) => {
+  const token = getBearerOrCookieToken(req);
+  const payload = AuthService.verifyAccessToken(token);
+  if (!payload || !payload.email) {
+    return res.status(401).json({ success: false, message: "Unauthorized. Please sign in." });
+  }
+
+  const { targetRole: rawTargetRole, role: rawRole } = req.body;
+  const rawRoleInput = String(rawTargetRole || rawRole || "").toUpperCase().trim();
+  const targetRole = (rawRoleInput === "MERCHANT" || rawRoleInput === "MERCHANT_USER") ? "MERCHANT_USER" : "PERSONAL_USER";
+
+  const cleanEmail = payload.email.trim().toLowerCase();
+
+  try {
+    let user: any = await db.query.users.findFirst({
+      where: sql`LOWER(${users.email}) = ${cleanEmail} AND ${users.role} = ${targetRole}`
+    });
+
+    if (!user) {
+      if (cleanEmail === "demo@nexora.finance" && targetRole === "PERSONAL_USER") {
+        user = { id: 999, email: cleanEmail, firstName: "Personal", lastName: "User", role: "PERSONAL_USER" };
+      } else if ((cleanEmail === "merchant@nexora.finance" || cleanEmail === "demo@nexora.local") && targetRole === "MERCHANT_USER") {
+        user = { id: 998, email: cleanEmail, firstName: "Merchant", lastName: "Sentinel", role: "MERCHANT_USER", demoMode: true };
+      } else if (inMemoryUsers.has(`${cleanEmail}:${targetRole}`)) {
+        const memUser = inMemoryUsers.get(`${cleanEmail}:${targetRole}`)!;
+        user = { id: memUser.id, email: memUser.email, firstName: memUser.firstName, lastName: memUser.lastName, role: memUser.role };
+      }
+    }
+
+    if (!user) {
+      const notFoundMsg = targetRole === "MERCHANT_USER"
+        ? "No Merchant Sentinel account exists for this email. Please create a Merchant account."
+        : "No Personal account exists for this email. Please create a Personal account.";
+      return res.status(404).json({ success: false, message: notFoundMsg, error: notFoundMsg });
+    }
+
+    const tokens = AuthService.generateTokens({ userId: user.id, email: user.email, role: targetRole });
+    res.cookie("nexora_access", tokens.accessToken, { httpOnly: true, secure: COOKIE_SECURE, sameSite: "lax", maxAge: 900000, path: "/" });
+    res.cookie("nexora_refresh", tokens.refreshToken, { httpOnly: true, secure: COOKIE_SECURE, sameSite: "lax", maxAge: 604800000, path: "/" });
+    res.cookie("nexora_session", "active", { maxAge: 604800000, path: "/" });
+
+    return res.json({
+      success: true,
+      authenticated: true,
+      user: {
+        id: user.id.toString(),
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: targetRole,
+        demoMode: Boolean(user.demoMode)
+      },
+      accessToken: tokens.accessToken
+    });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: "Workspace switch failed", error: error?.message });
+  }
+});
+
 app.post(["/api/v1/auth/logout", "/api/auth/logout", "/auth/logout"], (req, res) => {
   res.clearCookie("nexora_access", { path: "/" });
   res.clearCookie("nexora_refresh", { path: "/" });

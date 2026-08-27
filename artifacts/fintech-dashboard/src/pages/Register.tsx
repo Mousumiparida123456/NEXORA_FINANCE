@@ -21,6 +21,10 @@ export function Register() {
     if (requestedRole === "merchant" || requestedRole === "MERCHANT" || requestedRole === "MERCHANT_USER") {
       setRole("MERCHANT_USER");
     }
+    const prefilledEmail = params.get("email");
+    if (prefilledEmail) {
+      setEmail(prefilledEmail);
+    }
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -68,7 +72,8 @@ export function Register() {
 
       // Clear any session tokens and redirect to Sign In with registration success query param
       api.clearAccessToken();
-      window.location.href = "/login?registered=true";
+      const targetW = role === "MERCHANT_USER" ? "merchant" : "personal";
+      window.location.href = `/login?registered=true&workspace=${targetW}&switch=true&email=${encodeURIComponent(email)}`;
     } catch (err: any) {
       setErrorMsg(err.message || "An account with this email already exists. Please sign in.");
     } finally {
