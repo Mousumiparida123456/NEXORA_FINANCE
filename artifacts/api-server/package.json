@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsc",
+    "test": "tsx --test src/services/plaid.service.test.ts",
     "db:push": "pnpm --dir ../../lib/db run push",
     "db:migrate": "pnpm --dir ../../lib/db run migrate",
     "db:seed": "tsx scripts/seed-data.ts"

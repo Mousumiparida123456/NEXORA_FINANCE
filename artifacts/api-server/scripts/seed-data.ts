@@ -1,8 +1,7 @@
-import { db, users, accounts, transactions } from "../src/db";
-import { eq } from "drizzle-orm";
+import { db, users, accounts, transactions, and, eq } from "../src/db";
 
-async function seedRealData() {
-  console.log("🌱 Starting Deep Data Seeding...");
+async function seedDemoData() {
+  console.log("DEMO DATA ONLY: preparing synthetic transactions.");
 
   // 1. Find or create default user
   const email = "user@example.com";
@@ -18,19 +17,33 @@ async function seedRealData() {
   }
 
   // 2. Find or create account
-  let account = await db.query.accounts.findFirst({ where: eq(accounts.userId, user.id) });
+  let account = await db.query.accounts.findFirst({
+    where: and(eq(accounts.userId, user.id), eq(accounts.dataSource, "DEMO")),
+  });
   if (!account) {
     const [newAccount] = await db.insert(accounts).values({
       userId: user.id,
-      type: "checking",
-      balance: "50000.00",
-      accountNumber: "NEX-998877",
+      type: "demo",
+      balance: "0.00",
+      accountNumber: `NEX-DEMO-SEED-${user.id}`,
+      dataSource: "DEMO",
+      currency: "USD",
     }).returning();
     account = newAccount;
   }
 
-  // 3. Generate 12 months of realistic transactions
-  console.log("📊 Generating 12 months of financial history...");
+  const existing = await db.query.transactions.findFirst({
+    where: and(
+      eq(transactions.accountId, account.id),
+      eq(transactions.dataSource, "DEMO"),
+    ),
+  });
+  if (existing) {
+    console.log("DEMO DATA ONLY: synthetic transaction history already exists; no rows added.");
+    process.exit(0);
+  }
+
+  console.log("Generating explicitly synthetic demo history...");
   const categories = [
     { name: "Salary", type: "income", avg: 85000, variance: 5000, freq: "monthly" },
     { name: "Rent", type: "expense", avg: 25000, variance: 0, freq: "monthly" },
@@ -54,7 +67,8 @@ async function seedRealData() {
           amount: (cat.avg + (Math.random() * cat.variance)).toFixed(2),
           type: cat.type,
           category: cat.name,
-          description: `${cat.name} - ${monthDate.toLocaleString('default', { month: 'long' })}`,
+          description: `DEMO - ${cat.name} - ${monthDate.toLocaleString('default', { month: 'long' })}`,
+          dataSource: "DEMO",
           timestamp: new Date(monthDate),
         });
       } else if (cat.freq === "weekly") {
@@ -66,7 +80,8 @@ async function seedRealData() {
             amount: (cat.avg + (Math.random() * cat.variance)).toFixed(2),
             type: cat.type,
             category: cat.name,
-            description: `${cat.name} Week ${w + 1}`,
+            description: `DEMO - ${cat.name} Week ${w + 1}`,
+            dataSource: "DEMO",
             timestamp: new Date(weekDate),
           });
         }
@@ -76,8 +91,11 @@ async function seedRealData() {
 
   // Batch insert
   await db.insert(transactions).values(txData);
-  console.log(`✅ Successfully seeded ${txData.length} transactions!`);
+  console.log(`DEMO DATA ONLY: added ${txData.length} synthetic transactions.`);
   process.exit(0);
 }
 
-seedRealData().catch(console.error);
+seedDemoData().catch((error) => {
+  console.error("Unable to seed explicitly synthetic demo data.", error);
+  process.exitCode = 1;
+});

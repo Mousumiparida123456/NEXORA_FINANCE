@@ -15,6 +15,13 @@
       "when": 1787589134793,
       "tag": "0001_chunky_rhino",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791053318850,
+      "tag": "0002_transparent_plaid_sources",
+      "breakpoints": true
     }
   ]
 }

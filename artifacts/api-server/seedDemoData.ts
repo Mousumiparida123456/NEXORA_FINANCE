@@ -1,75 +1,72 @@
-import { db, users, accounts, transactions } from "./src/db";
-import { eq } from "drizzle-orm";
+import { db, users, accounts, transactions, and, eq } from "./src/db";
 
 async function seedDemoData() {
-  const userId = 19;
-  
-  // 1. Delete existing data just in case
-  const existingAccounts = await db.query.accounts.findMany({ where: eq(accounts.userId, userId) });
-  for (const acc of existingAccounts) {
-    await db.delete(transactions).where(eq(transactions.accountId, acc.id));
+  const email = "demo@nexora.local";
+  let user = await db.query.users.findFirst({ where: eq(users.email, email) });
+  if (!user) {
+    [user] = await db.insert(users).values({
+      email,
+      firstName: "Nexora Demo",
+      lastName: "User",
+    }).returning();
   }
-  await db.delete(accounts).where(eq(accounts.userId, userId));
-  
-  // 2. Create account
-  const [newAccount] = await db.insert(accounts).values({
-    userId: userId,
-    type: "checking",
-    balance: "42500.00",
-    accountNumber: "NEX-DEMO-123",
-  }).returning();
-  
-  console.log("✅ Created account:", newAccount.id);
 
-  // 3. Generate 12 months of realistic transactions
-  console.log("📊 Generating 12 months of financial history...");
-  const categories = [
-    { name: "Salary", type: "income", avg: 8500, variance: 500, freq: "monthly" },
-    { name: "Rent", type: "expense", avg: 2500, variance: 0, freq: "monthly" },
-    { name: "Groceries", type: "expense", avg: 400, variance: 100, freq: "weekly" },
-    { name: "Dining Out", type: "expense", avg: 200, variance: 150, freq: "weekly" },
-    { name: "Utilities", type: "expense", avg: 350, variance: 50, freq: "monthly" },
-    { name: "Streaming", type: "expense", avg: 49, variance: 0, freq: "monthly" },
-  ];
+  let demoAccount = await db.query.accounts.findFirst({
+    where: and(eq(accounts.userId, user.id), eq(accounts.dataSource, "DEMO")),
+  });
+  if (!demoAccount) {
+    [demoAccount] = await db.insert(accounts).values({
+      userId: user.id,
+      type: "demo",
+      balance: "0.00",
+      accountNumber: `NEX-DEMO-${user.id}`,
+      dataSource: "DEMO",
+      currency: "USD",
+    }).returning();
+  }
+
+  const existingDemoData = await db.query.transactions.findFirst({
+    where: and(
+      eq(transactions.accountId, demoAccount.id),
+      eq(transactions.dataSource, "DEMO"),
+    ),
+  });
+  if (existingDemoData) {
+    console.log("DEMO DATA ONLY: existing synthetic records were left unchanged.");
+    process.exit(0);
+  }
 
   const now = new Date();
-  const txData = [];
-
-  for (let m = 0; m < 12; m++) {
-    const monthDate = new Date(now);
-    monthDate.setMonth(now.getMonth() - m);
-
-    for (const cat of categories) {
-      if (cat.freq === "monthly") {
-        txData.push({
-          accountId: newAccount.id,
-          amount: (cat.avg + (Math.random() * cat.variance)).toFixed(2),
-          type: cat.type,
-          category: cat.name,
-          description: `${cat.name} - ${monthDate.toLocaleString('default', { month: 'long' })}`,
-          timestamp: new Date(monthDate),
-        });
-      } else if (cat.freq === "weekly") {
-        for (let w = 0; w < 4; w++) {
-          const weekDate = new Date(monthDate);
-          weekDate.setDate(weekDate.getDate() - (w * 7));
-          txData.push({
-            accountId: newAccount.id,
-            amount: (cat.avg + (Math.random() * cat.variance)).toFixed(2),
-            type: cat.type,
-            category: cat.name,
-            description: `${cat.name} Week ${w + 1}`,
-            timestamp: new Date(weekDate),
-          });
-        }
-      }
+  const rows = [
+    { category: "Salary", type: "income", amount: 8500 },
+    { category: "Rent", type: "expense", amount: 2500 },
+    { category: "Groceries", type: "expense", amount: 400 },
+    { category: "Dining Out", type: "expense", amount: 200 },
+    { category: "Utilities", type: "expense", amount: 350 },
+    { category: "Streaming", type: "expense", amount: 49 },
+  ];
+  const demoTransactions = [];
+  for (let month = 0; month < 12; month += 1) {
+    for (const row of rows) {
+      const timestamp = new Date(now);
+      timestamp.setMonth(now.getMonth() - month);
+      demoTransactions.push({
+        accountId: demoAccount.id,
+        amount: row.amount.toFixed(2),
+        type: row.type,
+        category: row.category,
+        description: `DEMO - ${row.category} example`,
+        dataSource: "DEMO",
+        timestamp,
+      });
     }
   }
-
-  // Batch insert
-  await db.insert(transactions).values(txData);
-  console.log(`✅ Successfully seeded ${txData.length} transactions for Demo user!`);
+  await db.insert(transactions).values(demoTransactions);
+  console.log(`DEMO DATA ONLY: added ${demoTransactions.length} synthetic transactions.`);
   process.exit(0);
 }
 
-seedDemoData().catch(console.error);
+seedDemoData().catch((error) => {
+  console.error("Unable to seed explicitly synthetic demo data.", error);
+  process.exitCode = 1;
+});

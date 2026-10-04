@@ -1,69 +1,85 @@
 import express from "express";
-import { PlaidService } from "../src/services/plaid.service";
+import { AuthService } from "../src/services/AuthService";
+import { PlaidService, PlaidServiceError } from "../src/services/plaid.service";
 
 export const plaidRouter = express.Router();
 
-// Middleware to ensure user is authenticated (assuming req.user is set by authMiddleware)
-// Since index.ts sets cookies, we should have a way to authenticate these requests.
-// For now, let's assume the frontend sends the user info or authMiddleware protects this route.
-// Let's implement basic logic based on cookies if needed, or rely on index.ts auth checking.
-// In index.ts, /api/v1/* routes are not all protected by a single middleware.
-// Let's look up the user via the access token. 
-import { AuthService } from "../src/services/AuthService";
+interface AuthenticatedPlaidRequest extends express.Request {
+  user?: { userId: number; email: string };
+}
 
-const authenticatePlaid = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  const token = req.cookies.nexora_access || req.headers.authorization?.split(" ")[1];
-  if (!token) return res.status(401).json({ error: "Unauthorized" });
-  
+const authenticatePlaid = (
+  req: AuthenticatedPlaidRequest,
+  res: express.Response,
+  next: express.NextFunction,
+) => {
+  const token = req.cookies?.nexora_access || req.headers.authorization?.split(" ")[1];
+  if (!token) return res.status(401).json({ error: "Please sign in to connect a bank account." });
   try {
     const decoded = AuthService.verifyAccessToken(token);
-    if (!decoded) {
-      return res.status(401).json({ error: "Invalid token" });
+    const userId = Number(decoded?.userId);
+    if (!decoded || !Number.isSafeInteger(userId) || userId <= 0) {
+      return res.status(401).json({ error: "Your session is invalid. Please sign in again." });
     }
-    (req as any).user = decoded;
-    next();
-  } catch(e) {
-    return res.status(401).json({ error: "Invalid token" });
+    req.user = { userId, email: decoded.email };
+    return next();
+  } catch {
+    return res.status(401).json({ error: "Your session is invalid. Please sign in again." });
   }
 };
 
 plaidRouter.use(authenticatePlaid);
 
-plaidRouter.post("/create-link-token", async (req, res) => {
+const sendPlaidError = (res: express.Response, error: unknown) => {
+  if (error instanceof PlaidServiceError) {
+    return res.status(error.statusCode).json({ error: error.message });
+  }
+  return res.status(503).json({
+    error: "Bank connection is temporarily unavailable. Demo Mode can be used for testing.",
+  });
+};
+
+plaidRouter.get("/status", async (req: AuthenticatedPlaidRequest, res) => {
   try {
-    const user = (req as any).user;
-    const tokenResponse = await PlaidService.createLinkToken(user.userId, user.email);
-    res.json(tokenResponse);
-  } catch (error: any) {
-    console.error("Plaid Link Token Error:", error);
-    res.status(500).json({ error: error.message });
+    const status = await PlaidService.getConnectionStatus(req.user!.userId);
+    return res.json(status);
+  } catch (error) {
+    if (error instanceof PlaidServiceError && error.statusCode === 503) {
+      return res.json({
+        available: false,
+        connected: false,
+        error: error.message,
+      });
+    }
+    return sendPlaidError(res, error);
   }
 });
 
-plaidRouter.post("/exchange-public-token", async (req, res) => {
+plaidRouter.post("/create-link-token", async (req: AuthenticatedPlaidRequest, res) => {
   try {
-    const user = (req as any).user;
-    const { public_token } = req.body;
-    if (!public_token) return res.status(400).json({ error: "public_token is required" });
-
-    const result = await PlaidService.exchangePublicToken(public_token, user.userId);
-    res.json(result);
-  } catch (error: any) {
-    console.error("Plaid Exchange Token Error:", error);
-    res.status(500).json({ error: error.message });
+    return res.json(await PlaidService.createLinkToken(req.user!.userId));
+  } catch (error) {
+    return sendPlaidError(res, error);
   }
 });
 
-plaidRouter.post("/sync", async (req, res) => {
+plaidRouter.post("/exchange-public-token", async (req: AuthenticatedPlaidRequest, res) => {
+  const publicToken =
+    typeof req.body?.public_token === "string" ? req.body.public_token.trim() : "";
+  if (!publicToken) {
+    return res.status(400).json({ error: "public_token is required." });
+  }
   try {
-    const user = (req as any).user;
-    const { item_id } = req.body;
-    if (!item_id) return res.status(400).json({ error: "item_id is required" });
+    return res.json(await PlaidService.exchangePublicToken(publicToken, req.user!.userId));
+  } catch (error) {
+    return sendPlaidError(res, error);
+  }
+});
 
-    const result = await PlaidService.syncTransactions(user.userId, item_id);
-    res.json(result);
-  } catch (error: any) {
-    console.error("Plaid Sync Error:", error);
-    res.status(500).json({ error: error.message });
+plaidRouter.post("/sync", async (req: AuthenticatedPlaidRequest, res) => {
+  try {
+    return res.json(await PlaidService.syncUserTransactions(req.user!.userId));
+  } catch (error) {
+    return sendPlaidError(res, error);
   }
 });
