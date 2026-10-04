@@ -9,8 +9,8 @@
 
 # LIVE LINK
 
-## https://nexora-finance-fintech-dashboard.vercel.app/login
-  
+## https://nexora-finance-fintech-dashboard.vercel.app/
+
 
 # PROBLEM STATEMENT
 
