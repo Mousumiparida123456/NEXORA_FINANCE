@@ -7,6 +7,11 @@
 - Database migrations: `lib/db/drizzle`
 - Local backend base URL: `http://localhost:9999/api/v1`
 
+# LIVE LINK
+
+##https://nexora-finance-fintech-dashboard.vercel.app/login
+  
+
 # PROBLEM STATEMENT
 
 Managing personal finances has become increasingly difficult in today’s fast-moving digital world. People use multiple payment methods, subscriptions, investment platforms, UPI applications, online banking systems, and digital wallets daily, making it challenging to maintain a clear understanding of their overall financial condition.
