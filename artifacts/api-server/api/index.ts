@@ -11,9 +11,10 @@ import { AuthService } from "../src/services/AuthService";
 import { AIService } from "../src/services/AIService";
 import { AnalyticsService } from "../src/services/AnalyticsService";
 import { logger } from "../src/lib/logger";
+import { resolveFinanceDataMode } from "../src/services/finance-data-source";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
-import { db, users, accounts, transactions, userPreferences, eq, sql, desc } from "../src/db";
+import { db, users, accounts, transactions, userPreferences, and, eq, sql, desc } from "../src/db";
 
 const app = express();
 const CLIENT_ORIGIN =
@@ -41,19 +42,6 @@ interface FallbackUserRecord {
 }
 
 const inMemoryUsers = new Map<string, FallbackUserRecord>();
-
-interface FallbackTransactionRecord {
-  id: string;
-  userId: string | number;
-  accountId: number | string;
-  amount: number;
-  type: string;
-  category: string;
-  description: string;
-  date: string;
-}
-
-const inMemoryTransactions: FallbackTransactionRecord[] = [];
 
 const smtpConfigured = Boolean(SMTP_HOST && SMTP_USER && SMTP_PASS);
 const mailTransporter = smtpConfigured
@@ -281,8 +269,12 @@ app.get(dashPaths, async (req, res) => {
   const payload = AuthService.verifyAccessToken(token);
   if (!payload) return res.status(401).json({ error: "Unauthorized" });
   try {
+    const requestedSource = resolveFinanceDataMode(req.query.dataSource);
+    const sourceCondition = requestedSource === "DEMO"
+      ? sql`data_source = 'DEMO'`
+      : sql`data_source LIKE 'PLAID_%'`;
     const userAccounts = await db.query.accounts.findMany({ 
-      where: eq(accounts.userId, payload.userId),
+      where: sql`user_id = ${payload.userId} AND ${sourceCondition}`,
       with: { transactions: true }
     });
     res.json({ accounts: userAccounts });
@@ -456,7 +448,11 @@ app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], asyn
         error: duplicateMsg
       });
     }
-    return res.status(500).json({ success: false, message: "Registration failed", error: error?.message || "Registration failed" }); 
+    return res.status(500).json({
+      success: false,
+      message: "Registration failed. Please try again.",
+      error: "Registration failed. Please try again."
+    });
   }
 });
 
@@ -635,7 +631,11 @@ app.post(["/api/v1/auth/switch-workspace", "/api/auth/switch-workspace", "/auth/
       accessToken: tokens.accessToken
     });
   } catch (error: any) {
-    return res.status(500).json({ success: false, message: "Workspace switch failed", error: error?.message });
+    return res.status(500).json({
+      success: false,
+      message: "Workspace switch failed. Please try again.",
+      error: "Workspace switch failed. Please try again."
+    });
   }
 });
 
@@ -957,53 +957,140 @@ app.get("/", (req, res) => res.send("🚀 NEXORA_SECURE_VAULT_ACTIVE"));
 function getAuthPayload(req: any) {
   const token = getBearerOrCookieToken(req);
   if (!token) return null;
-  const verified = AuthService.verifyAccessToken(token);
-  if (verified) return verified;
-  return { userId: "usr_local_active", email: "user@nexora.finance", role: "PERSONAL_USER" };
+  return AuthService.verifyAccessToken(token);
 }
 
 // --- TRANSACTIONS CRUD ---
 
+app.post(["/api/v1/demo/enable", "/api/demo/enable"], async (req, res) => {
+  const payload = getAuthPayload(req);
+  const userId = Number(payload?.userId);
+  if (!Number.isSafeInteger(userId) || userId <= 0) {
+    return res.status(401).json({ error: "Please sign in to enable Demo Mode." });
+  }
+
+  try {
+    let demoAccount = await db.query.accounts.findFirst({
+      where: and(eq(accounts.userId, userId), eq(accounts.dataSource, "DEMO")),
+    });
+    if (!demoAccount) {
+      [demoAccount] = await db.insert(accounts).values({
+        userId,
+        type: "demo",
+        balance: "0.00",
+        accountNumber: `NEX-DEMO-${userId}`,
+        dataSource: "DEMO",
+        currency: "USD",
+      }).returning();
+    }
+
+    const existingDemoTransactions = await db.query.transactions.findFirst({
+      where: and(
+        eq(transactions.accountId, demoAccount.id),
+        eq(transactions.dataSource, "DEMO"),
+      ),
+    });
+    if (!existingDemoTransactions) {
+      const demoRows = [
+        ["Salary", "income", 5200, 30],
+        ["Rent & Housing", "expense", 1450, 27],
+        ["Food & Dining", "expense", 86.4, 4],
+        ["Transport", "expense", 42.5, 3],
+        ["Shopping", "expense", 119.99, 2],
+        ["Entertainment", "expense", 28, 1],
+      ];
+      const now = new Date();
+      await db.insert(transactions).values(
+        demoRows.map(([category, type, amount, daysAgo]) => ({
+          accountId: demoAccount!.id,
+          amount: Number(amount).toFixed(2),
+          type: String(type),
+          category: String(category),
+          description: `DEMO - ${String(category)} example`,
+          dataSource: "DEMO",
+          timestamp: new Date(now.getTime() - Number(daysAgo) * 86400000),
+        })),
+      );
+    }
+
+    return res.json({ dataSource: "DEMO", message: "Demo Data is enabled. These transactions are synthetic." });
+  } catch {
+    return res.status(503).json({ error: "Could not prepare Demo Mode data. Please try again." });
+  }
+});
+
 app.get(["/api/v1/transactions", "/api/transactions"], async (req, res) => {
   const payload = getAuthPayload(req);
   if (!payload) return res.status(401).json({ error: "Unauthorized" });
+  const userId = Number(payload.userId);
+  if (!Number.isSafeInteger(userId) || userId <= 0) {
+    return res.status(401).json({ error: "Your session is invalid. Please sign in again." });
+  }
+  const requestedSource = resolveFinanceDataMode(req.query.dataSource);
   try {
-    let dbTxs: any[] = [];
-    try {
-      dbTxs = await db.query.transactions.findMany({
-        where: sql`account_id IN (SELECT id FROM accounts WHERE user_id = ${payload.userId})`,
-        orderBy: [desc(transactions.timestamp)]
-      });
-    } catch (dbErr) {
-      console.warn("⚠️ GET transactions DB query error:", dbErr);
-    }
+    const sourceCondition = requestedSource === "DEMO"
+      ? sql`accounts.data_source = 'DEMO'`
+      : sql`accounts.data_source LIKE 'PLAID_%'`;
+    const dbTxs = await db.query.transactions.findMany({
+      where: sql`account_id IN (
+        SELECT id FROM accounts
+        WHERE user_id = ${userId} AND ${sourceCondition}
+      )`,
+      with: { account: true },
+      orderBy: [desc(transactions.timestamp)],
+    });
+    const formattedDb = dbTxs.map(tx => {
+      const { account, ...transaction } = tx;
+      return {
+        ...transaction,
+        id: String(tx.id),
+        amount: Number(tx.amount),
+        currency: tx.currency,
+        date: tx.timestamp ? new Date(tx.timestamp).toISOString().split('T')[0] : "",
+        normalized: {
+          transactionId: tx.plaidTransactionId || String(tx.id),
+          accountId: String(tx.accountId),
+          amount: Number(tx.amount),
+          currency: tx.currency,
+          merchantName: tx.description || "Unknown merchant",
+          category: tx.category || "Other",
+          timestamp: new Date(tx.timestamp).toISOString(),
+          pending: Boolean(tx.pending),
+          customerId: String(userId),
+          dataSource: tx.dataSource,
+        },
+      };
+    });
+    return res.json(formattedDb);
+  } catch {
+    return res.status(503).json({ error: "Transactions could not be loaded from the database. Please try again." });
+  }
+});
 
-    const formattedDb = dbTxs.map(tx => ({
-      ...tx,
-      id: String(tx.id),
-      amount: Number(tx.amount),
-      date: tx.timestamp ? new Date(tx.timestamp).toISOString().split('T')[0] : "",
-    }));
-
-    const memTxs = inMemoryTransactions
-      .filter(tx => String(tx.userId) === String(payload.userId))
-      .map(tx => ({
-        id: tx.id,
-        amount: tx.amount,
-        type: tx.type,
-        category: tx.category,
-        description: tx.description,
-        date: tx.date
-      }));
-
-    const map = new Map<string, any>();
-    [...memTxs, ...formattedDb].forEach(tx => map.set(String(tx.id), tx));
-    const combined = Array.from(map.values());
-
-    res.json(combined);
-  } catch (error) {
-    console.error("GET transactions error:", error);
-    res.status(500).json({ error: "Failed to fetch transactions" });
+app.get(["/api/v1/accounts", "/api/accounts"], async (req, res) => {
+  const payload = getAuthPayload(req);
+  const userId = Number(payload?.userId);
+  if (!Number.isSafeInteger(userId) || userId <= 0) {
+    return res.status(401).json({ error: "Please sign in to load accounts." });
+  }
+  const requestedSource = resolveFinanceDataMode(req.query.dataSource);
+  try {
+    const sourceCondition = requestedSource === "DEMO"
+      ? sql`data_source = 'DEMO'`
+      : sql`data_source LIKE 'PLAID_%'`;
+    const userAccounts = await db.query.accounts.findMany({
+      where: sql`user_id = ${userId} AND ${sourceCondition}`,
+      orderBy: [desc(accounts.createdAt)],
+    });
+    return res.json(userAccounts.map((account) => ({
+      id: String(account.id),
+      balance: Number(account.balance),
+      currency: account.currency,
+      dataSource: account.dataSource,
+      type: account.type,
+    })));
+  } catch {
+    return res.status(503).json({ error: "Accounts could not be loaded from the database. Please try again." });
   }
 });
 
@@ -1011,101 +1098,43 @@ app.post(["/api/v1/transactions", "/api/transactions"], async (req, res) => {
   const payload = getAuthPayload(req);
   if (!payload) return res.status(401).json({ error: "Unauthorized" });
   try {
-    const numUserId = typeof payload.userId === "number" ? payload.userId : (parseInt(payload.userId as string) || 1);
-    let account: any = null;
-    try {
-      account = await db.query.accounts.findFirst({ where: eq(accounts.userId, numUserId) });
-    } catch (dbErr) {
-      console.warn("⚠️ Account lookup DB error:", dbErr);
+    const numUserId = Number(payload.userId);
+    if (!Number.isSafeInteger(numUserId) || numUserId <= 0) {
+      return res.status(401).json({ error: "Your session is invalid. Please sign in again." });
     }
-
+    let account = await db.query.accounts.findFirst({
+      where: and(eq(accounts.userId, numUserId), eq(accounts.dataSource, "DEMO")),
+    });
     if (!account) {
-      console.log(`⚡ Auto-creating missing account for user ${payload.userId}...`);
-      try {
-        const [newAcc] = await db.insert(accounts).values({
-          userId: numUserId,
-          type: "savings",
-          balance: "1000.00",
-          accountNumber: `NEX-AUTO-${Math.floor(Math.random() * 1000000)}`
-        }).returning();
-        account = newAcc;
-      } catch (insertErr) {
-        console.warn("⚠️ Account creation write error, binding fallback account:", insertErr);
-        account = await db.query.accounts.findFirst().catch(() => null);
-        if (!account) {
-          account = { id: 1, userId: numUserId, type: "savings", balance: "1000.00" };
-        }
-      }
+      [account] = await db.insert(accounts).values({
+        userId: numUserId,
+        type: "demo",
+        balance: "0.00",
+        accountNumber: `NEX-MANUAL-${numUserId}`,
+        dataSource: "DEMO",
+        currency: "USD",
+      }).returning();
     }
 
     const { amount, type, category, description, date } = req.body;
-    console.log("➕ Adding Transaction:", { amount, type, category, date, accountId: account.id });
-
-    let createdRecord: any = null;
-    try {
-      const [newTx] = await db.insert(transactions).values({
-        accountId: account.id,
-        amount: String(amount),
-        type,
-        category,
-        description,
-        timestamp: date ? new Date(date) : new Date()
-      }).returning();
-
-      createdRecord = {
-        ...newTx,
-        id: String(newTx.id),
-        amount: Number(newTx.amount),
-        date: newTx.timestamp ? new Date(newTx.timestamp).toISOString().split('T')[0] : ""
-      };
-    } catch (txInsertErr) {
-      console.warn("⚠️ DB transaction insert error, falling back to in-memory transaction:", txInsertErr);
-      createdRecord = {
-        id: `tx_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-        accountId: account.id,
-        amount: Number(amount),
-        type: type || "expense",
-        category: category || "Other",
-        description: description || "Transaction",
-        date: date || new Date().toISOString().split('T')[0]
-      };
-    }
-
-    inMemoryTransactions.unshift({
-      id: String(createdRecord.id),
-      userId: payload.userId,
+    const [newTx] = await db.insert(transactions).values({
       accountId: account.id,
-      amount: Number(createdRecord.amount),
-      type: createdRecord.type,
-      category: createdRecord.category,
-      description: createdRecord.description,
-      date: createdRecord.date
-    });
+      amount: String(amount),
+      type,
+      category,
+      description: `DEMO - ${description || category || "Manual transaction"}`,
+      dataSource: "DEMO",
+      timestamp: date ? new Date(date) : new Date(),
+    }).returning();
 
-    return res.json(createdRecord);
-  } catch (error) {
-    console.error("POST transaction error:", error);
-    const fallbackTx = {
-      id: `tx_${Date.now()}`,
-      amount: Number(req.body?.amount || 0),
-      type: req.body?.type || "expense",
-      category: req.body?.category || "Other",
-      description: req.body?.description || "Transaction",
-      date: req.body?.date || new Date().toISOString().split('T')[0]
-    };
-    if (payload?.userId) {
-      inMemoryTransactions.unshift({
-        id: fallbackTx.id,
-        userId: payload.userId,
-        accountId: 1,
-        amount: fallbackTx.amount,
-        type: fallbackTx.type,
-        category: fallbackTx.category,
-        description: fallbackTx.description,
-        date: fallbackTx.date
-      });
-    }
-    return res.json(fallbackTx);
+    return res.json({
+      ...newTx,
+      id: String(newTx.id),
+      amount: Number(newTx.amount),
+      date: newTx.timestamp ? new Date(newTx.timestamp).toISOString().split('T')[0] : "",
+    });
+  } catch {
+    return res.status(503).json({ error: "The transaction could not be saved to the database. Please try again." });
   }
 });
 

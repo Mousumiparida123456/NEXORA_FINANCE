@@ -1,4 +1,5 @@
 import { Link, useLocation } from "wouter";
+import type { LucideIcon } from "lucide-react";
 import { LogOut, Menu, PieChart, Moon, Sun, Settings2 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -16,7 +17,7 @@ function MobileNavItem({
 }: {
   href: string;
   label: string;
-  icon: React.ElementType;
+  icon: LucideIcon;
   active: boolean;
   theme: "light" | "dark";
 }) {

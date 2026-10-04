@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react";
 import {
   UtensilsCrossed,
   Plane,
@@ -13,7 +14,7 @@ import {
 } from "lucide-react";
 import type { Category } from "./transactionData";
 
-const iconMap: Record<Category, React.ElementType> = {
+const iconMap: Record<Category, LucideIcon> = {
   "Food & Dining": UtensilsCrossed,
   "Travel": Plane,
   "Rent & Housing": Home,

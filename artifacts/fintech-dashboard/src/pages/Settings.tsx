@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import type { LucideIcon } from "lucide-react";
 import {
   User, Mail, IndianRupee, Target, Camera,
   TrendingUp, PiggyBank, BarChart2,
@@ -25,7 +26,7 @@ const formatINR = new Intl.NumberFormat("en-IN", {
 
 type Tab = "profile" | "preferences" | "notifications" | "security" | "data" | "system";
 
-const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
+const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: "profile",        label: "Profile",        icon: User        },
   { id: "preferences",    label: "Preferences",    icon: TrendingUp  },
   { id: "notifications",  label: "Notifications",  icon: Bell        },
@@ -118,7 +119,7 @@ function Card({ children, className = "" }: { children: React.ReactNode; classNa
 }
 
 function SectionTitle({ icon: Icon, title, subtitle }: {
-  icon: React.ElementType; title: string; subtitle?: string;
+  icon: LucideIcon; title: string; subtitle?: string;
 }) {
   return (
     <div className="flex items-center gap-3 mb-5">
@@ -397,7 +398,7 @@ const RISK_OPTIONS: { id: RiskLevel; label: string; desc: string; color: string;
   { id: "high",   label: "High",   desc: "Aggressive growth; comfortable with volatility", color: "text-amber-400", bg: "bg-amber-500/10",   border: "border-amber-500/30"  },
 ];
 
-const STYLE_OPTIONS: { id: InvestStyle; label: string; desc: string; icon: React.ElementType }[] = [
+const STYLE_OPTIONS: { id: InvestStyle; label: string; desc: string; icon: LucideIcon }[] = [
   { id: "safe",       label: "Safe",       desc: "FDs, bonds, liquid funds — very low risk", icon: ShieldCheck },
   { id: "balanced",   label: "Balanced",   desc: "Mix of equity and debt — moderate growth",  icon: BarChart2   },
   { id: "aggressive", label: "Aggressive", desc: "Heavy equity, crypto exposure — high reward", icon: TrendingUp },
@@ -998,7 +999,7 @@ function NotificationsSection() {
   const { settings, updateSettings, requestPushPermission } = useNotifications();
   const { toast } = useToast();
 
-  const categories: { key: keyof NotificationSettings; label: string; desc: string; icon: React.ElementType }[] = [
+  const categories: { key: keyof NotificationSettings; label: string; desc: string; icon: LucideIcon }[] = [
     { key: "enableTransactions", label: "Transaction Alerts", desc: "Notifications when transactions are added, edited, or deleted", icon: IndianRupee },
     { key: "enableGoals",        label: "Goal Alerts",        desc: "Milestone updates and goal completion notifications",            icon: Target },
     { key: "enableBills",        label: "Bill Reminders",     desc: "Due date reminders and overdue bill alerts",                    icon: AlertTriangle },

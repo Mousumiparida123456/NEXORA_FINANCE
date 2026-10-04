@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { motion } from "framer-motion";
+import type { LucideIcon } from "lucide-react";
 import {
   Bell,
   ChevronLeft,
@@ -26,7 +27,7 @@ function NavItem({
 }: {
   href: string;
   label: string;
-  icon: React.ElementType;
+  icon: LucideIcon;
   collapsed: boolean;
   active: boolean;
   theme: "light" | "dark";

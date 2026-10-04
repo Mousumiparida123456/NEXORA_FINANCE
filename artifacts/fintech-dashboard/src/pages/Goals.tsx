@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type { LucideIcon } from "lucide-react";
 import { Edit3, Home, Laptop, PiggyBank, Plane, Plus, Trash2, TrendingUp, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -72,7 +73,7 @@ const defaultGoals: Goal[] = [
   },
 ];
 
-const ICONS: Record<IconKey, React.ElementType> = {
+const ICONS: Record<IconKey, LucideIcon> = {
   PiggyBank,
   Plane,
   Laptop,

@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle, TrendingUp, CreditCard, Bell,
   X, CheckCheck, Target, Repeat2, BellOff,
@@ -12,7 +13,7 @@ import { formatRelativeTime } from "@/lib/notification-engine";
 // ─── Config per category ────────────────────────────────────────────────────
 
 const CATEGORY_CONFIG: Record<NotificationCategory, {
-  icon: React.ElementType;
+  icon: LucideIcon;
   label: string;
   iconBg: string;
   iconColor: string;
@@ -80,7 +81,7 @@ const PRIORITY_CONFIG = {
 
 type FilterTab = "all" | NotificationCategory;
 
-const FILTER_TABS: { id: FilterTab; label: string; icon: React.ElementType }[] = [
+const FILTER_TABS: { id: FilterTab; label: string; icon: LucideIcon }[] = [
   { id: "all",          label: "All",          icon: Bell },
   { id: "transaction",  label: "Transactions", icon: Wallet },
   { id: "goal",         label: "Goals",        icon: Target },

@@ -61,6 +61,23 @@ export interface ApiHealth {
   version?: string;
 }
 
+const sanitizeErrorMessage = (value: unknown, fallback = "Something went wrong. Please try again.") => {
+  const raw = typeof value === "string" ? value : value instanceof Error ? value.message : "";
+  if (!raw) return fallback;
+
+  const normalized = raw.replace(/\s+/g, " ").trim();
+  const lower = normalized.toLowerCase();
+  const looksLikeInternalSql =
+    lower.includes("failed query:") ||
+    (lower.includes("select ") && lower.includes(" from ") && lower.includes(" where ")) ||
+    lower.includes("lower(users.email)") ||
+    lower.includes("users.role") ||
+    lower.includes("limit $") ||
+    lower.includes("params:");
+
+  return looksLikeInternalSql ? fallback : normalized;
+};
+
 class ApiClient {
   public baseUrl: string = API_URL;
   private tokenKey = "nexora_access_token";
@@ -86,7 +103,7 @@ class ApiClient {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      const errorMessage = errorData.error || errorData.message || `HTTP ${response.status}`;
+      const errorMessage = sanitizeErrorMessage(errorData.error || errorData.message || `HTTP ${response.status}`);
       throw new Error(errorMessage);
     }
 
