@@ -31,18 +31,6 @@ const SMTP_USER = process.env.SMTP_USER;
 const SMTP_PASS = process.env.SMTP_PASS;
 const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER || "no-reply@nexora.finance";
 
-interface FallbackUserRecord {
-  id: number | string;
-  email: string;
-  passwordHash: string;
-  firstName: string;
-  lastName: string;
-  role: string;
-  createdAt: string;
-}
-
-const inMemoryUsers = new Map<string, FallbackUserRecord>();
-
 const smtpConfigured = Boolean(SMTP_HOST && SMTP_USER && SMTP_PASS);
 const mailTransporter = smtpConfigured
   ? nodemailer.createTransport({
@@ -449,19 +437,14 @@ app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], asyn
   const assignedRole = (normalizedRoleInput === "MERCHANT_USER" || normalizedRoleInput === "MERCHANT") ? "MERCHANT_USER" : "PERSONAL_USER";
 
   try {
-    let existingUser: any = null;
-    try {
-      existingUser = await db.query.users.findFirst({
-        where: sql`LOWER(${users.email}) = ${cleanEmail} AND ${users.role} = ${assignedRole}`
-      });
-    } catch (dbLookupError) {
-      console.warn("⚠️ [REG] DB lookup unavailable, continuing with local fallback.", dbLookupError);
-    }
+    const existingUser = await db.query.users.findFirst({
+      where: sql`LOWER(${users.email}) = ${cleanEmail} AND ${users.role} = ${assignedRole}`
+    });
 
     const isDemoEmail = (cleanEmail === "demo@nexora.finance" && assignedRole === "PERSONAL_USER") ||
                         (cleanEmail === "merchant@nexora.finance" && assignedRole === "MERCHANT_USER");
 
-    if (existingUser || isDemoEmail || (inMemoryUsers.has(cleanEmail) && inMemoryUsers.get(cleanEmail)?.role === assignedRole)) {
+    if (existingUser || isDemoEmail) {
       const duplicateMsg = assignedRole === "MERCHANT_USER"
         ? "A Merchant Sentinel account with this email already exists. Please sign in."
         : "A Personal account with this email already exists. Please sign in.";
@@ -471,52 +454,26 @@ app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], asyn
     console.log(`⏱️ [REG] Hashing password... (+${Date.now() - start}ms)`);
     const hashedPassword = await AuthService.hashPassword(password);
 
-    let insertedUser: any = null;
-    try {
-      console.log(`⏱️ [REG] Inserting user into PostgreSQL... (+${Date.now() - start}ms)`);
-      const rows = await db.insert(users).values({ 
-        email: cleanEmail, 
-        password: hashedPassword, 
-        firstName: userFirstName, 
-        lastName: userLastName,
-        role: assignedRole,
-      }).returning();
-      insertedUser = rows[0];
-    } catch (dbInsertError) {
-      console.warn("⚠️ [REG] PostgreSQL insert failed, using local fallback registration.", dbInsertError);
-      const fallbackId = `local-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
-      insertedUser = {
-        id: fallbackId,
-        email: cleanEmail,
-        firstName: userFirstName,
-        lastName: userLastName,
-        role: assignedRole,
-      };
-    }
-
-    if (insertedUser && insertedUser.id) {
-      try {
-        await db.insert(accounts).values({ 
-          userId: insertedUser.id, 
-          type: assignedRole === "MERCHANT_USER" ? "merchant_settlement" : "savings", 
-          balance: "1000.00", 
-          accountNumber: `NEX-${Math.floor(Math.random() * 1000000)}` 
-        }).returning();
-      } catch (acctErr) {
-        console.warn("⚠️ Account record creation error (non-fatal):", acctErr);
-      }
-    }
-
-    inMemoryUsers.set(`${cleanEmail}:${assignedRole}`, {
-      id: insertedUser.id,
+    console.log(`⏱️ [REG] Inserting user into PostgreSQL... (+${Date.now() - start}ms)`);
+    const [insertedUser] = await db.insert(users).values({
       email: cleanEmail,
-      passwordHash: hashedPassword,
+      password: hashedPassword,
       firstName: userFirstName,
       lastName: userLastName,
       role: assignedRole,
-      createdAt: new Date().toISOString(),
-    });
-    
+    }).returning();
+
+    try {
+      await db.insert(accounts).values({
+        userId: insertedUser.id,
+        type: assignedRole === "MERCHANT_USER" ? "merchant_settlement" : "savings",
+        balance: "1000.00",
+        accountNumber: `NEX-${Math.floor(Math.random() * 1000000)}`
+      }).returning();
+    } catch (acctErr) {
+      console.warn("⚠️ Account record creation error (non-fatal):", acctErr);
+    }
+
     console.log(`⏱️ [REG] Generating tokens... (+${Date.now() - start}ms)`);
     const tokens = AuthService.generateTokens({ userId: insertedUser.id, email: insertedUser.email, role: insertedUser.role || assignedRole });
     
@@ -572,19 +529,15 @@ app.post(["/api/v1/auth/login", "/api/auth/login", "/auth/login"], loginLimiter,
     let isDemoAccount = false;
 
     // 1. Query PostgreSQL database for registered user with matching (email, targetRole)
-    try {
-      user = await db.query.users.findFirst({
-        where: sql`LOWER(${users.email}) = ${cleanEmail} AND ${users.role} = ${targetRole}`
-      });
+    user = await db.query.users.findFirst({
+      where: sql`LOWER(${users.email}) = ${cleanEmail} AND ${users.role} = ${targetRole}`
+    });
 
-      // Fallback: If no role explicitly selected or if legacy single user exists
-      if (!user && !reqRole && !workspace) {
-        user = await db.query.users.findFirst({
-          where: sql`LOWER(${users.email}) = ${cleanEmail}`
-        });
-      }
-    } catch (dbErr) {
-      console.warn("⚠️ [LOGIN] DB query failed:", dbErr);
+    // Support existing accounts that predate workspace selection.
+    if (!user && !reqRole && !workspace) {
+      user = await db.query.users.findFirst({
+        where: sql`LOWER(${users.email}) = ${cleanEmail}`
+      });
     }
 
     // 2. Check system demo account presets if not in DB
@@ -598,16 +551,6 @@ app.post(["/api/v1/auth/login", "/api/auth/login", "/auth/login"], loginLimiter,
       } else if (cleanEmail === "admin@nexora.finance") {
         isDemoAccount = true;
         user = { id: 997, email: cleanEmail, firstName: "Admin", lastName: "Nexora", role: "ADMIN", password: await AuthService.hashPassword("NexoraAdmin123!") };
-      } else if (inMemoryUsers.has(`${cleanEmail}:${targetRole}`)) {
-        const memUser = inMemoryUsers.get(`${cleanEmail}:${targetRole}`)!;
-        user = {
-          id: memUser.id,
-          email: memUser.email,
-          password: memUser.passwordHash,
-          firstName: memUser.firstName,
-          lastName: memUser.lastName,
-          role: memUser.role,
-        };
       }
     }
 
@@ -685,9 +628,6 @@ app.post(["/api/v1/auth/switch-workspace", "/api/auth/switch-workspace", "/auth/
         user = { id: 999, email: cleanEmail, firstName: "Personal", lastName: "User", role: "PERSONAL_USER" };
       } else if ((cleanEmail === "merchant@nexora.finance" || cleanEmail === "demo@nexora.local") && targetRole === "MERCHANT_USER") {
         user = { id: 998, email: cleanEmail, firstName: "Merchant", lastName: "Sentinel", role: "MERCHANT_USER", demoMode: true };
-      } else if (inMemoryUsers.has(`${cleanEmail}:${targetRole}`)) {
-        const memUser = inMemoryUsers.get(`${cleanEmail}:${targetRole}`)!;
-        user = { id: memUser.id, email: memUser.email, firstName: memUser.firstName, lastName: memUser.lastName, role: memUser.role };
       }
     }
 
