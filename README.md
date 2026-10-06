@@ -900,13 +900,5 @@ Building at the intersection of:
 </div>
 ```
 
-### Why I recommend this version
-
-It gives your GitHub visitor a clear journey:
-
-**Problem → Solution → Sentinel → ML → Decision Engine → Architecture → Features → Verification → Setup → Roadmap**
-
-And importantly, it highlights your strongest hackathon point:
-
 > **NEXORA isn't just a dashboard with an "AI" label — the README demonstrates the actual XGBoost model, metrics, inference path, risk fusion, policy engine, and audit trail.**
 
