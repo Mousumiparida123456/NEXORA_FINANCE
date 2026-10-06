@@ -117,8 +117,8 @@ export class SentinelPipelineService {
     // 4. Feature Engineering — 13 Risk Signals (Step 1D & 1J)
     const { signals, vector } = FeatureEngineeringService.extractFeatures(validatedInput as any, velocityMetrics);
 
-    // 5. ML Risk Model Scoring (Step 1E & Step 8 Model Naming)
-    const modelResult = RiskModelService.predict(vector);
+    // 5. ML Risk Model Scoring (Step 1E & Real XGBoost Model)
+    const modelResult = RiskModelService.predict(validatedInput);
 
     // 6. Risk Fusion Engine (Step 1F)
     const fusionScore = RiskFusionService.fuse(signals, modelResult);
@@ -158,6 +158,9 @@ export class SentinelPipelineService {
       requestId,
       signalsCount: signals.length,
       fraudProbability: modelResult.fraudProbability,
+      predictedFraud: modelResult.fraudProbability >= 0.5,
+      modelVersion: modelResult.modelVersion,
+      modelSource: "IEEE-CIS-XGBoost",
       recommendationSummary: recommendation.actionSummary,
       velocityEngine: velocityMetrics.storageEngine,
       velocitySummary: velocityMetrics.summaryText,
@@ -171,7 +174,7 @@ export class SentinelPipelineService {
         requestId,
         transactionId: validatedInput.transactionId,
         merchantId: validatedInput.merchantId,
-        evaluationId: auditTrailRecord.auditId,
+        evaluationId: auditTrailRecord?.auditId || `AUD-${crypto.randomUUID()}`,
         riskScore: fusionScore.fusedScore,
         decision: decision.action,
         modelVersion: modelResult.modelVersion,
@@ -183,7 +186,7 @@ export class SentinelPipelineService {
     );
 
     return {
-      evaluationId: auditTrailRecord.auditId,
+      evaluationId: auditTrailRecord?.auditId || `AUD-${crypto.randomUUID()}`,
       timestamp,
       merchantId: validatedInput.merchantId,
       transactionId: validatedInput.transactionId,

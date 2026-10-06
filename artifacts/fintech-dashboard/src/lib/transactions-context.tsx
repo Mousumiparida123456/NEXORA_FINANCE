@@ -20,8 +20,21 @@ export interface FinancialSummary {
   healthScore: number;
 }
 
+export type FinanceDataMode = "CONNECTED" | "DEMO";
+
+interface FinanceAccount {
+  id: string;
+  balance: number;
+  currency: string;
+  dataSource: string;
+  type: string;
+}
+
 export interface TransactionsContextState {
   transactions: Transaction[];
+  dataMode: FinanceDataMode;
+  accountBalances: FinanceAccount[];
+  setDataMode: (mode: FinanceDataMode) => Promise<void>;
   loading: boolean;
   saving: boolean;
   error: string;
@@ -48,42 +61,14 @@ export interface TransactionsContextState {
 const TransactionsContext = createContext<TransactionsContextState | undefined>(undefined);
 const TRANSACTION_SYNC_EVENT = "nexora:transactions:changed";
 const TRANSACTION_NOTIFICATION_EVENT = "nexora:transaction:notify";
-
-const LOCAL_TX_KEY = "nexora_custom_transactions";
-
-function getLocalStoredTransactions(): Transaction[] {
-  try {
-    const data = window.localStorage.getItem(LOCAL_TX_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveLocalStoredTransaction(tx: Transaction) {
-  try {
-    const existing = getLocalStoredTransactions();
-    const filtered = existing.filter(t => t.id !== tx.id);
-    const updated = [tx, ...filtered];
-    window.localStorage.setItem(LOCAL_TX_KEY, JSON.stringify(updated));
-  } catch (e) {
-    console.warn("Failed to save local transaction:", e);
-  }
-}
-
-function mergeTransactions(primary: Transaction[], local: Transaction[]): Transaction[] {
-  const map = new Map<string, Transaction>();
-  local.forEach(tx => map.set(String(tx.id), tx));
-  primary.forEach(tx => map.set(String(tx.id), tx));
-  return Array.from(map.values()).sort((a, b) => {
-    const dateA = a.date ? new Date(a.date).getTime() : 0;
-    const dateB = b.date ? new Date(b.date).getTime() : 0;
-    return dateB - dateA;
-  });
-}
+const DATA_MODE_KEY = "nexora_finance_data_mode";
 
 export function TransactionsProvider({ children }: { children: ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [dataMode, setDataModeState] = useState<FinanceDataMode>(() =>
+    window.localStorage.getItem(DATA_MODE_KEY) === "DEMO" ? "DEMO" : "CONNECTED",
+  );
+  const [accountBalances, setAccountBalances] = useState<FinanceAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -104,33 +89,52 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
   const refreshTransactions = useCallback(async () => {
     setLoading(true);
     setError("");
-    const localTxs = getLocalStoredTransactions();
     try {
-      const data = await api.get<Transaction[]>("/transactions");
+      const source = dataMode === "DEMO" ? "DEMO" : "CONNECTED";
+      const [data, accounts] = await Promise.all([
+        api.get<Transaction[]>(`/transactions?dataSource=${source}`),
+        api.get<FinanceAccount[]>(`/accounts?dataSource=${source}`),
+      ]);
       const mapped = data.map(tx => ({
         ...tx,
         id: String(tx.id),
         date: tx.date ? String(tx.date).slice(0, 10) : "",
-        amount: Number(tx.amount)
+        amount: Number(tx.amount),
       }));
-      const merged = mergeTransactions(mapped, localTxs);
-      setTransactions(merged);
-    } catch (err: any) {
-      console.warn("API Error, falling back to user local transactions only:", err);
-      setError(err?.message || "Failed to fetch transactions.");
-      setTransactions(localTxs);
+      setTransactions(mapped);
+      setAccountBalances(accounts.map((account) => ({
+        ...account,
+        balance: Number(account.balance || 0),
+      })));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to fetch financial data.";
+      setError(message);
+      setTransactions([]);
+      setAccountBalances([]);
     } finally {
       setLoading(false);
     }
+  }, [dataMode]);
+
+  const setDataMode = useCallback(async (mode: FinanceDataMode) => {
+    if (mode === "DEMO") {
+      await api.post("/demo/enable", {});
+    }
+    window.localStorage.setItem(DATA_MODE_KEY, mode);
+    setDataModeState(mode);
   }, []);
 
   const addTransaction = useCallback(async (input: TransactionInput) => {
+    if (dataMode !== "DEMO") {
+      const modeError = new Error("Manual transactions are demo data. Switch to Demo Mode before adding one.");
+      setError(modeError.message);
+      throw modeError;
+    }
     setSaving(true);
     setError("");
-    let newTx: Transaction;
     try {
       const created = await api.post<Transaction>("/transactions", input);
-      newTx = {
+      const newTx = {
         ...created,
         id: String(created.id || Date.now()),
         date: created.date ? String(created.date).slice(0, 10) : (input.date || new Date().toISOString().split('T')[0]),
@@ -139,29 +143,19 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
         category: created.category || input.category,
         type: created.type || input.type
       };
-    } catch (err: any) {
-      console.warn("⚠️ API addTransaction error, saving transaction locally:", err?.message || err);
-      newTx = {
-        id: `tx_${Date.now()}`,
-        description: input.description,
-        amount: Number(input.amount),
-        category: input.category,
-        type: input.type,
-        date: input.date || new Date().toISOString().split('T')[0]
-      };
+      if (dataMode === "DEMO") {
+        setTransactions((prev) => [newTx, ...prev.filter((tx) => tx.id !== newTx.id)]);
+      }
+      window.dispatchEvent(new CustomEvent(TRANSACTION_NOTIFICATION_EVENT, {
+        detail: { action: "add", description: input.description, category: input.category, amount: Number(input.amount), type: input.type }
+      }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save transaction.");
+      throw err;
+    } finally {
+      setSaving(false);
     }
-
-    saveLocalStoredTransaction(newTx);
-    setTransactions((prev) => {
-      const filtered = prev.filter(t => t.id !== newTx.id);
-      return [newTx, ...filtered];
-    });
-
-    window.dispatchEvent(new CustomEvent(TRANSACTION_NOTIFICATION_EVENT, {
-      detail: { action: "add", description: input.description, category: input.category, amount: Number(input.amount), type: input.type }
-    }));
-    setSaving(false);
-  }, []);
+  }, [dataMode]);
 
   const updateTransaction = useCallback(async (id: string, input: TransactionInput) => {
     setSaving(true);
@@ -279,6 +273,9 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
   return (
     <TransactionsContext.Provider value={{
       transactions: filteredTransactions,
+      dataMode,
+      accountBalances,
+      setDataMode,
       loading,
       saving,
       error,

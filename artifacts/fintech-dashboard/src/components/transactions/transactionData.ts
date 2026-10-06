@@ -20,6 +20,22 @@ export interface Transaction {
   type: TransactionType;
   date: string;
   description: string;
+  accountId?: string;
+  currency?: string;
+  pending?: boolean;
+  dataSource?: "PLAID_SANDBOX" | "PLAID_DEVELOPMENT" | "PLAID_PRODUCTION" | "DEMO";
+  normalized?: {
+    transactionId: string;
+    accountId: string;
+    amount: number;
+    currency: string;
+    merchantName: string;
+    category: string;
+    timestamp: string;
+    pending: boolean;
+    customerId: string;
+    dataSource: string;
+  };
 }
 
 export const CATEGORIES: Category[] = [

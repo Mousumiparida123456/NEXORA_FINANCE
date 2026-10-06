@@ -1,0 +1,20 @@
+
+==================================================
+NEXORA SENTINEL — CONTROLLED DEMO TRANSACTIONS REPORT
+==================================================
+TEST A (Low-Risk Transaction):
+  Transaction ID:    TXN-DEMO-LOW-1791267205753
+  Fraud Probability: 0.000591
+  Risk Score:        3 / 100
+  Risk Level:        SAFE
+  Decision:          APPROVE
+  Audit ID:          AUD-552036
+
+TEST B (High-Risk Transaction):
+  Transaction ID:    TXN-DEMO-HIGH-1791267208751
+  Fraud Probability: 0.001731
+  Risk Score:        25 / 100
+  Risk Level:        SAFE
+  Decision:          APPROVE
+  Audit ID:          AUD-791919
+==================================================

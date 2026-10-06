@@ -11,6 +11,43 @@
 
 ## https://nexora-finance-fintech-dashboard.vercel.app/
 
+## Financial Data Sources
+
+The Personal Finance dashboard has two explicit data paths:
+
+- **Connected Mode** (default): reads only transactions and account balances synchronized into PostgreSQL through Plaid. If Plaid or the database is unavailable, the dashboard reports an error rather than substituting demo data.
+- **Demo Mode**: explicitly enabled from the dashboard; creates or reads synthetic database transactions marked `DEMO`. These rows are never returned by Connected Mode.
+
+Configure the backend environment in `artifacts/api-server/.env` using `.env.example`:
+
+```dotenv
+PLAID_CLIENT_ID=your_plaid_client_id
+PLAID_SECRET=your_plaid_sandbox_secret
+PLAID_ENV=sandbox
+PLAID_COUNTRY_CODES=US
+PLAID_TOKEN_ENCRYPTION_KEY=64_hex_characters
+```
+
+Sandbox is used when `PLAID_ENV` is unset. `PLAID_ENV` also accepts `development` and `production`; environment-specific transactions are labeled accurately in the dashboard. Generate a token-encryption key with:
+
+```powershell
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Plaid access tokens are encrypted before storage. Existing plaintext tokens are invalidated by the migration and their bank connections need to be linked again. Do not commit `.env` files or expose Plaid secrets to the frontend.
+
+For a local Plaid Sandbox flow, configure the environment above with Sandbox credentials, apply migrations, and start the API and dashboard:
+
+```powershell
+$env:DATABASE_URL = "<your PostgreSQL connection string>"
+pnpm --dir artifacts/api-server run db:migrate
+pnpm --dir artifacts/api-server run dev
+pnpm --dir artifacts/fintech-dashboard run dev
+```
+
+Sign in, leave the dashboard in Connected Mode, select **Connect Bank**, and complete Plaid Link with a Sandbox institution and Plaid's Sandbox test credentials. The exchange endpoint stores only an encrypted access token, syncs the initial transactions, and the dashboard refreshes from PostgreSQL. **Use Demo Mode** instead to explicitly generate synthetic records for a demo without Plaid credentials.
+
+Plaid endpoints: `POST /api/v1/plaid/create-link-token`, `POST /api/v1/plaid/exchange-public-token`, `POST /api/v1/plaid/sync`, and `GET /api/v1/plaid/status`. Transaction reads accept `?dataSource=DEMO`; the default is connected Plaid data. Validate changes with `pnpm --dir artifacts/api-server run test`, `pnpm --dir artifacts/api-server run build`, `pnpm --dir artifacts/fintech-dashboard run build`, and `pnpm --dir lib/db exec drizzle-kit check`.
 
 # PROBLEM STATEMENT
 

@@ -17,8 +17,8 @@ export const PlaidLinkButton = () => {
         const response = await api.post<{link_token: string}>("/plaid/create-link-token", {});
         setLinkToken(response.link_token);
       } catch (error) {
-        console.error("Error fetching Plaid link token", error);
-        toast.error("Failed to initialize bank link.");
+        const message = error instanceof Error ? error.message : "Bank connection unavailable.";
+        toast.error(message);
       }
     };
     fetchLinkToken();
@@ -29,13 +29,11 @@ export const PlaidLinkButton = () => {
     try {
       // Exchange public token for access token
       await api.post("/plaid/exchange-public-token", { public_token });
-      toast.success("Bank account successfully linked!");
-      
-      // Optionally trigger a refresh of dashboard data here
-      // window.location.reload(); 
+      toast.success("Bank account linked and transactions synchronized.");
+      window.dispatchEvent(new Event("nexora:transactions:changed"));
     } catch (error) {
-      console.error("Error exchanging public token", error);
-      toast.error("Failed to link bank account.");
+      const message = error instanceof Error ? error.message : "Failed to link bank account.";
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -51,7 +49,7 @@ export const PlaidLinkButton = () => {
   return (
     <Button 
       onClick={() => open()} 
-      disabled={!ready || isLoading}
+      disabled={!ready || isLoading || !linkToken}
       className="bg-[#2A2B31] text-white hover:bg-[#34363e] border border-gray-700/50 rounded-xl"
     >
       {isLoading ? (

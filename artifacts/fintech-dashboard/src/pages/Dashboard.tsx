@@ -19,7 +19,9 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useNotifications } from "@/lib/notification-context";
 import { useTransactionsContext } from "@/lib/transactions-context";
+import { api } from "@/lib/api";
 import { subMonths, isSameMonth, parseISO, format } from "date-fns";
+import { PlaidLinkButton } from "@/components/PlaidLinkButton";
 
 type ApiStatus = "checking" | "connected" | "error" | "missing";
 
@@ -29,12 +31,91 @@ export function Dashboard() {
     apiBaseUrl ? "checking" : "missing",
   );
   const [apiMessage, setApiMessage] = useState(
-    apiBaseUrl ? "Checking backend connection..." : "Set VITE_API_BASE_URL in Vercel.",
+    apiBaseUrl ? "Checking backend connection..." : "Set VITE_API_URL in the deployment environment.",
   );
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
   const { checkSpending } = useNotifications();
-  const { transactions, summary } = useTransactionsContext();
+  const {
+    transactions,
+    summary,
+    dataMode,
+    setDataMode,
+    accountBalances,
+    error: transactionsError,
+    refreshTransactions,
+  } = useTransactionsContext();
+  const [plaidStatus, setPlaidStatus] = useState<{
+    available: boolean;
+    connected: boolean;
+    needsRelink?: boolean;
+    environment?: string;
+    error?: string;
+  }>({ available: false, connected: false });
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  useEffect(() => {
+    const loadPlaidStatus = async () => {
+      try {
+        setPlaidStatus(await api.get<{
+          available: boolean;
+          connected: boolean;
+          needsRelink?: boolean;
+          environment?: string;
+          error?: string;
+        }>("/plaid/status"));
+      } catch {
+        setPlaidStatus({
+          available: false,
+          connected: false,
+          error: "Bank connection unavailable. Demo Mode can be used for testing.",
+        });
+      }
+    };
+    void loadPlaidStatus();
+    const onTransactionsChanged = () => { void loadPlaidStatus(); };
+    window.addEventListener("nexora:transactions:changed", onTransactionsChanged);
+    return () => window.removeEventListener("nexora:transactions:changed", onTransactionsChanged);
+  }, []);
+
+  const handleSyncTransactions = async () => {
+    setIsSyncing(true);
+    try {
+      await api.post("/plaid/sync", {});
+      await refreshTransactions();
+      toast({ title: "Transactions synchronized", description: "Connected account data has been refreshed." });
+    } catch (error) {
+      toast({
+        title: "Bank sync failed",
+        description: error instanceof Error ? error.message : "Plaid could not synchronize transactions.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleDataModeChange = async () => {
+    try {
+      await setDataMode(dataMode === "DEMO" ? "CONNECTED" : "DEMO");
+    } catch (error) {
+      toast({
+        title: "Could not change data source",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const dataSourceLabel = dataMode === "DEMO"
+    ? "Demo Data"
+    : plaidStatus.connected
+      ? plaidStatus.environment === "sandbox"
+        ? "Plaid Sandbox"
+        : plaidStatus.environment === "development"
+          ? "Plaid Development"
+          : "Connected Account"
+      : "No Connected Account";
 
   const handleExportPDF = async () => {
     setIsExporting(true);
@@ -249,7 +330,7 @@ export function Dashboard() {
         <div className="flex items-center gap-4">
           <div>
             <h1 className={theme === "dark" ? "text-3xl font-bold text-slate-50 tracking-tight" : "text-3xl font-bold text-slate-950 tracking-tight"}>Dashboard</h1>
-            <p className={theme === "dark" ? "mt-1.5 font-medium text-slate-400" : "mt-1.5 font-medium text-slate-500"}>Here's your financial overview for October 2024.</p>
+            <p className={theme === "dark" ? "mt-1.5 font-medium text-slate-400" : "mt-1.5 font-medium text-slate-500"}>Here's your financial overview for {format(new Date(), "MMMM yyyy")}.</p>
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -276,6 +357,58 @@ export function Dashboard() {
       <div className="mb-6 rounded-2xl border border-slate-800/80 bg-slate-900/60 p-4 backdrop-blur shadow-xl">
         <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">Workspace Mode Switcher</p>
         <WorkspacePillSwitcher />
+      </div>
+      <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-slate-800/80 bg-slate-900/60 p-4 shadow-xl sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-slate-100">Data Source: {dataSourceLabel}</p>
+          {dataMode === "DEMO" ? (
+            <p className="mt-1 text-xs text-amber-300">Synthetic demo transactions — not connected bank data.</p>
+          ) : plaidStatus.available ? (
+            <p className="mt-1 text-xs text-slate-400">
+              {accountBalances.length
+                ? <>Account balances: {accountBalances.map((account) => (
+                    `${new Intl.NumberFormat(undefined, {
+                      style: "currency",
+                      currency: account.currency || "USD",
+                    }).format(account.balance)} (${account.type})`
+                  )).join(" · ")}</>
+                : "No connected account balances yet."}
+            </p>
+          ) : (
+            <p className="mt-1 text-xs text-amber-300">
+              {plaidStatus.error || "Bank connection unavailable. Demo Mode can be used for testing."}
+            </p>
+          )}
+          {dataMode === "DEMO" && !plaidStatus.available && (
+            <p className="mt-1 text-xs text-amber-300">
+              Bank connection unavailable. Demo Mode can be used for testing.
+            </p>
+          )}
+          {transactionsError && <p className="mt-1 text-xs text-rose-300">{transactionsError}</p>}
+          {plaidStatus.needsRelink && (
+            <p className="mt-1 text-xs text-amber-300">A previous bank connection must be linked again before it can sync.</p>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void handleDataModeChange()}
+            className="rounded-xl border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800"
+          >
+            {dataMode === "DEMO" ? "Switch to Connected Data" : "Use Demo Mode"}
+          </button>
+          {dataMode === "CONNECTED" && plaidStatus.available && <PlaidLinkButton />}
+          {dataMode === "CONNECTED" && plaidStatus.connected && (
+            <button
+              type="button"
+              onClick={() => void handleSyncTransactions()}
+              disabled={isSyncing}
+              className="rounded-xl border border-cyan-500/30 px-3 py-2 text-xs font-semibold text-cyan-200 hover:bg-cyan-500/10 disabled:opacity-50"
+            >
+              {isSyncing ? "Syncing..." : "Sync transactions"}
+            </button>
+          )}
+        </div>
       </div>
 
       <SummaryCards />

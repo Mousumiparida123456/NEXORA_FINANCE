@@ -31,14 +31,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useToast } from "@/hooks/use-toast"
 import { useDashboard } from "@/lib/dashboard-context"
 import { useNotifications } from "@/lib/notification-context"
+import { useTransactionsContext } from "@/lib/transactions-context"
 import { cn } from "@/lib/utils"
-
-const exportRows = [
-  ["Metric", "Value"],
-  ["Total Income", "totalIncome"],
-  ["Total Expenses", "totalExpenses"],
-  ["Savings", "savings"],
-]
 
 function buildCSV(rows: string[][]) {
   return rows.map((row) => row.map((value) => `"${value}"`).join(",")).join("\n")
@@ -73,6 +67,7 @@ export function Topbar() {
     formatCurrency,
   } = useDashboard()
   const { notifications: liveNotifications, unreadCount: unreadNotifications, markAllRead: markAllNotificationsRead } = useNotifications()
+  const { summary, dataMode } = useTransactionsContext()
   const { toast } = useToast()
 
   const exportDisabled = !canExport
@@ -93,9 +88,10 @@ export function Topbar() {
   const handleExport = (format: "csv" | "json") => {
     const rows = [
       ["Metric", "Value"],
-      ["Total Income", formatCurrency(1033350)],
-      ["Total Expenses", formatCurrency(789000)],
-      ["Savings", formatCurrency(456000)],
+      ["Data Source", dataMode === "DEMO" ? "Demo Data (Synthetic)" : "Connected Account Data"],
+      ["Total Income", formatCurrency(summary.totalIncome)],
+      ["Total Expenses", formatCurrency(summary.totalExpenses)],
+      ["Savings", formatCurrency(summary.savings)],
     ]
 
     if (format === "csv") {

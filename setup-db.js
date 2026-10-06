@@ -1,10 +1,10 @@
 /**
  * NEXORA — Direct Supabase schema setup script
  */
-const { Client } = require("pg");
+const { Pool } = require("pg");
 
 const DATABASE_URL =
-  "postgresql://postgres:mousumiparida05052005@[2406:da1a:b00:1302:6da8:949d:c706:70eb]:5432/postgres?sslmode=no-verify";
+  "postgresql://postgres.alfefiootrefmcgvdnvk:MAMUN05052005%24@aws-1-ap-south-1.pooler.supabase.com:6543/postgres";
 
 const SQL = `
 -- Drop in safe order (children first)
@@ -87,22 +87,22 @@ CREATE INDEX IF NOT EXISTS timestamp_idx ON transactions(timestamp);
 `;
 
 async function run() {
-  const client = new Client({
+  const pool = new Pool({
     connectionString: DATABASE_URL,
     ssl: { rejectUnauthorized: false },
   });
 
   try {
     console.log("🔗 Connecting to Supabase...");
-    await client.connect();
+    await pool.query("SELECT 1");
     console.log("✅ Connected!\n");
 
     console.log("🗄️  Running schema SQL...");
-    await client.query(SQL);
+    await pool.query(SQL);
     console.log("✅ All tables created successfully!\n");
 
     // Verify
-    const res = await client.query(`
+    const res = await pool.query(`
       SELECT table_name FROM information_schema.tables
       WHERE table_schema = 'public'
       ORDER BY table_name;
@@ -114,7 +114,7 @@ async function run() {
     console.error("❌ Error:", err.message);
     process.exit(1);
   } finally {
-    await client.end();
+    await pool.end();
   }
 }
 

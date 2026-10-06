@@ -25,3 +25,7 @@ pnpm-debug.log*
 artifacts/api-server/dist/
 artifacts/fintech-dashboard/dist/
 cookies.txt
+
+# ML Training Data
+ml-training/data/
+

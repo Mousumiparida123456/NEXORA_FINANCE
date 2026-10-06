@@ -1,18 +1,17 @@
-const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
-export const VERCEL_API_SERVER_URL = "https://nexora-finance-api-server.vercel.app";
-export const LOCAL_API_SERVER_URL = "http://localhost:9999";
+const configuredApiUrl = (
+  import.meta.env.VITE_API_URL?.trim() ||
+  import.meta.env.VITE_API_BASE_URL?.trim() ||
+  ""
+).replace(/\/+$/, "");
 
-export const apiBaseUrl = rawApiBaseUrl
-  ? rawApiBaseUrl.replace(/\/+$/, "")
-  : (import.meta.env.DEV ? LOCAL_API_SERVER_URL : VERCEL_API_SERVER_URL);
-
-const hasVersionedPrefix = /\/api\/v1$/i.test(apiBaseUrl);
-const hasApiPrefix = /\/api$/i.test(apiBaseUrl);
+const hasVersionedPrefix = /\/api\/v1$/i.test(configuredApiUrl);
+const hasApiPrefix = /\/api$/i.test(configuredApiUrl);
 export const API_URL = hasVersionedPrefix
-  ? apiBaseUrl
+  ? configuredApiUrl
   : hasApiPrefix
-    ? `${apiBaseUrl}/v1`
-    : `${apiBaseUrl}/api/v1`;
+    ? `${configuredApiUrl}/v1`
+    : `${configuredApiUrl}/api/v1`;
+export const apiBaseUrl = configuredApiUrl.replace(/\/api(?:\/v1)?$/i, "");
 console.log("NEXORA_ENGINE_ACTIVE:", API_URL);
 
 export interface BackendAuditRecord {
@@ -62,20 +61,59 @@ export interface ApiHealth {
 }
 
 const sanitizeErrorMessage = (value: unknown, fallback = "Something went wrong. Please try again.") => {
-  const raw = typeof value === "string" ? value : value instanceof Error ? value.message : "";
+  const extractString = (input: unknown): string | null => {
+    if (typeof input === "string") return input;
+    if (typeof input === "number" || typeof input === "boolean") return String(input);
+    if (input instanceof Error) return input.message;
+    if (input && typeof input === "object") {
+      if ("message" in input && typeof (input as any).message === "string") return (input as any).message;
+      if ("error" in input && typeof (input as any).error === "string") return (input as any).error;
+      if ("details" in input && typeof (input as any).details === "string") return (input as any).details;
+      if (Array.isArray(input)) {
+        for (const item of input) {
+          const nested = extractString(item);
+          if (nested) return nested;
+        }
+      }
+      for (const candidate of Object.values(input as Record<string, unknown>)) {
+        const nested = extractString(candidate);
+        if (nested) return nested;
+      }
+    }
+    return null;
+  };
+
+  const raw = extractString(value);
   if (!raw) return fallback;
 
   const normalized = raw.replace(/\s+/g, " ").trim();
   const lower = normalized.toLowerCase();
   const looksLikeInternalSql =
     lower.includes("failed query:") ||
-    (lower.includes("select ") && lower.includes(" from ") && lower.includes(" where ")) ||
+    lower.includes("failed to query") ||
+    lower.includes("db query") ||
+    lower.includes("database error") ||
+    lower.includes("database connection") ||
+    lower.includes("postgres") ||
+    lower.includes("postgresql") ||
+    lower.includes("drizzle") ||
+    lower.includes("enotfound") ||
+    lower.includes("econnrefused") ||
     lower.includes("lower(users.email)") ||
     lower.includes("users.role") ||
     lower.includes("limit $") ||
-    lower.includes("params:");
+    lower.includes("params:") ||
+    lower.includes("duplicate key") ||
+    lower.includes("relation \"") ||
+    (lower.includes("select ") && lower.includes(" from ")) ||
+    lower.includes("where lower(") ||
+    (lower.includes("sql") && (lower.includes("select") || lower.includes("insert") || lower.includes("update") || lower.includes("delete")));
 
-  return looksLikeInternalSql ? fallback : normalized;
+  if (looksLikeInternalSql || normalized.length > 240 || normalized.includes("\n")) {
+    return fallback;
+  }
+
+  return normalized;
 };
 
 class ApiClient {
@@ -103,7 +141,9 @@ class ApiClient {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      const errorMessage = sanitizeErrorMessage(errorData.error || errorData.message || `HTTP ${response.status}`);
+      const errorMessage = sanitizeErrorMessage(
+        errorData?.error ?? errorData?.message ?? errorData ?? `HTTP ${response.status}`
+      );
       throw new Error(errorMessage);
     }
 
@@ -327,23 +367,10 @@ class ApiClient {
     return this.post<{ advice: string }>("/ai/insights", data);
   }
 
-  async getSentinelAuditLogs(): Promise<SentinelAuditLogsResponse> {
-    try {
-      return await this.get<SentinelAuditLogsResponse>("/sentinel/audit-logs");
-    } catch (err: any) {
-      // Fallback attempt to http://localhost:9999 directly if primary baseUrl is different
-      if (!this.baseUrl.includes("localhost:9999")) {
-        try {
-          const directRes = await fetch("http://localhost:9999/api/v1/sentinel/audit-logs");
-          if (directRes.ok) {
-            return await directRes.json();
-          }
-        } catch {
-          // ignore direct fallback error
-        }
-      }
-      throw err;
-    }
+  async getSentinelAuditLogs(limit: number = 50): Promise<SentinelAuditLogsResponse> {
+    return this.get<SentinelAuditLogsResponse>(
+      `/sentinel/audit-logs?limit=${encodeURIComponent(String(limit))}`,
+    );
   }
 
   async postSentinelAuditEvent(eventPayload: {

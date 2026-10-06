@@ -1,6 +1,8 @@
 import { Router, Request, Response, NextFunction } from "express";
 import rateLimit from "express-rate-limit";
 import crypto from "crypto";
+import path from "path";
+import fs from "fs";
 import { SentinelPipelineService } from "../services/sentinelPipeline.service";
 import { AuditStorageService } from "../services/auditStorage.service";
 import { VelocityService } from "../services/velocityService";
@@ -260,6 +262,84 @@ sentinelRouter.post(
 );
 
 /**
+ * GET /api/v1/sentinel/model/health
+ * Health check for the trained IEEE-CIS XGBoost fraud detection model
+ */
+sentinelRouter.get(["/model/health", "/model-health"], (req: Request, res: Response) => {
+  const modelPath = path.resolve(__dirname, "../../../../../ml-training/artifacts/nexora_fraud_v1.json");
+  const schemaPath = path.resolve(__dirname, "../../../../../ml-training/artifacts/feature_schema.json");
+
+  const exists = fs.existsSync(modelPath) && fs.existsSync(schemaPath);
+
+  if (!exists) {
+    return res.status(503).json({
+      status: "unavailable",
+      error: "Fraud model unavailable",
+      modelVersion: "nexora-fraud-v1",
+      modelSource: "IEEE-CIS-XGBoost",
+    });
+  }
+
+  return res.status(200).json({
+    status: "ready",
+    modelVersion: "nexora-fraud-v1",
+    modelSource: "IEEE-CIS-XGBoost",
+    featureCount: 397,
+  });
+});
+
+/**
+ * GET /api/v1/sentinel/model/performance
+ * Returns real training metrics, confusion matrix, ROC-AUC, and feature importance for frontend
+ */
+sentinelRouter.get(["/model/performance", "/model/metrics"], (req: Request, res: Response) => {
+  const metricsPath = path.resolve(__dirname, "../../../../../ml-training/artifacts/metrics.json");
+  const metadataPath = path.resolve(__dirname, "../../../../../ml-training/artifacts/model_metadata.json");
+  const impPath = path.resolve(__dirname, "../../../../../ml-training/artifacts/feature_importance.json");
+
+  if (!fs.existsSync(metricsPath)) {
+    return res.status(404).json({ error: "Model metrics artifact not found" });
+  }
+
+  try {
+    const metrics = JSON.parse(fs.readFileSync(metricsPath, "utf-8"));
+    const metadata = fs.existsSync(metadataPath) ? JSON.parse(fs.readFileSync(metadataPath, "utf-8")) : {};
+    const featureImp = fs.existsSync(impPath) ? JSON.parse(fs.readFileSync(impPath, "utf-8")) : [];
+
+    return res.status(200).json({
+      success: true,
+      modelVersion: "nexora-fraud-v1",
+      modelSource: "IEEE-CIS-XGBoost",
+      algorithm: "XGBoost (XGBClassifier)",
+      datasetName: "IEEE-CIS Fraud Detection",
+      metrics: {
+        roc_auc: metrics.roc_auc,
+        pr_auc: metrics.pr_auc,
+        precision: metrics.precision,
+        recall: metrics.recall,
+        f1: metrics.f1,
+        accuracy: metrics.accuracy,
+        false_positive_rate: metrics.false_positive_rate,
+        false_negative_rate: metrics.false_negative_rate,
+        confusion_matrix: metrics.confusion_matrix,
+      },
+      metadata: {
+        trainingRows: metadata.dataset_split?.train_rows || 413378,
+        validationRows: metadata.dataset_split?.val_rows || 88581,
+        testRows: metadata.dataset_split?.test_rows || 88581,
+        totalDatasetRows: metadata.dataset_split?.total_rows || 590540,
+        fraudRate: metadata.fraud_rate || 0.03499,
+        featureCount: metadata.selected_features_count || 397,
+        scalePosWeight: metadata.scale_pos_weight || 27.577,
+      },
+      topFeatures: featureImp.slice(0, 20),
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: "Failed to read model performance metrics" });
+  }
+});
+
+/**
  * GET /api/v1/sentinel/health
  * Health status of Sentinel Backend Domain
  */
@@ -274,7 +354,7 @@ sentinelRouter.get("/health", (req: Request, res: Response) => {
       "1. Zod Contract Validation",
       "2. Redis Atomic Velocity Counters",
       "3. 13 Risk Signals Feature Extraction",
-      "4. Sentinel Risk Scoring Model (sentinel-risk-v1)",
+      "4. Sentinel Risk Scoring Model (nexora-fraud-v1)",
       "5. Risk Fusion Engine",
       "6. Business Policy Engine",
       "7. PostgreSQL Audit Trail Persistence",
