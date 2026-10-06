@@ -43,6 +43,8 @@ Evaluate transactions for potential fraud and convert machine-learning predictio
 
 Instead of building a finance dashboard and a fraud detector as two disconnected systems, NEXORA connects them through a unified transaction intelligence layer.
 
+**LIVE DEPLOYEMENT LINK : https://nexora-finance-fintech-dashboard.vercel.app/ **
+
 ---
 
 # 🎯 The Problem
