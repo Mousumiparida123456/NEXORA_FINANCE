@@ -1,541 +1,917 @@
-# NEXORA
+Yes. You want the README to be **detailed enough for a hackathon judge to understand the complete project**, but still **clean, interactive, professional, and directly copy-pasteable**.
 
-## Local Architecture
+Use this as your complete `README.md`:
 
-- Backend source: `artifacts/api-server`
-- Shared database layer: `lib/db`
-- Database migrations: `lib/db/drizzle`
-- Local backend base URL: `http://localhost:9999/api/v1`
+````markdown
+<div align="center">
 
-# LIVE LINK
+# ◈ NEXORA
 
-## https://nexora-finance-fintech-dashboard.vercel.app/
+### Financial Intelligence × Transaction Risk Protection
 
-## Financial Data Sources
+**Understand your money. Detect financial risk. Make safer decisions.**
 
-The Personal Finance dashboard has two explicit data paths:
+<p>
+  <a href="https://nexora-finance-fintech-dashboard.vercel.app/">
+    <img src="https://img.shields.io/badge/🚀%20LIVE%20DEMO-NEXORA-111827?style=for-the-badge"/>
+  </a>
+  <a href="https://github.com/Mousumiparida123456/NEXORA_FINANCE">
+    <img src="https://img.shields.io/badge/💻%20SOURCE-GITHUB-181717?style=for-the-badge&logo=github"/>
+  </a>
+</p>
 
-- **Connected Mode** (default): reads only transactions and account balances synchronized into PostgreSQL through Plaid. If Plaid or the database is unavailable, the dashboard reports an error rather than substituting demo data.
-- **Demo Mode**: explicitly enabled from the dashboard; creates or reads synthetic database transactions marked `DEMO`. These rows are never returned by Connected Mode.
+<p>
+  <img src="https://img.shields.io/badge/React-TypeScript-61DAFB?style=flat-square&logo=react&logoColor=black"/>
+  <img src="https://img.shields.io/badge/Node.js-Express-339933?style=flat-square&logo=node.js&logoColor=white"/>
+  <img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white"/>
+  <img src="https://img.shields.io/badge/XGBoost-Fraud%20Detection-FF6600?style=flat-square"/>
+  <img src="https://img.shields.io/badge/Python-ML-3776AB?style=flat-square&logo=python&logoColor=white"/>
+</p>
 
-Configure the backend environment in `artifacts/api-server/.env` using `.env.example`:
-
-```dotenv
-PLAID_CLIENT_ID=your_plaid_client_id
-PLAID_SECRET=your_plaid_sandbox_secret
-PLAID_ENV=sandbox
-PLAID_COUNTRY_CODES=US
-PLAID_TOKEN_ENCRYPTION_KEY=64_hex_characters
-```
-
-Sandbox is used when `PLAID_ENV` is unset. `PLAID_ENV` also accepts `development` and `production`; environment-specific transactions are labeled accurately in the dashboard. Generate a token-encryption key with:
-
-```powershell
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
-
-Plaid access tokens are encrypted before storage. Existing plaintext tokens are invalidated by the migration and their bank connections need to be linked again. Do not commit `.env` files or expose Plaid secrets to the frontend.
-
-For a local Plaid Sandbox flow, configure the environment above with Sandbox credentials, apply migrations, and start the API and dashboard:
-
-```powershell
-$env:DATABASE_URL = "<your PostgreSQL connection string>"
-pnpm --dir artifacts/api-server run db:migrate
-pnpm --dir artifacts/api-server run dev
-pnpm --dir artifacts/fintech-dashboard run dev
-```
-
-Sign in, leave the dashboard in Connected Mode, select **Connect Bank**, and complete Plaid Link with a Sandbox institution and Plaid's Sandbox test credentials. The exchange endpoint stores only an encrypted access token, syncs the initial transactions, and the dashboard refreshes from PostgreSQL. **Use Demo Mode** instead to explicitly generate synthetic records for a demo without Plaid credentials.
-
-Plaid endpoints: `POST /api/v1/plaid/create-link-token`, `POST /api/v1/plaid/exchange-public-token`, `POST /api/v1/plaid/sync`, and `GET /api/v1/plaid/status`. Transaction reads accept `?dataSource=DEMO`; the default is connected Plaid data. Validate changes with `pnpm --dir artifacts/api-server run test`, `pnpm --dir artifacts/api-server run build`, `pnpm --dir artifacts/fintech-dashboard run build`, and `pnpm --dir lib/db exec drizzle-kit check`.
-
-# PROBLEM STATEMENT
-
-Managing personal finances has become increasingly difficult in today’s fast-moving digital world. People use multiple payment methods, subscriptions, investment platforms, UPI applications, online banking systems, and digital wallets daily, making it challenging to maintain a clear understanding of their overall financial condition.
-
-Most traditional finance tracking applications only provide basic expense recording features and fail to deliver meaningful financial intelligence. Users often struggle to:
-
-* track their real spending patterns
-* monitor recurring subscriptions and bills
-* understand savings performance
-* manage investments efficiently
-* maintain financial discipline
-* predict future expenses
-* analyze their financial health in realtime
-
-Additionally, many existing systems suffer from:
-
-* static dashboards
-* manually calculated analytics
-* disconnected financial modules
-* lack of realtime updates
-* poor visualization of financial data
-* absence of predictive insights
-* minimal personalization
-
-Because of these limitations, users frequently:
-
-* overspend unknowingly
-* miss recurring payments
-* fail to achieve savings goals
-* lose track of subscriptions
-* struggle with budgeting
-* make uninformed financial decisions
-
-There is a strong need for a modern, intelligent, and realtime financial management platform that not only tracks transactions but also transforms financial data into actionable insights, predictive analytics, and smart financial guidance.
+</div>
 
 ---
 
-# 💡 SOLUTION
+# 🚀 NEXORA at a Glance
 
-Nexora is developed as an AI-powered realtime fintech dashboard that transforms raw transaction data into meaningful financial intelligence.
+**NEXORA** is a fintech intelligence platform designed around one simple idea:
 
-Instead of acting as a simple expense tracker, Nexora functions as a complete digital financial ecosystem where every section of the platform is interconnected and automatically synchronized through realtime transaction analytics.
+> **Financial management should not only tell you what happened to your money — it should also help determine whether the activity is trustworthy.**
 
-The platform uses transactions as the single source of truth. Whenever users:
+NEXORA combines two capabilities inside one platform:
 
-* add expenses
-* record income
-* update investments
-* manage bills
-* track subscriptions
+### 💰 Personal Finance Intelligence
+Understand transactions, spending patterns and financial activity.
 
-all analytics, charts, insights, and financial modules update instantly without requiring manual refreshes.
+### 🛡️ NEXORA Sentinel
+Evaluate transactions for potential fraud and convert machine-learning predictions into actionable security decisions.
 
-Nexora provides:
-
-* realtime financial monitoring
-* AI-style financial insights
-* recurring transaction detection
-* investment analytics
-* savings goal tracking
-* bill management
-* credit analysis
-* predictive financial forecasting
-
-The system continuously analyzes financial behavior to help users:
-
-* understand spending patterns
-* improve savings habits
-* manage recurring expenses
-* monitor investments
-* achieve financial goals
-* make smarter financial decisions
-
-By combining:
-
-* realtime synchronization
-* intelligent analytics
-* interactive visualizations
-* automated financial tracking
-* predictive insights
-
-Nexora delivers a modern fintech experience similar to advanced digital finance platforms while maintaining a clean, futuristic, and highly interactive user interface.
-
-# ✨ Core Features
-
-# 1.📊 Dashboard — Your Financial Command Center
-
-The Dashboard acts as the central overview of the user's financial condition.
-
-It continuously reads transaction data and transforms it into live financial analytics.
-
-## Features
-
-### 💰 Total Income Tracking
-
-Automatically calculates total income from all income transactions.
-
-Useful for:
-
-* salary monitoring
-* freelance income tracking
-* business revenue analysis
+Instead of building a finance dashboard and a fraud detector as two disconnected systems, NEXORA connects them through a unified transaction intelligence layer.
 
 ---
 
-### 💸 Expense Monitoring
+# 🎯 The Problem
 
-Tracks total expenses dynamically across all categories.
+Modern financial platforms generate enormous amounts of transaction data, but users and businesses often face two separate problems.
 
-Useful for:
+### Problem 1 — Financial Visibility
 
-* spending control
-* identifying excessive expenses
-* budgeting analysis
+Users can see their transactions, but raw transaction lists do not always provide enough insight into:
+
+- Where money is going
+- Spending patterns
+- Financial activity
+- Potentially unusual transactions
+
+### Problem 2 — Transaction Risk
+
+Fraud detection systems can identify suspicious activity, but a prediction alone is not enough.
+
+A useful fraud system should answer:
+
+> **Why is this transaction risky?**
+
+and more importantly:
+
+> **What should happen next?**
+
+NEXORA addresses both problems through a unified intelligence pipeline.
 
 ---
 
-### 🏦 Savings Calculation
-
-Automatically calculates:
+# 💡 The NEXORA Approach
 
 ```text
-Savings = Total Income - Total Expenses
+                 FINANCIAL ACTIVITY
+                         │
+                         ▼
+              ┌─────────────────────┐
+              │       NEXORA        │
+              └──────────┬──────────┘
+                         │
+             ┌───────────┴───────────┐
+             ▼                       ▼
+      💰 FINANCE                 🛡️ SENTINEL
+      INTELLIGENCE               RISK ENGINE
+             │                       │
+             ▼                       ▼
+       Understand              Detect Risk
+       Transactions            Score Risk
+       Spending                Explain Risk
+             │                       │
+             └───────────┬───────────┘
+                         ▼
+                  SMARTER DECISIONS
+````
+
+The platform therefore moves from:
+
+**Transaction → Intelligence → Risk → Decision**
+
+---
+
+# 🛡️ NEXORA Sentinel
+
+**Sentinel is the transaction security layer of NEXORA.**
+
+It evaluates transactions through multiple stages instead of relying on a single static rule.
+
+### Sentinel Pipeline
+
+```text
+Transaction
+     │
+     ▼
+┌─────────────────────┐
+│ 1. Input Validation │
+└──────────┬──────────┘
+           ▼
+┌─────────────────────┐
+│ 2. Feature          │
+│    Engineering      │
+└──────────┬──────────┘
+           ▼
+┌─────────────────────┐
+│ 3. XGBoost Fraud    │
+│    Prediction       │
+└──────────┬──────────┘
+           ▼
+┌─────────────────────┐
+│ 4. Risk Fusion      │
+│ ML + Behavioral +   │
+│ Security Signals    │
+└──────────┬──────────┘
+           ▼
+┌─────────────────────┐
+│ 5. Policy Engine    │
+└──────────┬──────────┘
+           ▼
+      ┌────┼────┐
+      ▼    ▼    ▼
+    ALLOW REVIEW BLOCK
+      │    │    │
+      └────┼────┘
+           ▼
+┌─────────────────────┐
+│ 6. Audit Logging    │
+└─────────────────────┘
 ```
 
-Useful for:
+---
 
-* monitoring monthly savings
-* financial planning
-* emergency fund growth
+# 🧠 Real Machine Learning
+
+NEXORA does not use a hardcoded random fraud score.
+
+The Sentinel engine uses a trained **XGBoost classification model** based on the **IEEE-CIS Fraud Detection dataset**.
+
+The model is integrated into the Sentinel pipeline through a dedicated inference layer.
+
+### Model
+
+```text
+Algorithm      : XGBoost
+Dataset        : IEEE-CIS Fraud Detection
+Features       : 397
+Model Version  : nexora-fraud-v1
+Model Source   : IEEE-CIS-XGBoost
+```
 
 ---
 
-### 📈 Monthly Overview Graph
+# 📊 Model Performance
 
-Displays monthly income vs expense trends using interactive charts.
+| Metric           |      Result |
+| ---------------- | ----------: |
+| ROC-AUC          |  **89.84%** |
+| PR-AUC           |  **49.51%** |
+| Precision        |  **23.73%** |
+| Recall           |  **67.86%** |
+| F1 Score         |  **35.17%** |
+| Training Samples | **413,378** |
+| Test Samples     |  **88,581** |
+| Features         |     **397** |
+| Fraud Rate       |   **3.50%** |
 
-Useful for:
+### Why these metrics?
 
-* understanding financial patterns
-* comparing monthly performance
-* identifying overspending months
+Fraud datasets are highly imbalanced.
 
----
+If legitimate transactions heavily outnumber fraudulent transactions, accuracy alone can give a misleading picture.
 
-### 🍩 Expense Breakdown Analytics
+NEXORA therefore emphasizes:
 
-Visualizes category-wise spending through doughnut/pie charts.
-
-Useful for:
-
-* understanding where money goes
-* identifying costly categories
-* optimizing spending habits
-
----
-
-### ❤️ Financial Health Score
-
-Generates a financial wellness score based on:
-
-* savings ratio
-* spending stability
-* recurring liabilities
-* investment growth
-
-Useful for:
-
-* understanding financial condition instantly
-* tracking financial improvement over time
+* **ROC-AUC** → overall ranking capability
+* **PR-AUC** → performance under class imbalance
+* **Recall** → ability to catch fraudulent transactions
+* **Precision** → how many flagged transactions are actually fraudulent
+* **F1** → balance between precision and recall
 
 ---
 
-# 2.🧠 Insights Section — AI Financial Intelligence System
+# 🔬 Model Training Strategy
 
-The Insights section transforms transaction data into smart financial recommendations and behavioral analysis.
+The dataset was processed using a chronological split based on transaction time.
 
-It behaves like an AI-powered financial advisor.
+```text
+IEEE-CIS Dataset
+       │
+       ▼
+Feature Processing
+       │
+       ▼
+Chronological Split
+       │
+ ┌─────┼─────┐
+ ▼     ▼     ▼
+Train  Val   Test
+70%    15%   15%
+       │
+       ▼
+    XGBoost
+       │
+       ▼
+ Fraud Model
+```
+
+This avoids simply mixing future and past transactions randomly and provides a more realistic evaluation setup for transaction data.
 
 ---
 
-## Features
+# 🔍 How NEXORA Decides Risk
 
-### 📉 Spending Pattern Analysis
+The XGBoost model produces a fraud probability.
 
-Analyzes spending behavior across categories and months.
+But NEXORA does not blindly use that probability as the final decision.
 
-Useful for:
+Instead:
 
-* identifying financial habits
-* understanding category growth
-* detecting abnormal spending spikes
+```text
+              XGBoost
+                 │
+                 ▼
+        Fraud Probability
+                 │
+                 ▼
+        ┌────────────────┐
+        │   Risk Fusion  │
+        └───────┬────────┘
+                │
+       ┌────────┼────────┐
+       ▼        ▼        ▼
+      ML     Behavior  Security
+    Signal    Signal     Rules
+       │        │        │
+       └────────┼────────┘
+                ▼
+          Final Risk Score
+                │
+                ▼
+         Policy Evaluation
+                │
+       ┌────────┼────────┐
+       ▼        ▼        ▼
+     ALLOW    REVIEW    BLOCK
+```
+
+This creates a layered decision system.
+
+---
+
+# 🚦 Risk Decisioning
+
+NEXORA converts risk into an actionable decision.
+
+### 🟢 ALLOW
+
+Transaction risk is within an acceptable range.
+
+### 🟡 REVIEW
+
+Transaction requires additional investigation or monitoring.
+
+### 🔴 BLOCK
+
+Transaction crosses the configured high-risk threshold.
+
+The system therefore moves beyond:
+
+> **"Fraud probability = X"**
+
+towards:
+
+> **"Here is the risk, here is why it matters, and here is what the system recommends doing."**
+
+---
+
+# 🔥 Behavioral & Security Signals
+
+The Sentinel pipeline can combine machine-learning output with additional signals such as:
+
+* Transaction velocity
+* Behavioral anomalies
+* Security rules
+* High-severity indicators
+* Transaction context
+* Risk thresholds
+
+This creates a **multi-layer risk decision engine** rather than a single-model application.
+
+---
+
+# 📜 Auditability
+
+A security decision is valuable only when it can be investigated later.
+
+NEXORA therefore records structured Sentinel audit information.
+
+### Audit information includes:
+
+```text
+Transaction ID
+Risk Score
+Risk Level
+Decision
+Primary Reasons
+Model Version
+Policy Version
+Timestamp
+Metadata
+```
+
+This enables a reviewer to understand:
+
+```text
+What happened?
+      ↓
+What did the model predict?
+      ↓
+What risk signals were triggered?
+      ↓
+What decision was made?
+      ↓
+Which model/policy produced it?
+```
+
+---
+
+# 💰 Personal Finance Manager
+
+NEXORA also provides a financial management layer.
+
+### Core capabilities
+
+* Transaction tracking
+* Financial dashboard
+* Spending overview
+* Transaction history
+* Account monitoring
+* Financial insights
+* Financial activity analysis
+
+The objective is to transform raw financial records into information that is easier to understand.
+
+---
+
+# 🧩 Platform Modules
+
+```text
+                    NEXORA
+                       │
+        ┌──────────────┼──────────────┐
+        │              │              │
+        ▼              ▼              ▼
+   FINANCE         SENTINEL       ANALYTICS
+   MANAGER          ENGINE          LAYER
+        │              │              │
+        ▼              ▼              ▼
+ Transactions      Risk Engine     Insights
+ Spending          XGBoost         Metrics
+ Accounts          Risk Fusion     Trends
+ History           Policy          Performance
+                   Audit
+```
+
+---
+
+# 📊 Model Performance Dashboard
+
+NEXORA exposes the model's actual evaluation results inside the application.
+
+The Model Performance section provides visibility into:
+
+* ROC-AUC
+* PR-AUC
+* Precision
+* Recall
+* F1 Score
+* Training samples
+* Test samples
+* Feature count
+* Fraud rate
+* Feature importance
+* Model version
+* Model source
+
+This allows the ML layer to be inspected rather than hidden behind a generic **"AI detected fraud"** label.
+
+---
+
+# 🧪 Model Verification
+
+NEXORA includes numerical parity verification between the Python model and backend inference layer.
+
+The same transaction was evaluated through both paths.
+
+```text
+Python Model
+Probability → 0.057371
+
+Backend
+Probability → 0.057371
+
+Difference
+→ 0.000000
+```
+
+### Result
+
+```text
+✓ Model loaded
+✓ Feature transformation verified
+✓ Python inference verified
+✓ Backend inference verified
+✓ Numerical parity verified
+```
+
+---
+
+# 🧪 End-to-End Sentinel Verification
+
+A complete transaction can be processed through:
+
+```text
+Transaction
+     ↓
+Validation
+     ↓
+Feature Engineering
+     ↓
+XGBoost
+     ↓
+Risk Fusion
+     ↓
+Policy Engine
+     ↓
+Decision
+     ↓
+Audit Log
+```
+
+Example high-risk evaluation:
+
+```text
+Risk Score  : 94 / 100
+Risk Level  : CRITICAL
+Decision    : BLOCK
+Model       : nexora-fraud-v1
+```
+
+This validates the complete path from transaction input to security decision.
+
+---
+
+# 🏗️ System Architecture
+
+```text
+┌──────────────────────────────────────────────┐
+│              NEXORA FRONTEND                 │
+│                                              │
+│ React + TypeScript + Vite                    │
+│ Finance Dashboard + Sentinel Workspace       │
+└──────────────────────┬───────────────────────┘
+                       │
+                       ▼
+┌──────────────────────────────────────────────┐
+│                 API SERVER                   │
+│                                              │
+│ Node.js + Express                            │
+│ Authentication + Validation + Rate Limiting  │
+└───────────────┬──────────────┬───────────────┘
+                │              │
+                ▼              ▼
+        ┌────────────┐  ┌─────────────────┐
+        │ PostgreSQL │  │ Sentinel Engine │
+        │            │  │                 │
+        │ Users      │  │ Validation      │
+        │ Accounts   │  │ Feature Engine  │
+        │ Transactions│ │ XGBoost         │
+        │ Audit Logs │  │ Risk Fusion     │
+        └────────────┘  │ Policy Engine   │
+                        └────────┬────────┘
+                                 │
+                                 ▼
+                        ┌─────────────────┐
+                        │ Python Inference│
+                        │ XGBoost Model   │
+                        └─────────────────┘
+```
+
+---
+
+# 🛠️ Technology Stack
+
+## Frontend
+
+* React
+* TypeScript
+* Vite
+* Responsive dashboard architecture
+
+## Backend
+
+* Node.js
+* Express
+* REST APIs
+* Zod validation
+* Helmet
+* Rate limiting
+* Authentication
+
+## Database
+
+* PostgreSQL
+* Drizzle ORM
+
+## Machine Learning
+
+* Python
+* XGBoost
+* IEEE-CIS Fraud Detection dataset
+* Feature engineering
+* Model evaluation
+
+## Deployment
+
+* Vercel
+* PostgreSQL / Supabase
+* GitHub
+
+---
+
+# 📁 Project Structure
+
+```text
+NEXORA_FINANCE/
+│
+├── artifacts/
+│   │
+│   ├── fintech-dashboard/
+│   │   └── src/
+│   │       └── features/
+│   │
+│   └── api-server/
+│       ├── api/
+│       ├── src/
+│       │   └── sentinel/
+│       │       ├── models/
+│       │       ├── services/
+│       │       └── ...
+│       └── scripts/
+│
+├── lib/
+│   └── db/
+│       ├── src/
+│       └── drizzle/
+│
+├── ml-training/
+│   │
+│   ├── src/
+│   │   ├── preprocess.py
+│   │   ├── train.py
+│   │   ├── predict_single.py
+│   │   ├── test_inference.py
+│   │   └── verify_parity.py
+│   │
+│   └── artifacts/
+│       ├── nexora_fraud_v1.json
+│       ├── feature_schema.json
+│       ├── metrics.json
+│       ├── feature_importance.json
+│       └── model_metadata.json
+│
+├── package.json
+├── INTEGRATION_GUIDE.md
+└── README.md
+```
+
+---
+
+# 🚀 Getting Started
+
+## 1. Clone the Repository
+
+```bash
+git clone https://github.com/Mousumiparida123456/NEXORA_FINANCE.git
+
+cd NEXORA_FINANCE
+```
+
+---
+
+## 2. Install Dependencies
+
+```bash
+npm install
+```
+
+---
+
+## 3. Configure Environment Variables
+
+Create the required environment configuration.
 
 Example:
 
-> “Food expenses increased by 18% this month.”
+```env
+DATABASE_URL=your_postgresql_connection_string
+CLIENT_ORIGIN=http://localhost:3000
+GEMINI_API_KEY=your_gemini_api_key
+```
+
+Additional integrations may require their own credentials.
+
+> Never commit `.env` files or secret credentials.
 
 ---
 
-### 📊 Monthly Trend Detection
+# ▶️ Run the Backend
 
-Tracks changes in:
+```bash
+cd artifacts/api-server
 
-* income
-* expenses
-* savings
-* investments
+npm install
 
-Useful for:
+npm run dev
+```
 
-* monitoring financial growth
-* comparing month-over-month performance
+Backend:
 
----
-
-### 🚨 Overspending Alerts
-
-Detects unusual expense increases.
-
-Useful for:
-
-* preventing unnecessary spending
-* improving budgeting discipline
+```text
+http://localhost:9999
+```
 
 ---
 
-### 🔁 Recurring Expense Analysis
+# ▶️ Run the Frontend
 
-Analyzes subscriptions, rent, EMI, and repeated payments.
+```bash
+cd artifacts/fintech-dashboard
 
-Useful for:
+npm install
 
-* understanding fixed monthly commitments
-* subscription management
+npm run dev
+```
 
----
-
-### 🎯 Financial Milestone Tracking
-
-Tracks progress toward:
-
-* savings goals
-* financial freedom
-* investment milestones
-
-Useful for:
-
-* long-term planning
-* motivation and financial discipline
+Then open the local URL provided by Vite.
 
 ---
 
-### 🔮 Predictive Analytics
+# 🤖 ML Training & Inference
 
-Uses transaction history to estimate:
+The machine-learning implementation lives inside:
 
-* future expenses
-* projected savings
-* spending forecasts
+```text
+ml-training/
+```
 
-Useful for:
+### Training
 
-* proactive financial planning
-* risk management
+```text
+Dataset
+   ↓
+Preprocessing
+   ↓
+Feature Engineering
+   ↓
+Train / Validation / Test
+   ↓
+XGBoost
+   ↓
+Evaluation
+   ↓
+Model Artifact
+```
 
----
+### Inference
 
-# 3.💳 Transactions Section — Financial Data Engine
+The backend uses:
 
-The Transactions section is the backbone of Nexora.
+```text
+predict_single.py
+```
 
-Every module in the platform depends on transaction data.
+to perform transaction-level inference.
 
----
+Example response:
 
-## Features
-
-### ➕ Add Transactions
-
-Users can record:
-
-* income
-* expenses
-* investments
-* subscriptions
-* bills
-
----
-
-### ✏️ Edit & Delete Transactions
-
-Transactions can be updated anytime.
-
-All analytics automatically refresh in realtime.
-
----
-
-### 🔍 Filtering & Searching
-
-Filter transactions by:
-
-* category
-* date
-* type
-* month
-* amount
-
-Useful for:
-
-* quick financial analysis
-* historical tracking
+```json
+{
+  "fraudProbability": 0.057371,
+  "predictedFraud": false,
+  "modelVersion": "nexora-fraud-v1",
+  "modelSource": "IEEE-CIS-XGBoost"
+}
+```
 
 ---
 
-### 🔄 Realtime Synchronization
+# 🔐 Security
 
-Whenever a transaction changes:
+NEXORA follows a layered security approach.
 
-* dashboard updates
-* insights refresh
-* goals recalculate
-* recurring detector updates
-* investments refresh
+```text
+Authentication
+      ↓
+Input Validation
+      ↓
+Rate Limiting
+      ↓
+Fraud Detection
+      ↓
+Risk Fusion
+      ↓
+Policy Enforcement
+      ↓
+Audit Logging
+```
 
-without page reloads.
+Security technologies include:
 
----
-
-# 4.🧾 Bills Section — Smart Bill Management System
-
-The Bills module intelligently tracks monthly obligations and recurring utility payments.
-
----
-
-## Features
-
-### 📅 Due Date Tracking
-
-Monitors bill due dates automatically.
-
-Useful for:
-
-* avoiding missed payments
-* improving financial discipline
+* Authentication middleware
+* Request validation
+* Helmet security headers
+* Rate limiting
+* User-scoped data access
+* Structured audit logs
 
 ---
 
-### 💡 Bill Categorization
+# 📦 Dataset Handling
 
-Tracks:
+The IEEE-CIS dataset is used for model development and evaluation.
 
-* electricity
-* internet
-* rent
-* phone bills
-* subscriptions
+The raw dataset is intentionally **not included in the GitHub repository** because of its size and data-handling considerations.
 
----
+Expected local structure:
 
-### 🔔 Bill Reminders
+```text
+ml-training/
+└── data/
+    ├── train_transaction.csv
+    ├── train_identity.csv
+    ├── test_transaction.csv
+    └── test_identity.csv
+```
 
-Provides reminders before due dates.
-
-Useful for:
-
-* avoiding penalties
-* improving credit behavior
+The dataset directory should remain ignored by Git.
 
 ---
 
-### 📈 Monthly Bill Analytics
+# 🌐 Live Demo
 
-Calculates:
+<div align="center">
 
-* total monthly bills
-* yearly bill expenses
-* bill growth trends
+### 🚀 Experience NEXORA
 
-Useful for:
+**[OPEN LIVE DASHBOARD →](https://nexora-finance-fintech-dashboard.vercel.app/)**
 
-* managing recurring obligations
+### 💻 Explore the Code
 
----
+**[VIEW GITHUB REPOSITORY →](https://github.com/Mousumiparida123456/NEXORA_FINANCE)**
 
-# 5.🔁 Recurring Detector — Subscription & Salary Intelligence
-
-The Recurring section automatically identifies repeating financial patterns.
+</div>
 
 ---
 
-## Features
+# 🗺️ Roadmap
 
-### 🧠 Automatic Pattern Detection
+### ✅ Current
 
-Detects transactions that repeat:
+* Personal Finance Dashboard
+* Transaction Management
+* Sentinel Risk Engine
+* XGBoost Fraud Detection
+* Risk Fusion
+* Policy Engine
+* Allow / Review / Block decisions
+* Audit Logging
+* Model Performance Dashboard
 
-* monthly
-* weekly
-* yearly
+### 🔜 Next
 
-Examples:
-
-* salary
-* EMI
-* subscriptions
-* rent
-
----
-
-### 💵 Recurring Income Tracking
-
-Identifies salary and fixed income streams.
-
-Useful for:
-
-* income stability analysis
-* financial planning
+* Real-time transaction streams
+* Advanced behavioral profiling
+* Explainable fraud decisions
+* Improved anomaly detection
+* Production-grade model serving
+* Continuous model monitoring
+* Optimized inference using ONNX / specialized acceleration
 
 ---
 
-### 💳 Subscription Analysis
+# 🌟 What Makes NEXORA Different?
 
-Tracks:
+Traditional finance dashboards answer:
 
-* Netflix
-* Spotify
-* SaaS tools
-* memberships
+> **"What happened?"**
 
-Useful for:
+Traditional fraud systems answer:
 
-* reducing unnecessary subscriptions
-* understanding yearly subscription costs
+> **"Is this suspicious?"**
 
----
+NEXORA connects both.
 
-### 📆 Next Payment Prediction
+```text
+                 WHAT HAPPENED?
+                       │
+                       ▼
+                Financial Data
+                       │
+                       ▼
+                WHAT IS RISKY?
+                       │
+                       ▼
+                  ML + Rules
+                       │
+                       ▼
+                WHAT NEXT?
+                       │
+                       ▼
+              ALLOW / REVIEW / BLOCK
+                       │
+                       ▼
+                 AUDIT TRAIL
+```
 
-Predicts future recurring payments.
+### The result:
 
-Useful for:
-
-* budgeting
-* cash flow planning
-
----
-
-# 6.🎯 Goals Section — Smart Financial Goal Tracking
-
-The Goals section helps users achieve financial milestones using automated savings analytics.
-
----
-
-## Features
-
-### 🏦 Savings Goal Tracking
-
-Tracks goals such as:
-
-* emergency fund
-* vacation
-* laptop purchase
-* investments
+> **NEXORA turns financial data into actionable financial intelligence.**
 
 ---
 
-### 📈 Progress Monitoring
+# 🏆 Project Vision
 
-Automatically calculates:
+NEXORA is built around a simple principle:
 
-* saved amount
-* remaining amount
-* completion percentage
+> **Don't just monitor financial activity. Understand it, evaluate it, and act on it.**
 
----
+The long-term vision is to evolve NEXORA into a real-time financial intelligence layer capable of combining:
 
-### ⏳ Estimated Completion Prediction
+**Transaction Data + Machine Learning + Behavioral Intelligence + Security Policies**
 
-Predicts how long it will take to achieve a goal.
-
-Useful for:
-
-* realistic planning
-* motivation
+into one continuously operating decision system.
 
 ---
 
-### 🤖 Intelligent Goal Suggestions
+# 👩‍💻 Built By
 
-Analyzes income and savings patterns to recommend realistic targets
+<div align="center">
+
+### **Mousumi Parida**
+
+**CSE Student • Full-Stack Developer • DSA Enthusiast**
+
+Building at the intersection of:
+
+**FinTech × Machine Learning × Security × Software Engineering**
+
+</div>
+
+---
+
+<div align="center">
+
+# ◈ NEXORA
+
+### **Understand your money.**
+
+### **Question every transaction.**
+
+### **Protect what matters.**
+
+⭐ If you find the project interesting, consider starring the repository.
+
+</div>
+```
+
+### Why I recommend this version
+
+It gives your GitHub visitor a clear journey:
+
+**Problem → Solution → Sentinel → ML → Decision Engine → Architecture → Features → Verification → Setup → Roadmap**
+
+And importantly, it highlights your strongest hackathon point:
+
+> **NEXORA isn't just a dashboard with an "AI" label — the README demonstrates the actual XGBoost model, metrics, inference path, risk fusion, policy engine, and audit trail.**
+
