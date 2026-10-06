@@ -126,6 +126,20 @@ sentinelRouter.post(
         });
       }
 
+      // Fraud Model Unavailable Error (503)
+      if (error?.message === "Fraud model unavailable") {
+        logger.warn(
+          { requestId, durationMs },
+          "⚠️ [SENTINEL MODEL UNAVAILABLE]"
+        );
+        return res.status(503).json({
+          success: false,
+          requestId,
+          error: "Fraud model unavailable",
+          message: "The Sentinel fraud detection model is currently unavailable.",
+        });
+      }
+
       // STEP 4 — 500 Structured Server Failure (Suppressing Stack Traces)
       logger.error(
         {
@@ -177,11 +191,12 @@ sentinelRouter.get("/velocity-stats/:customerId", async (req: Request, res: Resp
  * GET /api/v1/sentinel/audit-logs
  * Returns persisted audit trail logs from PostgreSQL database or resilient memory buffer.
  */
-sentinelRouter.get("/audit-logs", async (req: Request, res: Response) => {
-  const requestId = (req.headers["x-request-id"] as string) || `REQ-${crypto.randomUUID()}`;
+sentinelRouter.get("/audit-logs", sentinelAuthMiddleware, async (req: Request, res: Response) => {
+  const requestId = (req as any).requestId || (req.headers["x-request-id"] as string) || `REQ-${crypto.randomUUID()}`;
   try {
     const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
-    const logs = await AuditStorageService.getRecentLogs(limit);
+    const userContext = (req as any).user;
+    const logs = await AuditStorageService.getRecentLogs(limit, userContext);
     return res.status(200).json({
       success: true,
       requestId,

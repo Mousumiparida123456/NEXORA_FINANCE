@@ -59,6 +59,7 @@ export interface FeatureVector {
 export interface RiskModelResult {
   modelName: string;
   modelVersion: string;
+  modelSource?: string;
   fraudProbability: number; // 0.00 to 1.00
   riskTier: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "SAFE";
   topFeatures?: string[];

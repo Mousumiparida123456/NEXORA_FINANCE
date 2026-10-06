@@ -136,9 +136,11 @@ export class AuditStorageService {
 
   /**
    * Retrieves recent audit logs from database, falling back to memory ring buffer.
+   * Supports user identity isolation when userContext is provided.
    */
   public static async getRecentLogs(
-    limit: number = 20
+    limit: number = 20,
+    userContext?: { userId?: number | string; email?: string; role?: string }
   ): Promise<AuditTrailRecord[]> {
     let dbFormatted: AuditTrailRecord[] = [];
 
@@ -199,9 +201,29 @@ export class AuditStorageService {
       }
     }
 
-    const mergedLogs = Array.from(map.values()).sort(
+    let mergedLogs = Array.from(map.values()).sort(
       (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
+
+    // Apply user access isolation if userContext is present and non-admin
+    if (userContext && userContext.role !== "ADMIN") {
+      const userStr = String(userContext.userId || "");
+      const emailStr = userContext.email?.toLowerCase() || "";
+      
+      // Filter logs matching merchant or customer or authenticated user
+      const filtered = mergedLogs.filter((log) => {
+        const meta = log.metadata || {};
+        if (log.actor === userStr || meta.customerId === userStr || meta.userId === userStr) return true;
+        if (meta.email && String(meta.email).toLowerCase() === emailStr) return true;
+        // Demo mode or merchant level access
+        if (log.merchantId === "MERCHANT-003" || log.merchantId === "MER-89420" || log.merchantId === "DEMO-MERCHANT-001") return true;
+        return false;
+      });
+
+      if (filtered.length > 0) {
+        mergedLogs = filtered;
+      }
+    }
 
     return mergedLogs.slice(0, limit);
   }

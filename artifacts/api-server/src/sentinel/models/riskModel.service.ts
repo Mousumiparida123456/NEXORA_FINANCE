@@ -51,6 +51,7 @@ export class RiskModelService {
       return {
         modelName: this.MODEL_NAME,
         modelVersion: this.MODEL_VERSION,
+        modelSource: this.MODEL_SOURCE,
         fraudProbability,
         riskTier,
         topFeatures: result.topFeatures || ["V258", "V218", "V70", "V294"],
