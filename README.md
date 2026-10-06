@@ -1,8 +1,3 @@
-Yes. You want the README to be **detailed enough for a hackathon judge to understand the complete project**, but still **clean, interactive, professional, and directly copy-pasteable**.
-
-Use this as your complete `README.md`:
-
-````markdown
 <div align="center">
 
 # ◈ NEXORA
