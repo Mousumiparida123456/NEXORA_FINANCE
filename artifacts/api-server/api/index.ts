@@ -974,6 +974,41 @@ const handleLogout = (req: express.Request, res: express.Response) => {
 app.get(["/api/v1/auth/logout", "/api/auth/logout", "/auth/logout"], handleLogout);
 app.post(["/api/v1/auth/logout", "/api/auth/logout", "/auth/logout"], handleLogout);
 
+app.post(["/api/v1/auth/refresh", "/api/auth/refresh", "/auth/refresh"], (req, res) => {
+  const refreshToken =
+    req.cookies?.nexora_refresh ||
+    req.body?.refreshToken ||
+    (req.headers.authorization?.startsWith("Bearer ") ? req.headers.authorization.substring(7) : null);
+
+  if (!refreshToken) {
+    return res.status(401).json({ success: false, message: "Your session has expired. Please sign in again." });
+  }
+
+  const payload = AuthService.verifyRefreshToken(refreshToken);
+  if (!payload) {
+    res.clearCookie("nexora_access", { path: "/" });
+    res.clearCookie("nexora_refresh", { path: "/" });
+    res.clearCookie("nexora_session", { path: "/" });
+    return res.status(401).json({ success: false, message: "Your session has expired. Please sign in again." });
+  }
+
+  const tokens = AuthService.generateTokens({
+    userId: payload.userId,
+    email: payload.email,
+    role: payload.role,
+  });
+
+  res.cookie("nexora_access", tokens.accessToken, { httpOnly: true, secure: COOKIE_SECURE, sameSite: "lax", maxAge: 900000, path: "/" });
+  res.cookie("nexora_refresh", tokens.refreshToken, { httpOnly: true, secure: COOKIE_SECURE, sameSite: "lax", maxAge: 604800000, path: "/" });
+  res.cookie("nexora_session", "active", { maxAge: 604800000, path: "/" });
+
+  return res.json({
+    success: true,
+    authenticated: true,
+    accessToken: tokens.accessToken,
+  });
+});
+
 app.get("/", (req, res) => res.send("🚀 NEXORA_SECURE_VAULT_ACTIVE"));
 
 function getAuthPayload(req: any) {
@@ -988,12 +1023,12 @@ app.post(["/api/v1/demo/enable", "/api/demo/enable"], async (req, res) => {
   const payload = getAuthPayload(req);
   const userId = Number(payload?.userId);
   if (!Number.isSafeInteger(userId) || userId <= 0) {
-    return res.status(401).json({ error: "Please sign in to enable Demo Mode." });
+    return res.status(401).json({ error: "Your session has expired. Please sign in again." });
   }
 
   try {
     let demoAccount = await db.query.accounts.findFirst({
-      where: and(eq(accounts.userId, userId), eq(accounts.dataSource, "DEMO")),
+      where: eq(accounts.userId, userId),
     });
     if (!demoAccount) {
       [demoAccount] = await db.insert(accounts).values({
@@ -1001,16 +1036,11 @@ app.post(["/api/v1/demo/enable", "/api/demo/enable"], async (req, res) => {
         type: "demo",
         balance: "0.00",
         accountNumber: `NEX-DEMO-${userId}`,
-        dataSource: "DEMO",
-        currency: "USD",
       }).returning();
     }
 
     const existingDemoTransactions = await db.query.transactions.findFirst({
-      where: and(
-        eq(transactions.accountId, demoAccount.id),
-        eq(transactions.dataSource, "DEMO"),
-      ),
+      where: eq(transactions.accountId, demoAccount.id),
     });
     if (!existingDemoTransactions) {
       const demoRows = [
@@ -1029,7 +1059,6 @@ app.post(["/api/v1/demo/enable", "/api/demo/enable"], async (req, res) => {
           type: String(type),
           category: String(category),
           description: `DEMO - ${String(category)} example`,
-          dataSource: "DEMO",
           timestamp: new Date(now.getTime() - Number(daysAgo) * 86400000),
         })),
       );
@@ -1043,20 +1072,16 @@ app.post(["/api/v1/demo/enable", "/api/demo/enable"], async (req, res) => {
 
 app.get(["/api/v1/transactions", "/api/transactions"], async (req, res) => {
   const payload = getAuthPayload(req);
-  if (!payload) return res.status(401).json({ error: "Unauthorized" });
+  if (!payload) return res.status(401).json({ error: "Your session has expired. Please sign in again." });
   const userId = Number(payload.userId);
   if (!Number.isSafeInteger(userId) || userId <= 0) {
     return res.status(401).json({ error: "Your session is invalid. Please sign in again." });
   }
-  const requestedSource = resolveFinanceDataMode(req.query.dataSource);
   try {
-    const sourceCondition = requestedSource === "DEMO"
-      ? sql`accounts.data_source = 'DEMO'`
-      : sql`accounts.data_source LIKE 'PLAID_%'`;
     const dbTxs = await db.query.transactions.findMany({
       where: sql`account_id IN (
         SELECT id FROM accounts
-        WHERE user_id = ${userId} AND ${sourceCondition}
+        WHERE user_id = ${userId}
       )`,
       with: { account: true },
       orderBy: [desc(transactions.timestamp)],
@@ -1067,25 +1092,27 @@ app.get(["/api/v1/transactions", "/api/transactions"], async (req, res) => {
         ...transaction,
         id: String(tx.id),
         amount: Number(tx.amount),
-        currency: tx.currency,
+        currency: "USD",
+        dataSource: "DEMO",
         date: tx.timestamp ? new Date(tx.timestamp).toISOString().split('T')[0] : "",
         normalized: {
           transactionId: tx.plaidTransactionId || String(tx.id),
           accountId: String(tx.accountId),
           amount: Number(tx.amount),
-          currency: tx.currency,
+          currency: "USD",
           merchantName: tx.description || "Unknown merchant",
           category: tx.category || "Other",
           timestamp: new Date(tx.timestamp).toISOString(),
           pending: Boolean(tx.pending),
           customerId: String(userId),
-          dataSource: tx.dataSource,
+          dataSource: "DEMO",
         },
       };
     });
     return res.json(formattedDb);
-  } catch {
-    return res.status(503).json({ error: "Transactions could not be loaded from the database. Please try again." });
+  } catch (dbErr) {
+    console.error("GET transactions database error:", dbErr);
+    return res.status(500).json({ error: "Transactions could not be loaded from the database. Please try again." });
   }
 });
 
@@ -1093,22 +1120,18 @@ app.get(["/api/v1/accounts", "/api/accounts"], async (req, res) => {
   const payload = getAuthPayload(req);
   const userId = Number(payload?.userId);
   if (!Number.isSafeInteger(userId) || userId <= 0) {
-    return res.status(401).json({ error: "Please sign in to load accounts." });
+    return res.status(401).json({ error: "Your session has expired. Please sign in again." });
   }
-  const requestedSource = resolveFinanceDataMode(req.query.dataSource);
   try {
-    const sourceCondition = requestedSource === "DEMO"
-      ? sql`data_source = 'DEMO'`
-      : sql`data_source LIKE 'PLAID_%'`;
     const userAccounts = await db.query.accounts.findMany({
-      where: sql`user_id = ${userId} AND ${sourceCondition}`,
+      where: sql`user_id = ${userId}`,
       orderBy: [desc(accounts.createdAt)],
     });
     return res.json(userAccounts.map((account) => ({
       id: String(account.id),
       balance: Number(account.balance),
-      currency: account.currency,
-      dataSource: account.dataSource,
+      currency: "USD",
+      dataSource: "DEMO",
       type: account.type,
     })));
   } catch {
@@ -1118,45 +1141,49 @@ app.get(["/api/v1/accounts", "/api/accounts"], async (req, res) => {
 
 app.post(["/api/v1/transactions", "/api/transactions"], async (req, res) => {
   const payload = getAuthPayload(req);
-  if (!payload) return res.status(401).json({ error: "Unauthorized" });
+  if (!payload) return res.status(401).json({ error: "Your session has expired. Please sign in again." });
+  const numUserId = Number(payload.userId);
+  if (!Number.isSafeInteger(numUserId) || numUserId <= 0) {
+    return res.status(401).json({ error: "Your session is invalid. Please sign in again." });
+  }
   try {
-    const numUserId = Number(payload.userId);
-    if (!Number.isSafeInteger(numUserId) || numUserId <= 0) {
-      return res.status(401).json({ error: "Your session is invalid. Please sign in again." });
-    }
     let account = await db.query.accounts.findFirst({
-      where: and(eq(accounts.userId, numUserId), eq(accounts.dataSource, "DEMO")),
+      where: eq(accounts.userId, numUserId),
     });
     if (!account) {
       [account] = await db.insert(accounts).values({
         userId: numUserId,
-        type: "demo",
-        balance: "0.00",
-        accountNumber: `NEX-MANUAL-${numUserId}`,
-        dataSource: "DEMO",
-        currency: "USD",
+        type: "savings",
+        balance: "1000.00",
+        accountNumber: `NEX-MAIN-${numUserId}-${Date.now()}`,
       }).returning();
     }
 
     const { amount, type, category, description, date } = req.body;
+    if (!amount || isNaN(Number(amount))) {
+      return res.status(400).json({ error: "Valid amount is required" });
+    }
+
     const [newTx] = await db.insert(transactions).values({
       accountId: account.id,
       amount: String(amount),
-      type,
-      category,
-      description: `DEMO - ${description || category || "Manual transaction"}`,
-      dataSource: "DEMO",
+      type: type || "expense",
+      category: category || "Other",
+      description: description || category || "Manual transaction",
       timestamp: date ? new Date(date) : new Date(),
     }).returning();
 
-    return res.json({
+    return res.status(201).json({
       ...newTx,
       id: String(newTx.id),
       amount: Number(newTx.amount),
+      currency: "USD",
+      dataSource: "DEMO",
       date: newTx.timestamp ? new Date(newTx.timestamp).toISOString().split('T')[0] : "",
     });
-  } catch {
-    return res.status(503).json({ error: "The transaction could not be saved to the database. Please try again." });
+  } catch (dbErr: any) {
+    console.error("POST transactions database error:", dbErr);
+    return res.status(500).json({ error: `Transaction could not be saved to the database: ${dbErr?.message || dbErr}` });
   }
 });
 

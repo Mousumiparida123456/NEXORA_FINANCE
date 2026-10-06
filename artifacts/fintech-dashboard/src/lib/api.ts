@@ -139,6 +139,36 @@ class ApiClient {
       throw new Error(`Unable to reach API at ${this.baseUrl}. Check backend URL/CORS/deployment.`);
     }
 
+    if (response.status === 401 && !endpoint.includes("/auth/login") && !endpoint.includes("/auth/refresh")) {
+      try {
+        const refreshRes = await fetch(`${this.baseUrl}/auth/refresh`, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        if (refreshRes.ok) {
+          const refreshData = await refreshRes.json();
+          if (refreshData?.accessToken) {
+            this.setAccessToken(refreshData.accessToken);
+            return this.request<T>(endpoint, {
+              ...options,
+              headers: {
+                ...options.headers,
+                Authorization: `Bearer ${refreshData.accessToken}`,
+              },
+            });
+          }
+        }
+      } catch (refreshErr) {
+        console.warn("Auto-token refresh attempt failed:", refreshErr);
+      }
+      this.clearAccessToken();
+      throw new Error("Your session has expired. Please sign in again.");
+    }
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       const errorMessage = sanitizeErrorMessage(
@@ -305,8 +335,6 @@ class ApiClient {
         window.localStorage.removeItem(this.tokenKey);
         window.localStorage.removeItem("nexora_current_user");
         window.localStorage.removeItem("nexora_local_users");
-        window.localStorage.clear();
-        window.sessionStorage.clear();
         document.cookie = "nexora_access=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
         document.cookie = "nexora_refresh=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
         document.cookie = "nexora_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";

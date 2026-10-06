@@ -125,11 +125,6 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addTransaction = useCallback(async (input: TransactionInput) => {
-    if (dataMode !== "DEMO") {
-      const modeError = new Error("Manual transactions are demo data. Switch to Demo Mode before adding one.");
-      setError(modeError.message);
-      throw modeError;
-    }
     setSaving(true);
     setError("");
     try {
@@ -143,19 +138,18 @@ export function TransactionsProvider({ children }: { children: ReactNode }) {
         category: created.category || input.category,
         type: created.type || input.type
       };
-      if (dataMode === "DEMO") {
-        setTransactions((prev) => [newTx, ...prev.filter((tx) => tx.id !== newTx.id)]);
-      }
+      setTransactions((prev) => [newTx, ...prev.filter((tx) => tx.id !== newTx.id)]);
       window.dispatchEvent(new CustomEvent(TRANSACTION_NOTIFICATION_EVENT, {
         detail: { action: "add", description: input.description, category: input.category, amount: Number(input.amount), type: input.type }
       }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save transaction.");
+      const message = err instanceof Error ? err.message : "The transaction could not be saved to the database. Please try again.";
+      setError(message);
       throw err;
     } finally {
       setSaving(false);
     }
-  }, [dataMode]);
+  }, []);
 
   const updateTransaction = useCallback(async (id: string, input: TransactionInput) => {
     setSaving(true);

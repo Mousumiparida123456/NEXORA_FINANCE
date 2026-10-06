@@ -52,8 +52,6 @@ export const accounts = pgTable(
     balance: numeric("balance", { precision: 15, scale: 2 }).notNull().default("0.00"),
     accountNumber: text("account_number").notNull().unique(),
     plaidAccountId: text("plaid_account_id").unique(),
-    dataSource: text("data_source").notNull().default("DEMO"),
-    currency: text("currency").notNull().default("USD"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => ({
@@ -101,9 +99,6 @@ export const transactions = pgTable(
     category: text("category"),
     plaidTransactionId: text("plaid_transaction_id").unique(),
     pending: boolean("pending").default(false),
-    dataSource: text("data_source").notNull().default("DEMO"),
-    currency: text("currency").notNull().default("USD"),
-    syncedAt: timestamp("synced_at"),
     timestamp: timestamp("timestamp").notNull().defaultNow(),
   },
   (table) => ({
