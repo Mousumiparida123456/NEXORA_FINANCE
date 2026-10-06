@@ -1,5 +1,5 @@
 const pg = require('pg');
-const DATABASE_URL = "postgresql://postgres.vsfxpjaamspwhyyvdnzr:mousumi%4005P@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres?sslmode=require&uselibpqcompat=true";
+const DATABASE_URL = process.env.DATABASE_URL || "postgresql://postgres.alfefiootrefmcgvdnvk:MAMUN05052005%24@aws-1-ap-south-1.pooler.supabase.com:6543/postgres";
 
 const pool = new pg.Pool({
   connectionString: DATABASE_URL,
