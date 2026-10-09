@@ -438,16 +438,20 @@ app.post(["/api/v1/auth/register", "/api/auth/register", "/auth/register"], asyn
 
   try {
     const existingUser = await db.query.users.findFirst({
-      where: sql`LOWER(${users.email}) = ${cleanEmail} AND ${users.role} = ${assignedRole}`
+      where: sql`LOWER(${users.email}) = ${cleanEmail}`
     });
 
-    const isDemoEmail = (cleanEmail === "demo@nexora.finance" && assignedRole === "PERSONAL_USER") ||
-                        (cleanEmail === "merchant@nexora.finance" && assignedRole === "MERCHANT_USER");
+    const isDemoEmail = cleanEmail === "demo@nexora.finance" ||
+                        cleanEmail === "merchant@nexora.finance" ||
+                        cleanEmail === "demo@nexora.local" ||
+                        cleanEmail === "admin@nexora.finance";
 
     if (existingUser || isDemoEmail) {
-      const duplicateMsg = assignedRole === "MERCHANT_USER"
-        ? "A Merchant Sentinel account with this email already exists. Please sign in."
-        : "A Personal account with this email already exists. Please sign in.";
+      const duplicateMsg = existingUser?.role === assignedRole || isDemoEmail
+        ? (assignedRole === "MERCHANT_USER"
+            ? "A Merchant Sentinel account with this email already exists. Please sign in."
+            : "A Personal account with this email already exists. Please sign in.")
+        : "An account with this email already exists. Please sign in.";
       return sendSafeAuthFailure(res, 409, duplicateMsg, duplicateMsg);
     }
 
@@ -528,17 +532,10 @@ app.post(["/api/v1/auth/login", "/api/auth/login", "/auth/login"], loginLimiter,
     let user: any = null;
     let isDemoAccount = false;
 
-    // 1. Query PostgreSQL database for registered user with matching (email, targetRole)
+    // 1. Query PostgreSQL database for registered user by email
     user = await db.query.users.findFirst({
-      where: sql`LOWER(${users.email}) = ${cleanEmail} AND ${users.role} = ${targetRole}`
+      where: sql`LOWER(${users.email}) = ${cleanEmail}`
     });
-
-    // Support existing accounts that predate workspace selection.
-    if (!user && !reqRole && !workspace) {
-      user = await db.query.users.findFirst({
-        where: sql`LOWER(${users.email}) = ${cleanEmail}`
-      });
-    }
 
     // 2. Check system demo account presets if not in DB
     if (!user) {
@@ -554,12 +551,10 @@ app.post(["/api/v1/auth/login", "/api/auth/login", "/auth/login"], loginLimiter,
       }
     }
 
-    // CASE 1: If NO user exists with that email for selected workspace role
+    // CASE 1: If NO user exists with that email
     if (!user) {
-      console.log(`❌ [LOGIN] Account not found for ${cleanEmail} in workspace ${targetRole} (+${Date.now() - start}ms)`);
-      const notFoundMsg = targetRole === "MERCHANT_USER"
-        ? "No Merchant Sentinel account exists for this email. Please create a Merchant account."
-        : "No Personal account exists for this email. Please create a Personal account.";
+      console.log(`❌ [LOGIN] Account not found for ${cleanEmail} (+${Date.now() - start}ms)`);
+      const notFoundMsg = "No account exists for this email. Please create a workspace account.";
       return sendSafeAuthFailure(res, 404, notFoundMsg, notFoundMsg);
     }
 
@@ -576,10 +571,10 @@ app.post(["/api/v1/auth/login", "/api/auth/login", "/auth/login"], loginLimiter,
       return sendSafeAuthFailure(res, 401, "Incorrect password.", "Incorrect password.");
     }
 
-    const userRole = user.role || "PERSONAL_USER";
+    const activeRole = targetRole || user.role || "PERSONAL_USER";
 
-    console.log(`⏱️ [LOGIN] Generating tokens for ${cleanEmail} (role: ${userRole})... (+${Date.now() - start}ms)`);
-    const tokens = AuthService.generateTokens({ userId: user.id, email: user.email, role: userRole });
+    console.log(`⏱️ [LOGIN] Generating tokens for ${cleanEmail} (role: ${activeRole})... (+${Date.now() - start}ms)`);
+    const tokens = AuthService.generateTokens({ userId: user.id, email: user.email, role: activeRole });
     
     res.cookie("nexora_access", tokens.accessToken, { httpOnly: true, secure: COOKIE_SECURE, sameSite: "lax", maxAge: 900000, path: "/" });
     res.cookie("nexora_refresh", tokens.refreshToken, { httpOnly: true, secure: COOKIE_SECURE, sameSite: "lax", maxAge: 604800000, path: "/" });
@@ -594,7 +589,7 @@ app.post(["/api/v1/auth/login", "/api/auth/login", "/auth/login"], loginLimiter,
         email: user.email, 
         firstName: user.firstName,
         lastName: user.lastName,
-        role: userRole,
+        role: activeRole,
         demoMode: Boolean(user.demoMode)
       },
       accessToken: tokens.accessToken
