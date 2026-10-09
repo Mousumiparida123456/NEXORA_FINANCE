@@ -129,8 +129,18 @@ export function Sidebar() {
     >
       <div className={cn("flex flex-col gap-3 border-b px-4 py-4", isDark ? "border-slate-800/60" : "border-slate-200", collapsed ? "items-center px-2" : "")}>
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-blue-600 shadow-[0_0_16px_rgba(37,99,235,0.28)]">
-            <PieChart className="h-5 w-5 text-white" />
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#064e3b] to-[#022c25] shadow-[0_0_16px_rgba(16,185,129,0.28)] p-1.5 border border-emerald-500/30">
+            <svg className="w-full h-full" viewBox="0 0 100 100" fill="none">
+              <circle cx="50" cy="18" r="8" fill="#34d399" />
+              <circle cx="72.6" cy="27.4" r="8" fill="#34d399" />
+              <circle cx="82" cy="50" r="8" fill="#34d399" />
+              <circle cx="72.6" cy="72.6" r="8" fill="#34d399" />
+              <circle cx="50" cy="82" r="8" fill="#34d399" />
+              <circle cx="27.4" cy="72.6" r="8" fill="#34d399" />
+              <circle cx="18" cy="50" r="8" fill="#34d399" />
+              <circle cx="27.4" cy="27.4" r="8" fill="#34d399" />
+              <circle cx="50" cy="50" r="9" fill="#059669" />
+            </svg>
           </div>
           {!collapsed && (
             <div>

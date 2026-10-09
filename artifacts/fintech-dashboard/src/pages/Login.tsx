@@ -56,6 +56,9 @@ export function Login() {
 
       localStorage.setItem("nexora.active-workspace", userRole === "MERCHANT_USER" ? "merchant" : "personal");
 
+      // Reset intro animation cache so animation plays exactly once upon login
+      sessionStorage.removeItem("nexora_intro_shown");
+
       // Role-based redirection logic
       if (userRole === "MERCHANT_USER" || userRole === "ADMIN") {
         window.location.href = "/merchant";
@@ -79,6 +82,7 @@ export function Login() {
     setIsLoading(true);
     setErrorMessage(null);
     try {
+      sessionStorage.removeItem("nexora_intro_shown");
       await api.startDemoMerchantSession();
       window.location.href = "/merchant";
     } catch (err: any) {

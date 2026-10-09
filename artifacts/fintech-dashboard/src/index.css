@@ -213,3 +213,128 @@
   transform: scale(2.5);
   transition-duration: 0.2s;
 }
+
+/* ==========================================================
+   NEXORA CINEMATIC OPENING ANIMATION & DASHBOARD STAGGERING
+   ========================================================== */
+
+/* Light Sweep effect across Logo & Brand elements */
+@keyframes nexora-light-sweep {
+  0% {
+    transform: translateX(-150%) skewX(-25deg);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.85;
+  }
+  70% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateX(200%) skewX(-25deg);
+    opacity: 0;
+  }
+}
+
+.animate-nexora-sweep {
+  position: relative;
+  overflow: hidden;
+}
+
+.animate-nexora-sweep::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.03) 25%,
+    rgba(217, 119, 6, 0.25) 45%,
+    rgba(16, 185, 129, 0.5) 50%,
+    rgba(255, 255, 255, 0.4) 55%,
+    transparent 75%
+  );
+  animation: nexora-light-sweep 2.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  pointer-events: none;
+}
+
+/* Glowing halo pulse */
+@keyframes nexora-halo-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.4;
+    box-shadow: 0 0 40px rgba(16, 185, 129, 0.25), 0 0 80px rgba(217, 119, 6, 0.15);
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 0.8;
+    box-shadow: 0 0 60px rgba(16, 185, 129, 0.45), 0 0 120px rgba(245, 158, 11, 0.28);
+  }
+}
+
+.animate-nexora-halo {
+  animation: nexora-halo-pulse 3s ease-in-out infinite;
+}
+
+/* Dashboard Entrance Staggering */
+@keyframes nexora-sidebar-in {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes nexora-header-in {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes nexora-content-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.nexora-entrance-sidebar {
+  animation: nexora-sidebar-in 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.nexora-entrance-header {
+  animation: nexora-header-in 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.15s forwards;
+}
+
+.nexora-entrance-content {
+  animation: nexora-content-in 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.25s forwards;
+}
+
+/* Respect user preference for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .animate-nexora-sweep::after,
+  .animate-nexora-halo,
+  .nexora-entrance-sidebar,
+  .nexora-entrance-header,
+  .nexora-entrance-content {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+}
+

@@ -13,6 +13,7 @@ import {
   Sun,
   User,
   X,
+  Sparkles,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -361,6 +362,21 @@ export function Topbar() {
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent("nexora-replay-intro"))}
+                className={cn("inline-flex items-center gap-1.5 rounded-2xl border px-3 py-2 text-xs font-semibold shadow-sm transition border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 cursor-pointer")}
+                aria-label="Replay NEXORA opening animation"
+              >
+                <Sparkles className="h-4 w-4 text-amber-400 animate-pulse" />
+                <span className="hidden md:inline">Replay Intro</span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Replay NEXORA opening animation</TooltipContent>
+          </Tooltip>
 
           <Tooltip>
             <TooltipTrigger asChild>
