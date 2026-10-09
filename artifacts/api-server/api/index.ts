@@ -700,6 +700,8 @@ app.get(["/api/v1/auth/me", "/api/v1/auth/user", "/api/auth/user", "/auth/user"]
         persisted = (prefs?.data as Record<string, any>) || {};
       } catch (e) {}
 
+      const activeRole = payload.role || user.role || fallbackRole;
+
       return res.json({
         authenticated: true,
         user: {
@@ -707,7 +709,7 @@ app.get(["/api/v1/auth/me", "/api/v1/auth/user", "/api/auth/user", "/auth/user"]
           email: user.email,
           firstName: user.firstName || user.email.split("@")[0],
           lastName: user.lastName || "",
-          role: user.role || fallbackRole,
+          role: activeRole,
           profileImageUrl: user.profileImageUrl || "",
           monthlyIncome: user.monthlyIncome?.toString() ?? "0",
           financialGoals: user.financialGoals ?? "",
